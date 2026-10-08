@@ -1,37 +1,7 @@
 version: '3.8'
 
 services:
-  # Broker MQTT central
-  mosquitto:
-    image: eclipse-mosquitto:2
-    container_name: yby-mosquitto
-    ports:
-      - "1883:1883"
-      - "9001:9001"  # WebSocket
-    volumes:
-      - ./mosquitto/config:/mosquitto/config
-      - ./mosquitto/data:/mosquitto/data
-    restart: unless-stopped
-    networks:
-      - yby-network
-
-  # Orquestrador de fluxos
-  node-red:
-    image: nodered/node-red:latest
-    container_name: yby-node-red
-    ports:
-      - "1880:1880"
-    volumes:
-      - ./node-red/data:/data
-    environment:
-      - TZ=America/Sao_Paulo
-    restart: unless-stopped
-    networks:
-      - yby-network
-    depends_on:
-      - mosquitto
-
-  # LLM local
+  # Ollama - Modelos locais (Llama 3.2 3B, Qwen2.5-Coder)
   ollama:
     image: ollama/ollama:latest
     container_name: yby-ollama
@@ -47,49 +17,97 @@ services:
               count: 1
               capabilities: [gpu]
         limits:
-          cpus: '8.0'  # Reserva 4 threads para Mosquitto/Node-RED
+          cpus: '8.0'
+          memory: 8G
     environment:
       - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
     restart: unless-stopped
-    networks:
-      - yby-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # Gateway de roteamento LLM
-  litellm:
-    image: ghcr.io/berriai/litellm:main-latest
-    container_name: yby-litellm
+  # Node-RED - Orquestração de fluxos
+  node-red:
+    image: nodered/node-red:latest
+    container_name: yby-node-red
     ports:
-      - "4000:4000"
+      - "1880:1880"
     volumes:
-      - ./litellm/config.yaml:/app/config.yaml
+      - ./node-red/data:/data
+      - ./node-red/flows:/flows
     environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-    command: ["--config", "/app/config.yaml"]
+      - TZ=America/Sao_Paulo
+      - NODE_RED_ENABLE_PROJECTS=true
     restart: unless-stopped
-    networks:
-      - yby-network
-    depends_on:
-      - ollama
-
-  # Gerenciador de processos (automações persistentes)
-  process-manager:
-    build: ./process-manager
-    container_name: yby-process-manager
-    volumes:
-      - ./registry:/opt/yby/registry
-      - ./automations:/opt/yby/automations
-    environment:
-      - DATABASE_URL=sqlite:////opt/yby/registry/yby_seeds.db
-    restart: unless-stopped
-    networks:
-      - yby-network
     depends_on:
       - mosquitto
+      - ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1880"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-networks:
-  yby-network:
-    driver: bridge
+  # Mosquitto - MQTT Broker
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: yby-mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "#", "-C", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL - Banco de dados (opcional, para produção)
+  postgres:
+    image: postgres:16
+    container_name: yby-postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=yby
+      - POSTGRES_PASSWORD=yby_seed_password
+      - POSTGRES_DB=yby_seed
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yby"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis - Cache e sessões
+  redis:
+    image: redis:7-alpine
+    container_name: yby-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   ollama_data:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: yby-seed-network
+    driver: bridge
