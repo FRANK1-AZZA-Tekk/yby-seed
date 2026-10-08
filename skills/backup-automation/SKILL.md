@@ -1,8 +1,37 @@
 ---
 name: backup-automation
+version: 1.0.0
+min_agent_version: 2.0.0
+last_updated: 2026-10-08
 description: Cria scripts de backup automático para arquivos e pastas, incluindo compactação ZIP, agendamento e rotação de backups antigos
 compatibility: ubuntu, python-3.11+, shutil, zipfile, schedule
 license: MIT
+authors:
+  - "Alisson Faria (@FRANK1-AZZA-Tekk)"
+keywords:
+  - backup
+  - automático
+  - compactar
+  - ZIP
+  - agendar
+  - rotação
+  - cópia
+  - salvar
+  - arquivos
+  - pastas
+  - PDF
+  - JPG
+  - documentos
+changelog:
+  - version: 1.0.0
+    date: 2026-10-08
+    changes:
+      - "Versão inicial da skill de backup"
+      - "Suporte a backup ZIP com zipfile"
+      - "Agendamento com schedule library"
+      - "Rotação automática de backups antigos"
+      - "Notificações do sistema Ubuntu"
+      - "Tratamento de erros e edge cases"
 ---
 
 ## Quando Usar
@@ -14,6 +43,7 @@ Use esta skill quando o usuário pedir para:
 - "Compactar PDFs antigos"
 - "Agendar backup diário/semanal"
 - "Manter apenas últimos N backups"
+- "Backup de documentos, fotos, vídeos"
 
 ## Instruções Passo a Passo
 
@@ -129,19 +159,6 @@ for file in Path(SOURCE_FOLDER).glob("**/*"):
         zipf.write(file, arcname)
 ```
 
-**Backup incremental:**
-
-```python
-# Verifica se arquivo já existe no backup
-import hashlib
-
-def file_hash(filepath):
-    with open(filepath, 'rb') as f:
-        return hashlib.md5(f.read()).hexdigest()
-
-# Compara hashes para evitar duplicatas
-```
-
 ### 4. Adicionar Tratamento de Erros
 
 ```python
@@ -156,19 +173,6 @@ except PermissionError as e:
 
 except Exception as e:
     print(f"❌ Erro inesperado: {e}")
-```
-
-### 5. Adicionar Notificação (Opcional)
-
-```python
-import subprocess
-
-def send_notification(message):
-    """Envia notificação do Ubuntu"""
-    subprocess.run(["notify-send", "Backup", message])
-
-# Após backup
-send_notification(f"✅ Backup criado: {backup_path.name}")
 ```
 
 ## Exemplos
@@ -242,33 +246,11 @@ if free < 1024 * 1024 * 1024:  # Menos de 1GB livre
     sys.exit(1)
 ```
 
-### 3. Arquivos em Uso
-
-```python
-import psutil
-
-def is_file_in_use(filepath):
-    for proc in psutil.process_iter():
-        try:
-            for p in proc.open_files():
-                if p.path == str(filepath):
-                    return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
-    return False
-
-# Pula arquivos em uso
-if is_file_in_use(file):
-    print(f"⚠️  Arquivo em uso, pulando: {file}")
-    continue
-```
-
 ## Referências
 
 - [Python zipfile](https://docs.python.org/3/library/zipfile.html)
 - [Python shutil](https://docs.python.org/3/library/shutil.html)
 - [schedule library](https://schedule.readthedocs.io/)
-- [psutil](https://psutil.readthedocs.io/)
 
 ## Scripts
 
@@ -280,3 +262,13 @@ if is_file_in_use(file):
 
 - `assets/backup_template.py` - Template base para scripts de backup
 - `assets/cron_examples.txt` - Exemplos de cron jobs para agendamento
+
+## Tests
+
+```bash
+# Testar skill
+python -m pytest tests/skills/test_backup_automation.py -v
+
+# Testar template
+python scripts/create_backup.py --test
+```

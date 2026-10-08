@@ -1,8 +1,43 @@
 ---
 name: api-integration
-description: Integra com APIs REST para buscar dados, enviar requisições e processar respostas (JSON, XML)
+version: 1.0.0
+min_agent_version: 2.0.0
+last_updated: 2026-10-08
+description: Integra com APIs REST para buscar dados, enviar requisições, processar respostas JSON XML, conectar serviços externos, previsão do tempo, Telegram Bot, GitHub, web scraping
 compatibility: ubuntu, python-3.11+, requests, httpx
 license: MIT
+authors:
+  - "Alisson Faria (@FRANK1-AZZA-Tekk)"
+keywords:
+  - API
+  - REST
+  - buscar
+  - dados
+  - enviar
+  - requisições
+  - JSON
+  - XML
+  - conectar
+  - serviços
+  - previsão
+  - tempo
+  - Telegram
+  - GitHub
+  - web
+  - http
+  - requests
+  - OpenWeatherMap
+  - webhook
+changelog:
+  - version: 1.0.0
+    date: 2026-10-08
+    changes:
+      - "Versão inicial da skill de integração com APIs"
+      - "Suporte a requisições GET, POST, PUT, DELETE"
+      - "Autenticação com API key, OAuth, bearer token"
+      - "Processamento de respostas JSON e XML"
+      - "Tratamento de erros HTTP e timeout"
+      - "Exemplos com OpenWeatherMap, Telegram, GitHub"
 ---
 
 ## Quando Usar
@@ -14,6 +49,8 @@ Use esta skill quando o usuário pedir para:
 - "Integrar com [serviço específico]"
 - "Consultar previsão do tempo"
 - "Enviar mensagem para Telegram/Slack"
+- "Buscar repositórios do GitHub"
+- "Web scraping de site"
 
 ## Instruções Passo a Passo
 
@@ -110,21 +147,6 @@ def send_telegram_message(text: str):
 send_telegram_message("Olá do YBY SEED!")
 ```
 
-#### GitHub API (Buscar Repositórios)
-
-```python
-def get_user_repos(username: str) -> list:
-    url = f"https://api.github.com/users/{username}/repos"
-    
-    response = requests.get(url)
-    return response.json()
-
-# Uso
-repos = get_user_repos("FRANK1-AZZA-Tekk")
-for repo in repos:
-    print(f"- {repo['name']}: {repo['description']}")
-```
-
 ### 4. Tratamento de Erros
 
 ```python
@@ -152,23 +174,6 @@ def safe_request(url: str, **kwargs):
     except Exception as e:
         print(f"❌ Erro inesperado: {e}")
         return None
-```
-
-### 5. Salvar Resposta JSON
-
-```python
-import json
-from datetime import datetime
-
-def save_json_response(data: dict, filename: str = None):
-    if not filename:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"api_response_{timestamp}.json"
-    
-    with open(filename, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    
-    print(f"✅ Dados salvos em {filename}")
 ```
 
 ## Exemplos
@@ -223,31 +228,6 @@ def notify_backup_complete(backup_name: str):
     requests.post(url, json=data)
 ```
 
-### Exemplo 3: Salvar Dados em JSON
-
-**Input:**
-
-> "Buscar repositórios do GitHub e salvar em JSON"
-
-**Output:**
-
-```python
-#!/usr/bin/env python3
-import requests
-import json
-
-username = "FRANK1-AZZA-Tekk"
-url = f"https://api.github.com/users/{username}/repos"
-
-response = requests.get(url)
-repos = response.json()
-
-with open("github_repos.json", 'w') as f:
-    json.dump(repos, f, indent=2)
-
-print(f"✅ {len(repos)} repositórios salvos")
-```
-
 ## Edge Cases
 
 ### 1. API Key Inválida
@@ -267,16 +247,6 @@ if response.status_code == 429:
     time.sleep(retry_after)
 ```
 
-### 3. Timeout
-
-```python
-try:
-    response = requests.get(url, timeout=5)
-except Timeout:
-    print("⏰ API não respondeu em 5 segundos")
-    print("💡 Verifique conexão ou aumente timeout")
-```
-
 ## Referências
 
 - [requests library](https://docs.python-requests.org/)
@@ -289,3 +259,13 @@ except Timeout:
 
 - `scripts/test_api.py` - Testa conectividade com API
 - `scripts/validate_response.py` - Valida schema da resposta
+
+## Tests
+
+```bash
+# Testar skill
+python -m pytest tests/skills/test_api_integration.py -v
+
+# Testar API
+python scripts/test_api.py https://api.exemplo.com
+```
