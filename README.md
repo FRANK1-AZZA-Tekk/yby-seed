@@ -2,106 +2,203 @@
 
 > **Exocórtex de IA distribuído, open-source e local-first** para automações educacionais e industriais.
 
-## 🎯 Visão Geral
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI/CD](https://github.com/FRANK1-AZZA-Tekk/yby-seed/actions/workflows/ci.yml/badge.svg)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/actions)
+[![Documentation](https://img.shields.io/badge/docs-mkdocs-blue)](https://frank1-azza-tekk.github.io/yby-seed/)
+[![Model Card](https://img.shields.io/badge/model-card-HuggingFace-orange)](MODEL_CARD.md)
+[![Citation](https://zenodo.org/badge/DOI/10.0000/zenodo.yby-seed-2026.svg)](https://doi.org/10.0000/zenodo.yby-seed-2026)
 
-O YBY SEED permite que **não-programadores** construam ferramentas de software e automações através de **linguagem natural**. O sistema traduz comandos como _"Crie um alerta se meu batimento passar de 120"_ em scripts Python executáveis, gerenciados automaticamente.
+[![GitHub stars](https://img.shields.io/github/stars/FRANK1-AZZA-Tekk/yby-seed?style=social)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/FRANK1-AZZA-Tekk/yby-seed?style=social)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/network)
+[![GitHub issues](https://img.shields.io/github/issues/FRANK1-AZZA-Tekk/yby-seed)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/issues)
+
+---
+
+## 🚀 Quick Start (15 minutos)
+
+### Pré-requisitos
+
+- Docker + Docker Compose
+- Python 3.10+
+- (Opcional) VS Code + Dev Containers extension
+
+### Instalação
+
+```bash
+# 1. Clone o repositório
+git clone https://github.com/FRANK1-AZZA-Tekk/yby-seed.git
+cd yby-seed
+
+# 2. Configure variáveis de ambiente
+cp .env.example .env
+nano .env  # Preencha GROQ_API_KEY e OPENROUTER_API_KEY
+
+# 3. Execute setup
+make setup
+
+# 4. Teste a instalação
+make test
+```
+
+### Primeiro Comando
+
+```bash
+# Publique um prompt NL2Code
+mosquitto_pub -t "yby/user/prompt" -m "Crie um alerta se BPM > 120"
+
+# Ouça a resposta
+mosquitto_sub -t "yby/agent/response" -v
+```
+
+---
+
+## 📚 Documentação
+
+- **[📖 Getting Started](docs/getting-started/installation.md)** - Instalação detalhada
+- **[🏗️ Architecture](docs/architecture/overview.md)** - Diagramas e componentes
+- **[🛠️ Development](docs/development/setup.md)** - Setup para contribuidores
+- **[📡 API Reference](docs/api/mqtt-topics.md)** - Tópicos MQTT e endpoints
+- **[💡 Examples](docs/examples/bpm-alert.md)** - Automações prontas
+- **[🎓 Model Card](MODEL_CARD.md)** - Detalhes do modelo, avaliação, limitações
+
+---
 
 ## 🏗️ Arquitetura
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    YBY ECOSYSTEM                             │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │  Wearable    │    │  Nó Móvel    │    │  Servidor    │  │
-│  │ LilyGO T-    │───▶│  Xiaomi 12   │───▶│   Ubuntu     │  │
-│  │ Watch S3+    │◀───│  Termux      │◀───│  Docker      │  │
-│  └──────────────┘    └──────────────┘    └──────────────┘  │
-│         │                   │                   │           │
-│         └───────────────────┼───────────────────┘           │
-│                             │                               │
-│                    ┌────────▼────────┐                      │
-│                    │  MQTT Broker    │                      │
-│                    │  (Mosquitto)    │                      │
-│                    └─────────────────┘                      │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│  Wearable    │    │  Nó Móvel    │    │  Servidor    │
+│ LilyGO T-    │───▶│  Xiaomi 12   │───▶│   Ubuntu     │
+│ Watch S3+    │◀───│  Termux      │◀───│  Docker      │
+└──────────────┘    └──────────────┘    └──────────────┘
+         │                   │                   │
+         └───────────────────┼───────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │  MQTT Broker    │
+                    │  (Mosquitto)    │
+                    └─────────────────┘
 ```
 
-## 🧠 Stack Tecnológico
+### Stack Tecnológico
 
 | Componente | Tecnologia | Função |
 |---|---|---|
-| **LLM Local** | Qwen2.5-Coder-3B-Instruct (Q4_K_M) | Gera código Python a partir de linguagem natural |
-| **Gateway LLM** | LiteLLM Proxy | Roteamento híbrido (local → nuvem) com fallback |
-| **Orquestrador** | Node-RED | Fluxos de automação e integração MQTT |
-| **Broker MQTT** | Eclipse Mosquitto | Comunicação nervosa central entre nós |
-| **Sandbox** | subprocess + resource limits | Execução segura de código gerado |
-| **Registry** | SQLite | Metadados de automações ativas |
-| **Interface** | Textual (TUI) | Terminal de monitoramento de status |
+| **LLM Local** | Qwen2.5-Coder-3B-Instruct (Q4_K_M) | Gera código Python via NL |
+| **Gateway LLM** | LiteLLM Proxy | Roteamento Ollama → Groq → OpenRouter |
+| **Orquestrador** | Node-RED | Fluxos MQTT + automações |
+| **Broker MQTT** | Eclipse Mosquitto | Comunicação nervosa central |
+| **Sandbox** | subprocess + resource limits | Execução segura de código |
+| **Registry** | SQLite | Metadados de automações |
+| **Interface** | Textual (TUI) | Monitoramento em terminal |
 
-## 📦 Nós do Sistema
+---
 
-### 1. **Servidor Local (Ubuntu)**
-- **Hardware:** Ryzen 5 4600G, 16GB RAM, GTX 1650 (4GB VRAM)
-- **Serviços Docker:** Mosquitto, Node-RED, Ollama, LiteLLM, Process Manager
-- **Função:** Orquestração pesada, LLM local, registry de automações
+## 🎯 Casos de Uso
 
-### 2. **Nó Móvel (Edge)**
-- **Hardware:** Xiaomi 12 (Termux sem root)
-- **Software:** Python + paho-mqtt + Silero VAD + ffmpeg
-- **Função:** Captura de áudio, STT local, notificações push
+### Educacional
+- _"Crie um quiz de matemática que me avisa se errar 3 seguidas"_
+- _"Monitore meu tempo de estudo e sugira pausas a cada 50min"_
 
-### 3. **Wearable**
-- **Hardware:** LilyGO T-Watch S3 Plus (ESP32-S3)
-- **Software:** Arduino + PubSubClient + ArduinoOTA
-- **Função:** Sensores corporais (BPM, passos), alertas discretos
+### Industrial
+- _"Alerte se a temperatura do motor passar de 80°C"_
+- _"Registre consumo de energia e gere relatório diário"_
 
-## 🚀 Funcionalidades
+### Saúde
+- _"Monitore batimento e alerte se ficar acima de 120 por 5min"_
+- _"Conte passos e avise se não atingir 10.000 até 20h"_
 
-### Natural Language Programming
-- ✅ **Criar:** _"Crie um alerta se meu batimento passar de 120"_
-- ✅ **Ler:** _"Quais alertas tenho ativos?"_
-- ✅ **Atualizar:** _"Mude o alerta de batimento para 140"_
-- ✅ **Deletar:** _"Desligue o alerta de batimento"_
+---
 
-### Automações Exemplo
-```python
-# Exemplo 1: Alerta de batimento cardíaco
-if bpm > 120:
-    mqtt_publish("yby/mobile/alert", {"message": "BPM elevado!"})
+## 🧪 Testes
 
-# Exemplo 2: Meta de passos diários
-if steps < 5000 and hour == 20:
-    mqtt_publish("yby/mobile/alert", {"message": "Meta de passos não atingida"})
+```bash
+# Todos os testes
+make test
+
+# Apenas wearable (PlatformIO + Wokwi)
+make test-wearable
+
+# Apenas servidor (Pytest)
+make test-server
+
+# Com coverage
+cd tests && pytest --cov=server --cov-report=html
 ```
 
-## 🛡️ Segurança
+### CI/CD
 
-- **MQTT:** Autenticação por senha + rede Wi-Fi isolada (VLAN)
-- **Sandbox:** Linter estático + limites de CPU/RAM (resource module)
-- **OTA:** Atualização de firmware over-the-air com senha
-- **Tailscale:** WireGuard para comunicação segura nó móvel ↔ servidor
+GitHub Actions roda automaticamente:
+- ✅ Testes Python (pytest + coverage)
+- ✅ Testes ESP32 (PlatformIO Native)
+- ✅ Build Docker images
+- ✅ Deploy documentação (MkDocs)
 
-## 📋 Roadmap
+---
 
-- [x] **Fase 1:** Fundação MQTT (wearable ↔ mobile ↔ servidor)
-- [ ] **Fase 2:** Ollama + Qwen2.5-Coder (NL2Code local)
-- [ ] **Fase 3:** LiteLLM Proxy (fallback para nuvem)
-- [ ] **Fase 4:** Interface TUI (Textual) + Registry SQLite
+## 🤝 Contribuindo
+
+Contribuições são bem-vindas! Veja:
+
+1. **[CONTRIBUTING.md](CONTRIBUTING.md)** - Como contribuir
+2. **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** - Código de conduta
+3. **[SECURITY.md](SECURITY.md)** - Política de segurança
+4. **[Good First Issues](https://github.com/FRANK1-AZZA-Tekk/yby-seed/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)** - Issues para iniciantes
+
+### Áreas que Precisam de Ajuda
+
+- [ ] Testes E2E (wearable → mobile → server)
+- [ ] Traduções (espanhol, francês)
+- [ ] Otimização de energia (ESP32, BLE)
+- [ ] UI/UX (interface TUI mais amigável)
+- [ ] Papers acadêmicos (escrita, submissão)
+
+---
 
 ## 📄 Licença
 
 MIT License - ver [LICENSE](LICENSE)
 
-## 🤝 Contribuindo
+---
 
-1. Fork o repositório
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
+## 📚 Como Citar
+
+Se usar YBY SEED em pesquisa acadêmica, cite:
+
+```bibtex
+@software{yby-seed,
+  author = {Alisson De Faria},
+  title = {YBY SEED: Natural Language Programming for Educational and Industrial Automations},
+  year = {2026},
+  url = {https://github.com/FRANK1-AZZA-Tekk/yby-seed},
+  version = {1.0.0},
+  doi = {10.0000/zenodo.yby-seed-2026}
+}
+```
+
+**DOI:** [10.0000/zenodo.yby-seed-2026](https://doi.org/10.0000/zenodo.yby-seed-2026) (pendente de registro no Zenodo)
+
+---
+
+## 🙏 Agradecimentos
+
+- **Qwen Team** (Qwen2.5-Coder-3B)
+- **Hugging Face** (infraestrutura de model cards)
+- **PlatformIO** (desenvolvimento ESP32)
+- **Node-RED** (orquestração de fluxos)
+- **Eclipse Mosquitto** (broker MQTT)
+
+---
+
+## 📞 Contato
+
+- **Email:** alissonfaria4@gmail.com
+- **GitHub:** [@FRANK1-AZZA-Tekk](https://github.com/FRANK1-AZZA-Tekk)
+- **LinkedIn:** [Alisson De Faria](https://linkedin.com/in/alissonfaria)
 
 ---
 
 **YBY SEED** - _Function Over Form_ 🚀
+
+**Última atualização:** 2026-10-08  
+**Versão:** 1.0.0
