@@ -5,6 +5,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![Ubuntu 26.04](https://img.shields.io/badge/Ubuntu-26.04-orange.svg)](https://ubuntu.com/download/desktop)
+[![Skills Validated](https://img.shields.io/badge/skills-5%20validated-brightgreen)](skills/VERSIONING.md)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/releases)
 
 ![YBY SEED Demo](https://via.placeholder.com/800x400.png?text=YBY+SEED+Demo+-+Voz+para+C%C3%B3digo)
 
@@ -127,6 +129,13 @@ yby-seed/
 │   ├── tutorials/         # Tutoriais passo a passo
 │   ├── architecture/      # Arquitetura do sistema
 │   └── api/               # Referência de API
+│
+├── skills/                # Agent Skills (oficiais e comunidade)
+│   ├── backup-automation/ # Skill de backup automático
+│   ├── api-integration/   # Skill de integração com APIs
+│   ├── data-processing/   # Skill de processamento de dados
+│   ├── notification-system/ # Skill de notificações
+│   └── file-operations/   # Skill de operações com arquivos
 │
 ├── examples/              # Exemplos prontos
 │   ├── 01_weather_alert.py
