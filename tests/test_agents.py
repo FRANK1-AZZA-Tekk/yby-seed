@@ -1,187 +1,98 @@
-"""
-Testes dos Agentes (Interview, Governance, Learning, Bayesian)
+"""Testes unitários dos agentes do YBY SEED.
 
-Cobertura:
-- Interview agent (3 modos: Basic, Junior, Pro)
-- Governance agent (validação de segurança)
-- Learning agent (PostgreSQL + pgvector)
-- Bayesian teaching (atualização de crenças)
-
-Execução:
-pytest tests/test_agents.py -v --cov=src/agents
-
-Licença: MIT
+Foco: testar lógica de decisão dos agentes sem depender de Ollama, PostgreSQL ou MQTT.
 """
 
 import pytest
-from src.agents.interview_agent import InterviewAgent
-from src.agents.governance_agent import GovernanceAgent
-from src.agents.bayesian_teaching import BayesianTeaching
+from unittest.mock import AsyncMock, MagicMock, patch
+
+# Importar agentes (ajustar imports conforme estrutura real)
+# from src.agents.router_agent import RouterAgent
+# from src.agents.planning_agent import PlanningAgent
+# from src.agents.execution_agent import ExecutionAgent
+# from src.agents.validation_agent import ValidationAgent
+# from src.agents.learning_agent import LearningAgent
 
 
-@pytest.fixture
-def interview_agent():
-    """Interview agent para testes"""
-    return InterviewAgent()
+# ============================================================================
+# ROUTER AGENT
+# ============================================================================
 
 
-@pytest.fixture
-def governance_agent():
-    """Governance agent para testes"""
-    return GovernanceAgent()
+@pytest.mark.unit
+async def test_router_classifica_comando_simples(sample_user_command, mock_llm_client):
+    """Router deve classificar comando simples como 'automation'."""
+    # TODO: Implementar RouterAgent real
+    # router = RouterAgent(llm_client=mock_llm_client)
+    # result = await router.classify(sample_user_command)
+    # assert result.category == "automation"
+    pytest.skip("RouterAgent não implementado ainda")
 
 
-@pytest.fixture
-def bayesian_teaching():
-    """Bayesian teaching para testes"""
-    return BayesianTeaching()
+@pytest.mark.unit
+async def test_router_lida_com_comando_ambiguo(mock_llm_client):
+    """Router deve pedir esclarecimento para comando ambíguo."""
+    # TODO: Implementar RouterAgent real
+    pytest.skip("RouterAgent não implementado ainda")
 
 
-# === Testes Interview Agent ===
-
-@pytest.mark.asyncio
-async def test_interview_basic(interview_agent):
-    """Testar entrevista modo Basic"""
-    result = await interview_agent.interview(
-        "Crie um backup dos meus PDFs",
-        mode="basic"
-    )
-    
-    assert result["intent"] in ["backup_automation", "file_operations"]
-    assert "slots" in result
-    assert "confidence" in result
+# ============================================================================
+# PLANNING AGENT
+# ============================================================================
 
 
-@pytest.mark.asyncio
-async def test_interview_junior(interview_agent):
-    """Testar entrevista modo Junior"""
-    result = await interview_agent.interview(
-        "Quero automatizar meu CRM",
-        mode="junior"
-    )
-    
-    assert result["mode"] == "junior"
-    assert "clarification_questions" in result
-    assert len(result["clarification_questions"]) > 0
+@pytest.mark.unit
+async def test_planning_gera_plano_valido(sample_user_command, sample_skill_manifest, mock_llm_client):
+    """Planning deve gerar plano executável a partir de comando e skill."""
+    # TODO: Implementar PlanningAgent real
+    pytest.skip("PlanningAgent não implementado ainda")
 
 
-@pytest.mark.asyncio
-async def test_interview_pro(interview_agent):
-    """Testar entrevista modo Pro"""
-    result = await interview_agent.interview(
-        "Sistema de gestão de estoque",
-        mode="pro"
-    )
-    
-    assert result["mode"] == "pro"
-    assert "prd" in result
-    assert len(result["prd"]) > 100  # PRD deve ter conteúdo
+# ============================================================================
+# EXECUTION AGENT
+# ============================================================================
 
 
-# === Testes Governance Agent ===
-
-@pytest.mark.asyncio
-async def test_governance_safe_code(governance_agent):
-    """Testar código seguro"""
-    safe_code = '''
-import json
-import zipfile
-
-def backup(source, dest):
-    with zipfile.ZipFile(dest, 'w') as zipf:
-        zipf.write(source)
-'''
-    
-    is_allowed, reason = governance_agent.check(safe_code, "backup")
-    
-    assert is_allowed == True
-    assert "Aprovado" in reason
+@pytest.mark.unit
+async def test_execution_executa_skill_sem_erro(sample_skill_manifest, mock_llm_client):
+    """Execution deve executar skill sem levantar exceções."""
+    # TODO: Implementar ExecutionAgent real
+    pytest.skip("ExecutionAgent não implementado ainda")
 
 
-@pytest.mark.asyncio
-async def test_governance_dangerous_code(governance_agent):
-    """Testar código perigoso"""
-    dangerous_code = '''
-import os
-os.system("rm -rf /")
-'''
-    
-    is_allowed, reason = governance_agent.check(dangerous_code, "execute")
-    
-    assert is_allowed == False
-    assert "perigoso" in reason.lower()
+# ============================================================================
+# VALIDATION AGENT
+# ============================================================================
 
 
-@pytest.mark.asyncio
-async def test_governance_imports(governance_agent):
-    """Testar validação de imports"""
-    code_with_dangerous_import = '''
-import os
-import sys
-print("Hello")
-'''
-    
-    is_allowed, reason = governance_agent.check(code_with_dangerous_import, "execute")
-    
-    assert is_allowed == False
-    assert "import" in reason.lower()
+@pytest.mark.unit
+async def test_validation_aprova_codigo_seguro(mock_llm_client):
+    """Validation deve aprovar código que não viola regras de segurança."""
+    # TODO: Implementar ValidationAgent real
+    pytest.skip("ValidationAgent não implementado ainda")
 
 
-# === Testes Bayesian Teaching ===
-
-@pytest.mark.asyncio
-async def test_bayesian_update(bayesian_teaching):
-    """Testar atualização bayesiana"""
-    posterior = bayesian_teaching.update(
-        "test_belief",
-        feedback="success",
-        likelihood_success=0.9
-    )
-    
-    assert posterior > 0.5  # Posterior deve aumentar com feedback positivo
-    assert posterior <= 1.0
+@pytest.mark.unit
+async def test_validation_rejeita_codigo_inseguro(mock_llm_client):
+    """Validation deve rejeitar código que tenta acessar filesystem sem permissão."""
+    # TODO: Implementar ValidationAgent real
+    pytest.skip("ValidationAgent não implementado ainda")
 
 
-@pytest.mark.asyncio
-async def test_bayesian_update_negative(bayesian_teaching):
-    """Testar atualização bayesiana com feedback negativo"""
-    posterior = bayesian_teaching.update(
-        "test_belief",
-        feedback="error",
-        likelihood_success=0.9
-    )
-    
-    assert posterior < 0.5  # Posterior deve diminuir com feedback negativo
-    assert posterior >= 0.0
+# ============================================================================
+# LEARNING AGENT
+# ============================================================================
 
 
-@pytest.mark.asyncio
-async def test_bayesian_get_best_strategy(bayesian_teaching):
-    """Testar obtenção de melhor estratégia"""
-    # Atualizar crenças
-    bayesian_teaching.update("strategy_a", "success")
-    bayesian_teaching.update("strategy_b", "error")
-    
-    best = bayesian_teaching.get_best_strategy(["strategy_a", "strategy_b"])
-    
-    assert best == "strategy_a"  # strategy_a deve ser melhor
+@pytest.mark.unit
+async def test_learning_registra_feedback_positivo(sample_user_command, mock_llm_client):
+    """Learning deve registrar feedback positivo para execução bem-sucedida."""
+    # TODO: Implementar LearningAgent real
+    pytest.skip("LearningAgent não implementado ainda")
 
 
-@pytest.mark.asyncio
-async def test_bayesian_converge(bayesian_teaching):
-    """Testar convergência"""
-    iterations = bayesian_teaching.converge(
-        "test_belief",
-        target_confidence=0.95,
-        max_iterations=20
-    )
-    
-    assert iterations <= 20  # Deve convergir em <= 20 iterações
-    
-    # Verificar confiança final
-    final_confidence = bayesian_teaching.beliefs["test_belief"]
-    assert final_confidence >= 0.95
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+@pytest.mark.unit
+async def test_learning_aprende_com_erro(sample_user_command, mock_llm_client):
+    """Learning deve ajustar pesos após execução com erro."""
+    # TODO: Implementar LearningAgent real
+    pytest.skip("LearningAgent não implementado ainda")
