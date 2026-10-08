@@ -1,0 +1,8 @@
+{
+  "name": "YBY SEED - Programação em Linguagem Natural",
+  "description": "Transforme comandos de voz e linguagem natural em automações Python com IA local, gateway IoT para wearables ESP32-S3 e catálogo de skills.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
