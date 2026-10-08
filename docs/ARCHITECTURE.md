@@ -1,349 +1,82 @@
-# Arquitetura YBY SEED
+# YBY SEED — Arquitetura (Foco PC Hub)
 
-> **Visão técnica completa** do sistema YBY SEED
+> **Status:** v1.0.0 (PC Hub)  
+> **Última atualização:** 2026-10-08  
+> **Hardware alvo:** Ryzen 5 4600G, GTX 1650 (4GB VRAM), 16GB RAM
 
----
+## 🌐 Visão Geral
 
-## 🎯 Visão Geral
+O **YBY SEED** opera como um **PC Hub** centralizado, transformando comandos de voz em automações Python através de uma arquitetura multi-agente otimizada para hardware local (4GB VRAM, 16GB RAM).
 
-YBY SEED é um sistema de **programação em linguagem natural** (NL2Code) que transforma comandos em português em **código Python executável**.
-
-### Princípios de Design
-
-1. **Local-First:** Tudo roda localmente (Ollama, SQLite, Node-RED)
-2. **Function Over Form:** Performance > estética
-3. **Zero Trust:** Validação rigorosa de código gerado
-4. **Progressive Disclosure:** Complexidade revelada gradualmente
-
----
-
-## 🏗️ Arquitetura em Camadas
+### Arquitetura:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    CAMADA DE INTERFACE                      │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │   Voice UI  │  │   Text UI   │  │   Node-RED  │         │
-│  │  (Whisper)  │  │  (Textual)  │  │   (Flows)   │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  CAMADA DE ORQUESTRAÇÃO                     │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │   Router    │  │  Planning   │  │  Execution  │         │
-│  │   Agent     │  │   Agent     │  │   Agent     │         │
-│  │  (3B LLM)   │  │  (3B LLM)   │  │  (7B LLM)   │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    CAMADA DE MEMÓRIA                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │   SQLite    │  │   RAG       │  │   Cache     │         │
-│  │   (FTS5)    │  │   (AST)     │  │   (Redis)   │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    CAMADA DE INFRA                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │   Ollama    │  │   Docker    │  │   MQTT      │         │
-│  │  (LLMs)     │  │  (Services) │  │  (Broker)   │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-└─────────────────────────────────────────────────────────────┘
+[Usuário: Voz/Texto] → [FastAPI Gateway] → [Agentes de IA] → [Skills] → [Node-RED] → [Ação]
+                            ↓                    ↓              ↓          ↓
+                      [MQTT Broker]        [Ollama LLM]   [Backup,    [Dashboard,
+                      [LanceDB RAG]        [PostgreSQL]   Notification] Notificações]
 ```
 
 ---
 
-## 🧠 Agentes de IA
+## 🏗️ Estado Atual do Sistema
 
-### 1. Router Agent (3B LLM)
-
-**Função:** Classifica intenção do usuário e roteia para agente correto.
-
-**Modelo:** Llama 3.2 3B (Q4_K_M)
-
-**Exemplo:**
-
-```python
-# Input: "Crie um script de backup"
-# Output: {"agent": "execution", "intent": "backup_automation"}
-```
-
-**Latência:** < 100ms (100% em VRAM)
+- **Agentes:** 5 agentes implementados em `src/agents/` (Router, Planning, Execution, Validation, Learning)
+- **Skills:** 3 skills validadas em `skills/` (Backup, Notification, Hardware Monitor)
+- **Isolamento:** Sandbox via `subprocess.Popen` + `rlimits` + validação AST
+- **Modelos:** 
+  - 3B parâmetros (Llama 3.2, Qwen2.5-3B) → 100% VRAM (4GB)
+  - 7B parâmetros (Qwen2.5-7B) → Offloading RAM (16GB)
+- **RAG:** LanceDB com AST Chunking + Context Pruning (70% menos tokens)
+- **Stack:** Ollama, Node-RED, Mosquitto, PostgreSQL, Redis (Docker Compose)
 
 ---
 
-### 2. Planning Agent (3B LLM)
+## 📐 Decisões Arquiteturais
 
-**Função:** Entrevista o usuário, coleta requisitos, gera PRD.
-
-**Modelo:** Qwen2.5-Coder 3B (Q4_K_M)
-
-**Modos:**
-
-| Modo | Perguntas | Validação | Output |
-|---|---|---|---|
-| **Basic** | 1-2 | Automática | Script simples |
-| **Junior** | 3-5 | Semi-automática | Script + docs |
-| **Pro** | 10-15 | Manual (usuário aprova) | PRD + código |
-
-**Exemplo:**
-
-```python
-# Input: "Quero um backup automático"
-# Pergunta: "Qual pasta quer fazer backup?"
-# Resposta: "/home/usuario/Documentos"
-# Output: PRD.md com requisitos
-```
-
-**Latência:** < 500ms (100% em VRAM)
+1. **PC Hub 100%:** Foco em estabilidade e performance no PC antes de expandir para mobile/ESP32
+2. **Local-First:** Offline por padrão, cloud só como fallback
+3. **NL2Code em Português:** Foco em PMEs e não-programadores brasileiros
+4. **5 Agentes:** Router, Planning, Execution, Validation, Learning (orquestração modular)
+5. **Skills Modulares:** Frontmatter YAML + scripts Python
+6. **Hardware Alvo:** GTX 1650 (4GB VRAM) + 16GB RAM — otimizado para custo-benefício
 
 ---
 
-### 3. Execution Agent (7B LLM)
+## 🧪 Hipóteses Operacionais
 
-**Função:** Gera código Python baseado no PRD.
-
-**Modelo:** Qwen2.5-Coder 7B (Q4_K_M, offloading parcial)
-
-**Exemplo:**
-
-```python
-# Input: PRD.md (backup de PDFs)
-# Output: backup_automation.py
-```
-
-**Latência:** 2-5s (offloading para RAM)
+- 3B em 4GB VRAM entrega latência <500ms para interações em tempo real
+- 7B com offloading RAM é aceitável para geração de código (1-2s)
+- AST Chunking + Context Pruning reduz 70% tokens injetados (4000 → 1200)
+- Node-RED + Mosquitto atendem automações IoT sem complexidade excessiva
 
 ---
 
-### 4. Validation Agent (Regras + 3B LLM)
+## ⚠️ Pendências Críticas (Roadmap v1.1)
 
-**Função:** Valida código gerado (segurança, sintaxe, lógica).
-
-**Checklist:**
-
-- ✅ Sintaxe Python válida
-- ✅ Sem chamadas de rede não autorizadas
-- ✅ Sem acesso a arquivos sensíveis
-- ✅ Tratamento de erros adequado
-
-**Exemplo:**
-
-```python
-# Código gerado:
-import os
-os.system("rm -rf /")  # ❌ Bloqueado!
-
-# Validação:
-if "rm -rf" in code:
-    raise SecurityError("Comando destrutivo detectado")
-```
+- **Cobertura de Testes:** Implementar testes unitários para todos os módulos
+- **Skills Schema:** Documentar formalmente estrutura de `SKILL.md`
+- **Pipeline de Voz:** Integrar Whisper para ASR local direto no PC Hub
+- **Dashboard Grafana:** Configurar painéis de telemetria em tempo real
 
 ---
 
-### 5. Learning Agent (Offline)
+## 🚫 Não-objetivos do MVP (Out of Scope)
 
-**Função:** Aprende com erros e feedback do usuário.
-
-**Mecanismo:**
-
-1. Usuário reporta erro
-2. Learning Agent analisa log
-3. Atualiza RAG com correção
-4. Próxima geração evita mesmo erro
-
-**Exemplo:**
-
-```python
-# Erro reportado:
-"Script falhou: API key inválida"
-
-# Aprendizado:
-RAG atualiza chunk:
-"Sempre valide API key antes de usar"
-```
+- ⏸️ **Mobile (Android/Termux):** Futuro (Fase 2)
+- ⏸️ **Wearable (ESP32-S3):** Futuro (Fase 3)
+- Execução segura de scripts complexos de terceiros não-validados
+- Fine-tuning ou treinamento de modelos (foco em RAG, Prompt Engineering)
+- UI/UX elaborada para desktop (interface primária: CLI, logs, Node-RED)
+- Isolamento total de rede/Filesystem na execução das automações
 
 ---
 
-## 🗄️ Memória e RAG
+## 🔗 Referências Cruzadas
 
-### SQLite + FTS5
-
-**Por que SQLite?**
-
-- ✅ Leve (< 1MB RAM)
-- ✅ Full-text search nativo (FTS5)
-- ✅ Zero dependências externas
-- ✅ ACID compliance
-
-**Schema:**
-
-```sql
--- Tabela de comandos
-CREATE TABLE offline_commands (
-    id INTEGER PRIMARY KEY,
-    command_text TEXT,
-    created_at TEXT,
-    status TEXT
-);
-
--- FTS5 para busca
-CREATE VIRTUAL TABLE commands_fts USING fts5(
-    command_text,
-    content='offline_commands'
-);
-```
-
-**Busca:**
-
-```sql
-SELECT * FROM commands_fts WHERE commands_fts MATCH 'backup';
--- Retorna comandos relacionados a backup
-```
-
----
-
-### AST Chunking (RAG Otimizado)
-
-**Problema:** Chunking tradicional (por caracteres) quebra contexto semântico.
-
-**Solução:** Chunking baseado em **Árvore de Sintaxe Abstrata (AST)**.
-
-**Como funciona:**
-
-1. Parse do código/documento com Tree-sitter
-2. Identifica nós semânticos (funções, classes, métodos)
-3. Chunk = nó completo + metadados
-
-**Exemplo:**
-
-```python
-# Código:
-def calculate_tax(income):
-    if income < 1000:
-        return 0
-    elif income < 5000:
-        return income * 0.1
-    else:
-        return income * 0.2
-
-# AST Chunk:
-{
-    "type": "function_definition",
-    "name": "calculate_tax",
-    "code": "def calculate_tax(income): ...",
-    "tokens": 45
-}
-```
-
-**Vantagem:** Recall@5 > 70% (vs 43% com chunking tradicional)
-
----
-
-## 🔄 Fluxo Completo
-
-### Passo a Passo
-
-1. **Usuário fala:** "Crie um script de backup"
-
-2. **Router Agent:**
-   - Classifica: `intent = "backup_automation"`
-   - Roteia: `agent = "planning"`
-
-3. **Planning Agent:**
-   - Entrevista:
-     - "Qual pasta quer backup?"
-     - "Com que frequência?"
-     - "Para onde salvar backup?"
-   - Gera PRD.md
-
-4. **Execution Agent:**
-   - Lê PRD.md
-   - Recupera chunks RAG (APIs de backup, compressão ZIP)
-   - Gera código Python
-
-5. **Validation Agent:**
-   - Valida sintaxe
-   - Checa segurança
-   - Aprova/rejeita
-
-6. **Usuário:**
-   - Revisa código
-   - Aprova
-   - Executa
-
-7. **Learning Agent:**
-   - Monitora execução
-   - Aprende com erros
-   - Atualiza RAG
-
----
-
-## 📊 Métricas de Performance
-
-| Métrica | Valor | Como Medir |
-|---|---|---|
-| **Latência Router** | < 100ms | `time router_agent.run()` |
-| **Latência Planning** | < 500ms | `time planning_agent.run()` |
-| **Latência Execution** | 2-5s | `time execution_agent.run()` |
-| **Precisão RAG** | > 70% Recall@5 | `rag_benchmark.evaluate()` |
-| **Segurança** | 0 vulnerabilidades críticas | `security_scan.run()` |
-
----
-
-## 🛡️ Segurança
-
-### Validações
-
-1. **Sintaxe:** `ast.parse(code)` (levanta erro se inválido)
-2. **Imports:** Lista branca de módulos permitidos
-3. **Chamadas de rede:** Requer aprovação explícita
-4. **Acesso a arquivos:** Sandbox em `/tmp/yby_sandbox`
-
-### Exemplo de Validação
-
-```python
-import ast
-
-def validate_code(code):
-    """Valida código Python"""
-    
-    # 1. Sintaxe
-    try:
-        ast.parse(code)
-    except SyntaxError as e:
-        raise ValueError(f"Sintaxe inválida: {e}")
-    
-    # 2. Imports perigosos
-    dangerous = ["os.system", "subprocess.call", "eval", "exec"]
-    for d in dangerous:
-        if d in code:
-            raise SecurityError(f"Importe perigoso: {d}")
-    
-    # 3. Chamadas de rede
-    if "requests" in code or "urllib" in code:
-        print("⚠️  Código faz chamadas de rede. Aprovar?")
-        if not input("[y/N]: ").lower() == "y":
-            raise SecurityError("Chamada de rede rejeitada")
-    
-    return True
-```
-
----
-
-## 📚 Referências
-
-- **Spec-Driven Development:** [SpecMine Paper](https://www.semanticscholar.org/paper/182977bff1f746ed79c185a33412214dc1fcdb7d)
-- **NL2Code Survey:** [Beyond NL2Code](https://arxiv.org/abs/2606.15932)
-- **Agentes:** [Agents Framework](https://github.com/aiwaves-cn/agents)
-- **RAG Otimizado:** [AST Chunking](https://aclanthology.org/2025.ijcnlp-long.184/)
-
----
-
-**Arquitetura YBY SEED v1.0** - _Function Over Form_ 🚀
+- [Runtime de Execução](architecture/runtime.md)
+- [Sistema de Agentes](architecture/agents.md)
+- [Matriz de Modelos](architecture/models.md)
+- [Diretrizes de Segurança](architecture/security.md)
+- [RAG Otimizado](ai/rag_optimizer.md)
+- [Futuro: Mobile + ESP32](future/README.md)

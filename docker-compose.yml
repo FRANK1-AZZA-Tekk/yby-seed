@@ -1,14 +1,20 @@
 version: '3.8'
 
+# YBY SEED - Stack de Automação Local-First (Foco PC Hub)
+# Otimizado para: 16GB RAM, GTX 1650 (4GB VRAM), Ubuntu 26.04
+
 services:
-  # Ollama - Modelos locais (Llama 3.2 3B, Qwen2.5-Coder)
+  # ============================================
+  # OLLAMA — Motor de Inferência Local (LLM)
+  # ============================================
   ollama:
     image: ollama/ollama:latest
     container_name: yby-ollama
-    ports:
-      - "11434:11434"
+    restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
     deploy:
       resources:
         reservations:
@@ -22,26 +28,29 @@ services:
     environment:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_ORIGINS=*
-    restart: unless-stopped
+      - OLLAMA_MAX_VRAM=4096  # Limitar a 4GB VRAM
+      - OLLAMA_NUM_GPU=1      # Usar 1 GPU
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # Node-RED - Orquestração de fluxos
-  node-red:
+  # ============================================
+  # NODE-RED — Orquestração de Fluxos
+  # ============================================
+  nodered:
     image: nodered/node-red:latest
     container_name: yby-node-red
+    restart: unless-stopped
     ports:
-      - "1880:1880"
+      - "1880:1880"   # UI do Node-RED
     volumes:
-      - ./node-red/data:/data
-      - ./node-red/flows:/flows
+      - ./nodered/data:/data
+      - ./nodered/flows:/flows
     environment:
       - TZ=America/Sao_Paulo
-      - NODE_RED_ENABLE_PROJECTS=true
-    restart: unless-stopped
+      - NODE_RED_ENABLE_ADMIN_UI=true
     depends_on:
       - mosquitto
       - ollama
@@ -51,62 +60,122 @@ services:
       timeout: 10s
       retries: 3
 
-  # Mosquitto - MQTT Broker
+  # ============================================
+  # MOSQUITTO — Broker MQTT (IoT Messaging)
+  # ============================================
   mosquitto:
-    image: eclipse-mosquitto:2
+    image: eclipse-mosquitto:2.0
     container_name: yby-mosquitto
+    restart: unless-stopped
     ports:
-      - "1883:1883"
+      - "1883:1883"   # MQTT não-criptografado (rede interna)
+      - "9001:9001"   # WebSocket (opcional, para browser)
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "mosquitto_sub", "-t", "#", "-C", "1"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # PostgreSQL - Banco de dados (opcional, para produção)
+  # ============================================
+  # POSTGRESQL — Banco de Dados (RAG, Memória)
+  # ============================================
   postgres:
     image: postgres:16
     container_name: yby-postgres
-    ports:
-      - "5432:5432"
+    restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     environment:
-      - POSTGRES_USER=yby
-      - POSTGRES_PASSWORD=yby_seed_password
-      - POSTGRES_DB=yby_seed
-    restart: unless-stopped
+      POSTGRES_USER: yby
+      POSTGRES_PASSWORD: yby_seed_password
+      POSTGRES_DB: yby_seed
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U yby"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # Redis - Cache e sessões
+  # ============================================
+  # REDIS — Cache e Filas (Baixa Latência)
+  # ============================================
   redis:
     image: redis:7-alpine
     container_name: yby-redis
-    ports:
-      - "6379:6379"
+    restart: unless-stopped
     volumes:
       - redis_data:/data
-    restart: unless-stopped
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
 
+  # ============================================
+  # PROMETHEUS — Métricas (Grafana)
+  # ============================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: yby-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/config:/etc/prometheus
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # GRAFANA — Dashboard de Métricas
+  # ============================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: yby-grafana
+    restart: unless-stopped
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=yby_grafana_password
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ============================================
+# VOLUMES PERSISTENTES
+# ============================================
 volumes:
   ollama_data:
   postgres_data:
   redis_data:
+  prometheus_data:
+  grafana_data:
 
+# ============================================
+# REDE ISOLADA
+# ============================================
 networks:
   default:
     name: yby-seed-network

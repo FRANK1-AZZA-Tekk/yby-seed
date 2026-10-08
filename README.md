@@ -1,14 +1,13 @@
 # YBY SEED - Programação em Linguagem Natural 🌱
 
 > **Transforme comandos de voz em automações Python** - sem precisar saber programar.
+> **Foco atual: PC Hub (Ubuntu + GTX 1650)**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![Ubuntu 26.04](https://img.shields.io/badge/Ubuntu-26.04-orange.svg)](https://ubuntu.com/download/desktop)
 [![Skills Validated](https://img.shields.io/badge/skills-5%20validated-brightgreen)](skills/VERSIONING.md)
 [![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/releases)
-
-![YBY SEED Demo](https://via.placeholder.com/800x400.png?text=YBY+SEED+Demo+-+Voz+para+C%C3%B3digo)
 
 ---
 
@@ -21,8 +20,8 @@
 | Você Fala | YBY SEED Cria |
 |---|---|
 | _"Me avise se chover amanhã"_ | Script que consulta API do clima e envia notificação |
-| _"Conte meus passos e meta 10.000"_ | Monitor de passos com alerta ao atingir meta |
 | _"Backup dos meus PDFs todo dia"_ | Script que compacta e salva PDFs automaticamente |
+| _"Monitore CPU e RAM do PC"_ | Script que coleta métricas e publica em dashboard |
 
 **Não precisa saber Python.** Só falar em português natural.
 
@@ -33,8 +32,8 @@
 ### Pré-requisitos
 
 - ✅ Ubuntu 26.04 (ou Windows com WSL2)
-- ✅ 16GB RAM
-- ✅ NVIDIA GTX 1650 (ou superior) com 4GB VRAM
+- ✅ **NVIDIA GTX 1650 (ou superior) com 4GB VRAM**
+- ✅ **16GB RAM**
 - ✅ Docker instalado
 
 ### Instalação Rápida
@@ -55,6 +54,28 @@ make run
 ```
 
 **Pronto!** Acesse http://localhost:1880 (Node-RED) e comece a criar automações.
+
+---
+
+## 🏗️ Arquitetura Atual (PC Hub)
+
+```
+[Usuário] → [FastAPI Gateway] → [Agentes de IA] → [Skills] → [Node-RED] → [Ação]
+                ↓                      ↓               ↓          ↓
+          [MQTT Broker]        [Ollama LLM]   [Backup,     [Dashboard,
+          [LanceDB RAG]        [PostgreSQL]   Notification] Notificações]
+```
+
+### Componentes:
+
+| Componente | Tecnologia | Função |
+|------------|------------|--------|
+| **Gateway** | FastAPI + MQTT | Recebe comandos, gerencia filas |
+| **Agentes** | 5 agentes (Router, Planning, Execution, Validation, Learning) | Orquestração |
+| **LLMs** | Ollama (Llama 3.2 3B, Qwen2.5 7B) | NL2Code |
+| **RAG** | LanceDB + AST Chunking | Recuperação de contexto |
+| **Skills** | Backup, Notification, Hardware Monitor | Automações prontas |
+| **Dashboard** | Grafana + Prometheus | Monitoring em tempo real |
 
 ---
 
@@ -115,36 +136,32 @@ yby-seed/
 ├── docker-compose.yml     # Configuração Docker (Ollama, Node-RED, etc.)
 │
 ├── src/                   # Código principal
-│   ├── core/              # Lógica central (NL2Code, RAG, etc.)
-│   ├── agents/            # Agentes de IA (Planning, Execution, etc.)
-│   ├── utils/             # Funções utilitárias
-│   └── main.py            # Ponto de entrada
+│   ├── gateway/           # FastAPI + MQTT + LanceDB
+│   ├── agents/            # Agentes de IA (Router, Planning, etc.)
+│   ├── rag/               # RAG otimizado (AST Chunking, Pruning)
+│   ├── core/              # Lógica central (KV cache, GPU offload)
+│   └── monitoring/        # Métricas (Grafana, Prometheus)
 │
 ├── tests/                 # Testes automatizados
-│   ├── test_core.py
-│   ├── test_agents.py
-│   └── test_utils.py
+│   ├── test_gateway.py
+│   ├── test_rag.py
+│   └── test_agents.py
 │
 ├── docs/                  # Documentação completa
-│   ├── tutorials/         # Tutoriais passo a passo
 │   ├── architecture/      # Arquitetura do sistema
-│   └── api/               # Referência de API
+│   ├── ai/                # Sistema de IA (RAG, modelos)
+│   ├── tutorials/         # Tutoriais passo a passo
+│   └── future/            # Futuro: Mobile + ESP32
 │
 ├── skills/                # Agent Skills (oficiais e comunidade)
 │   ├── backup-automation/ # Skill de backup automático
-│   ├── api-integration/   # Skill de integração com APIs
-│   ├── data-processing/   # Skill de processamento de dados
 │   ├── notification-system/ # Skill de notificações
-│   └── file-operations/   # Skill de operações com arquivos
+│   └── hardware-monitor/  # Skill de monitoramento de hardware
 │
-├── examples/              # Exemplos prontos
-│   ├── 01_weather_alert.py
-│   ├── 02_steps_tracker.py
-│   └── 03_backup_automation.py
-│
-└── scripts/               # Scripts de setup/deploy
-    ├── setup.sh
-    └── deploy.sh
+└── examples/              # Exemplos prontos
+    ├── 01_weather_alert.py
+    ├── 02_backup_automation.py
+    └── 03_hardware_monitor.py
 ```
 
 ---
@@ -176,6 +193,32 @@ Veja [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes. Comece com issues marcada
 
 ---
 
+## 🚀 Roadmap
+
+### **Fase 1 (Atual): PC Hub 100%** ✅
+
+- ✅ Gateway FastAPI + MQTT
+- ✅ 5 agentes de IA (Router, Planning, Execution, Validation, Learning)
+- ✅ RAG otimizado (AST Chunking, Context Pruning)
+- ✅ Skills (Backup, Notification, Hardware Monitor)
+- ✅ Auto-Evolução (Bayesian Teaching, Auto-Cleanup, Auto-Improvement)
+- ✅ Testes automatizados + Grafana Dashboard
+
+### **Fase 2 (Futuro): Mobile (Android)**
+
+- ⏸️ Gateway MQTT no Termux (Xiaomi 12)
+- ⏸️ OpenCL na GPU Adreno 730
+- ⏸️ Injeção ADB (HyperOS 3.0)
+- ⏸️ Termux:API (sensores, notificações)
+
+### **Fase 3 (Futuro): Wearable (ESP32-S3)**
+
+- ⏸️ Firmware LilyGO T-Watch S3 Plus
+- ⏸️ MQTT+TLS (MQTTS)
+- ⏸️ Deep Sleep + sensores (batimentos, SpO2, passos)
+
+---
+
 ## 🙏 Agradecimentos
 
 - **Ollama Team** - Motor de inferência local
@@ -202,4 +245,4 @@ MIT License - ver [LICENSE](LICENSE)
 **YBY SEED** - _Function Over Form_ 🚀
 
 **Última atualização:** 2026-10-08  
-**Versão:** 1.0.0
+**Versão:** 1.0.0 (PC Hub)
