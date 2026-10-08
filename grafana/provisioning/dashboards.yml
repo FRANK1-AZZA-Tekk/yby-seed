@@ -1,0 +1,25 @@
+"""
+Grafana Dashboard Provisioning
+
+Configurar em grafana/provisioning/dashboards.yml
+
+Uso:
+- Copiar para /etc/grafana/provisioning/dashboards/
+- Reiniciar Grafana
+
+Licença: MIT
+"""
+
+apiVersion: 1
+
+providers:
+  - name: 'YBY SEED'
+    orgId: 1
+    folder: 'YBY SEED'
+    folderUid: 'yby-seed'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

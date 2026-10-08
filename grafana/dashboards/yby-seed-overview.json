@@ -1,0 +1,116 @@
+"""
+YBY SEED Overview — Dashboard Grafana
+
+Painéis:
+1. Queue size + WebSocket clients (tempo real)
+2. VRAM, CPU, RAM, disco (gauge)
+3. Latência (histograma)
+4. Erros totais (counter)
+
+Importar em Grafana:
+Dashboards → Import → Upload JSON
+
+Licença: MIT
+"""
+
+{
+  "dashboard": {
+    "title": "YBY SEED Overview",
+    "tags": ["yby", "seed", "iot"],
+    "timezone": "America/Sao_Paulo",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Queue Size + WebSocket Clients",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "yby_queue_size",
+            "legendFormat": "Queue Size"
+          },
+          {
+            "expr": "yby_websocket_clients",
+            "legendFormat": "WebSocket Clients"
+          }
+        ],
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8}
+      },
+      {
+        "id": 2,
+        "title": "VRAM Used (MB)",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "yby_vram_used_mb",
+            "legendFormat": "VRAM"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 4096,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 3000},
+                {"color": "red", "value": 3800}
+              ]
+            }
+          }
+        },
+        "gridPos": {"x": 12, "y": 0, "w": 6, "h": 8}
+      },
+      {
+        "id": 3,
+        "title": "CPU + RAM + Disk (%)",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "yby_cpu_percent",
+            "legendFormat": "CPU"
+          },
+          {
+            "expr": "yby_ram_percent",
+            "legendFormat": "RAM"
+          },
+          {
+            "expr": "yby_disk_percent",
+            "legendFormat": "Disk"
+          }
+        ],
+        "gridPos": {"x": 18, "y": 0, "w": 6, "h": 8}
+      },
+      {
+        "id": 4,
+        "title": "Latency (ms)",
+        "type": "histogram",
+        "targets": [
+          {
+            "expr": "yby_latency_ms",
+            "legendFormat": "Latency"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "buckets": [100, 250, 500, 1000, 2500, 5000]
+          }
+        },
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}
+      },
+      {
+        "id": 5,
+        "title": "Errors Total",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "yby_errors_total",
+            "legendFormat": "Errors"
+          }
+        ],
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8}
+      }
+    ],
+    "schemaVersion": 30,
+    "version": 1
+  }
+}

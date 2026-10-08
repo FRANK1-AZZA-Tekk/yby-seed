@@ -1,0 +1,24 @@
+"""
+Grafana Datasource Provisioning (Prometheus)
+
+Configurar em grafana/provisioning/datasources.yml
+
+Uso:
+- Copiar para /etc/grafana/provisioning/datasources/
+- Reiniciar Grafana
+
+Licença: MIT
+"""
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "15s"
+      queryTimeout: "60s"
