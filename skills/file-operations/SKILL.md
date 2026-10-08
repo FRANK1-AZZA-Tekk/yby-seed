@@ -1,8 +1,44 @@
 ---
 name: file-operations
-description: Operações com arquivos: ler, escrever, copiar, mover, renomear, deletar, listar, buscar por padrão
+version: 1.0.0
+min_agent_version: 2.0.0
+last_updated: 2026-10-08
+description: Operações com arquivos: ler, escrever, copiar, mover, renomear, deletar, listar, buscar por padrão, organizar, limpar, gerenciar arquivos e pastas, manipular documentos
 compatibility: ubuntu, python-3.11+, os, shutil, pathlib, fnmatch
 license: MIT
+authors:
+  - "Alisson Faria (@FRANK1-AZZA-Tekk)"
+keywords:
+  - arquivo
+  - ler
+  - escrever
+  - copiar
+  - mover
+  - renomear
+  - deletar
+  - listar
+  - buscar
+  - organizar
+  - limpar
+  - gerenciar
+  - pastas
+  - documentos
+  - JPG
+  - PDF
+  - diretório
+  - pathlib
+  - shutil
+changelog:
+  - version: 1.0.0
+    date: 2026-10-08
+    changes:
+      - "Versão inicial da skill de operações com arquivos"
+      - "Suporte a operações básicas (ler, escrever, copiar, mover)"
+      - "Operações em lote (renomear, deletar, organizar)"
+      - "Busca por padrão (glob, fnmatch)"
+      - "Validação de permissões e espaço em disco"
+      - "Operações seguras com dry-run"
+      - "Tratamento de arquivos em uso"
 ---
 
 ## Quando Usar
@@ -16,6 +52,7 @@ Use esta skill quando o usuário pedir para:
 - "Deletar arquivos temporários"
 - "Listar arquivos por extensão"
 - "Buscar arquivos por padrão"
+- "Organizar downloads por tipo"
 
 ## Instruções Passo a Passo
 
@@ -134,25 +171,6 @@ def find_files_by_size(directory: str, min_size_mb: float = 0) -> list:
     
     return large_files
 
-def find_duplicate_files(directory: str) -> list:
-    """Encontra arquivos duplicados por hash"""
-    
-    import hashlib
-    
-    hashes = {}
-    duplicates = []
-    
-    for file in Path(directory).rglob("*"):
-        if file.is_file():
-            file_hash = hashlib.md5(file.read_bytes()).hexdigest()
-            
-            if file_hash in hashes:
-                duplicates.append((str(file), hashes[file_hash]))
-            else:
-                hashes[file_hash] = str(file)
-    
-    return duplicates
-
 if __name__ == "__main__":
     # Exemplo de uso
     files = list_files("/home/usuario/Documentos", "*.pdf")
@@ -191,22 +209,6 @@ def rename_files_add_prefix(directory: str, prefix: str, pattern: str = "*"):
 
 # Uso
 rename_files_add_prefix("/fotos", "2026_", "*.jpg")
-```
-
-#### Limpar Arquivos Temporários
-
-```python
-def cleanup_temp_files(directory: str, extensions: list = [".tmp", ".bak", ".old"]):
-    """Remove arquivos temporários"""
-    
-    for ext in extensions:
-        for file in Path(directory).rglob(f"*{ext}"):
-            if file.is_file():
-                file.unlink()
-                print(f"🗑️  Removido: {file.name}")
-
-# Uso
-cleanup_temp_files("/home/usuario", [".tmp", ".bak", ".log"])
 ```
 
 #### Organizar por Extensão
@@ -436,3 +438,13 @@ def check_write_permission(directory: str) -> bool:
 - `scripts/file_organizer.py` - Organiza arquivos por extensão
 - `scripts/find_duplicates.py` - Encontra arquivos duplicados
 - `scripts/cleanup_temp.py` - Limpa arquivos temporários
+
+## Tests
+
+```bash
+# Testar skill
+python -m pytest tests/skills/test_file_operations.py -v
+
+# Testar operações
+python scripts/file_organizer.py /downloads --test
+```

@@ -1,8 +1,42 @@
 ---
 name: notification-system
-description: Envia notificações por email, Telegram, Slack, WhatsApp ou notificações do sistema (Ubuntu notify-send)
+version: 1.0.0
+min_agent_version: 2.0.0
+last_updated: 2026-10-08
+description: Envia notificações por email, Telegram, Slack, WhatsApp ou notificações do sistema Ubuntu notify-send, alertas, mensagens, avisos, comunicar, informar usuário
 compatibility: ubuntu, python-3.11+, smtplib, requests
 license: MIT
+authors:
+  - "Alisson Faria (@FRANK1-AZZA-Tekk)"
+keywords:
+  - notificação
+  - email
+  - Telegram
+  - Slack
+  - WhatsApp
+  - alerta
+  - mensagem
+  - aviso
+  - comunicar
+  - informar
+  - usuário
+  - avisar
+  - terminar
+  - concluir
+  - notificar
+  - SMTP
+  - webhook
+  - bot
+changelog:
+  - version: 1.0.0
+    date: 2026-10-08
+    changes:
+      - "Versão inicial da skill de notificações"
+      - "Suporte a email (SMTP), Telegram, Slack, WhatsApp"
+      - "Notificações do sistema Ubuntu (notify-send)"
+      - "Templates de notificação personalizáveis"
+      - "Tratamento de erros de autenticação e envio"
+      - "Cooldown para evitar spam de notificações"
 ---
 
 ## Quando Usar
@@ -14,6 +48,7 @@ Use esta skill quando o usuário pedir para:
 - "Mandar mensagem no Telegram"
 - "Notificar no Slack"
 - "Alerta por WhatsApp"
+- "Avisar quando backup concluir"
 
 ## Instruções Passo a Passo
 
@@ -145,28 +180,6 @@ def send_slack_message(text: str, webhook_url: str):
         print(f"❌ Erro: {response.text}")
 ```
 
-#### WhatsApp (Twilio)
-
-```python
-def send_whatsapp_message(to_number: str, body: str):
-    """Envia mensagem para WhatsApp via Twilio"""
-    
-    from twilio.rest import Client
-    
-    account_sid = "SEU_ACCOUNT_SID"
-    auth_token = "SEU_AUTH_TOKEN"
-    
-    client = Client(account_sid, auth_token)
-    
-    message = client.messages.create(
-        body=body,
-        from_="whatsapp:+14155238886",
-        to=f"whatsapp:+55{to_number}"
-    )
-    
-    print(f"✅ WhatsApp enviado: {message.sid}")
-```
-
 ### 4. Notificações Condicionais
 
 ```python
@@ -182,48 +195,6 @@ def notify_on_failure(task_name: str, error: str):
     send_system_notification("❌ Erro", f"{task_name} falhou")
     send_telegram(f"❌ {task_name} falhou:\n{error}")
     send_email("admin@empresa.com", f"Erro: {task_name}", error)
-```
-
-### 5. Template de Notificação
-
-```python
-from datetime import datetime
-
-def create_notification_template(
-    title: str,
-    status: str,
-    details: dict = None
-) -> str:
-    """Cria template de notificação"""
-    
-    timestamp = datetime.now().strftime("%d/%m/%Y %H:%M")
-    
-    message = f"""
-<b>{title}</b>
-
-Status: {status}
-Horário: {timestamp}
-"""
-    
-    if details:
-        message += "\n<b>Detalhes:</b>\n"
-        for key, value in details.items():
-            message += f"• {key}: {value}\n"
-    
-    return message
-
-# Uso
-template = create_notification_template(
-    title="Backup Diário",
-    status="✅ Concluído",
-    details={
-        "Arquivos": "150",
-        "Tamanho": "2.5 GB",
-        "Duração": "45 segundos"
-    }
-)
-
-send_telegram(template)
 ```
 
 ## Exemplos
@@ -359,3 +330,13 @@ def notify_with_cooldown(channel: str, message: str, cooldown_minutes: int = 5):
 - `scripts/test_notifications.py` - Testa todos os canais
 - `scripts/email_templates.py` - Templates de email
 - `scripts/telegram_bot.py` - Bot Telegram simples
+
+## Tests
+
+```bash
+# Testar skill
+python -m pytest tests/skills/test_notification_system.py -v
+
+# Testar notificação
+python scripts/test_notifications.py
+```

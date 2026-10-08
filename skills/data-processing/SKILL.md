@@ -1,8 +1,43 @@
 ---
 name: data-processing
-description: Processa dados de arquivos CSV, JSON, Excel, TXT - incluindo leitura, transformação, filtragem e exportação
-compatibility: ubuntu, python-3.11+, csv, json, pandas (opcional)
+version: 1.0.0
+min_agent_version: 2.0.0
+last_updated: 2026-10-08
+description: Processa dados de arquivos CSV, JSON, Excel, TXT - incluindo leitura, transformação, filtragem, exportação, converter formatos, calcular estatísticas, agrupar dados, analisar informações
+compatibility: ubuntu, python-3.11+, csv, json, pandas
 license: MIT
+authors:
+  - "Alisson Faria (@FRANK1-AZZA-Tekk)"
+keywords:
+  - CSV
+  - JSON
+  - Excel
+  - TXT
+  - processar
+  - dados
+  - ler
+  - arquivo
+  - filtrar
+  - converter
+  - transformar
+  - exportar
+  - estatísticas
+  - agrupar
+  - analisar
+  - planilha
+  - tabela
+  - pandas
+changelog:
+  - version: 1.0.0
+    date: 2026-10-08
+    changes:
+      - "Versão inicial da skill de processamento de dados"
+      - "Suporte a CSV, JSON, Excel, TXT"
+      - "Operações de leitura, filtragem, transformação, exportação"
+      - "Cálculo de estatísticas básicas (média, soma, min, max)"
+      - "Agrupamento de dados por coluna"
+      - "Conversão entre formatos (CSV↔JSON)"
+      - "Tratamento de encoding e edge cases"
 ---
 
 ## Quando Usar
@@ -14,6 +49,8 @@ Use esta skill quando o usuário pedir para:
 - "Filtrar dados de uma planilha"
 - "Contar linhas de um arquivo"
 - "Agrupar dados por categoria"
+- "Calcular estatísticas de vendas"
+- "Processar dados de Excel"
 
 ## Instruções Passo a Passo
 
@@ -106,7 +143,7 @@ def group_by(data: list, column: str) -> dict:
 por_cidade = group_by(data, "cidade")
 ```
 
-#### Estatísticas Básicas
+#### Calcular Estatísticas
 
 ```python
 def calculate_stats(data: list, column: str) -> dict:
@@ -125,80 +162,6 @@ def calculate_stats(data: list, column: str) -> dict:
 # Uso
 stats = calculate_stats(data, "valor")
 print(f"Média: R$ {stats['mean']:.2f}")
-```
-
-#### Converter CSV → JSON
-
-```python
-def csv_to_json(csv_path: str, json_path: str):
-    """Converte CSV para JSON"""
-    
-    data = read_csv(csv_path)
-    write_json(data, json_path)
-    
-    print(f"✅ Convertido: {csv_path} → {json_path}")
-```
-
-#### Extrair Colunas Específicas
-
-```python
-def extract_columns(data: list, columns: list) -> list:
-    """Extrai colunas específicas"""
-    
-    return [{col: row[col] for col in columns} for row in data]
-
-# Uso
-nomes_emails = extract_columns(data, ["nome", "email"])
-```
-
-### 4. Processamento de Arquivos Grandes
-
-```python
-def process_large_csv(filepath: str, chunk_size: int = 1000):
-    """Processa CSV grande em chunks"""
-    
-    with open(filepath, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        
-        chunk = []
-        for i, row in enumerate(reader):
-            chunk.append(row)
-            
-            if len(chunk) >= chunk_size:
-                process_chunk(chunk)
-                chunk = []
-        
-        # Processa último chunk
-        if chunk:
-            process_chunk(chunk)
-
-def process_chunk(chunk: list):
-    """Processa chunk de dados"""
-    # Sua lógica aqui
-    pass
-```
-
-### 5. Tratamento de Erros
-
-```python
-def safe_read_csv(filepath: str) -> list:
-    """Lê CSV com tratamento de erros"""
-    
-    try:
-        if not Path(filepath).exists():
-            print(f"❌ Arquivo não encontrado: {filepath}")
-            return []
-        
-        return read_csv(filepath)
-    
-    except UnicodeDecodeError:
-        print("⚠️  Erro de encoding, tentando latin-1...")
-        with open(filepath, 'r', encoding='latin-1') as f:
-            return list(csv.DictReader(f))
-    
-    except Exception as e:
-        print(f"❌ Erro ao ler CSV: {e}")
-        return []
 ```
 
 ## Exemplos
@@ -270,36 +233,6 @@ with open("vendas.json", 'w') as f:
 print("✅ Convertido: vendas.csv → vendas.json")
 ```
 
-### Exemplo 4: Calcular Total de Vendas
-
-**Input:**
-
-> "Calcular total de vendas por produto"
-
-**Output:**
-
-```python
-#!/usr/bin/env python3
-import csv
-from collections import defaultdict
-
-data = []
-
-with open("vendas.csv", 'r') as f:
-    reader = csv.DictReader(f)
-    data = list(reader)
-
-total_por_produto = defaultdict(float)
-
-for row in data:
-    produto = row['produto']
-    valor = float(row['valor'])
-    total_por_produto[produto] += valor
-
-for produto, total in total_por_produto.items():
-    print(f"{produto}: R$ {total:.2f}")
-```
-
 ## Edge Cases
 
 ### 1. CSV com Encoding Diferente
@@ -345,3 +278,13 @@ if not data:
 - `scripts/csv_stats.py` - Estatísticas de CSV
 - `scripts/convert_format.py` - Converte entre formatos
 - `scripts/filter_data.py` - Filtra dados por critérios
+
+## Tests
+
+```bash
+# Testar skill
+python -m pytest tests/skills/test_data_processing.py -v
+
+# Testar com dados reais
+python scripts/csv_stats.py dados.csv
+```
