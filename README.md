@@ -1,157 +1,178 @@
-# YBY SEED - Natural Language Programming
+# YBY SEED - Programação em Linguagem Natural 🌱
 
-> **Exocórtex de IA distribuído, open-source e local-first** para automações educacionais e industriais.
+> **Transforme comandos de voz em automações Python** - sem precisar saber programar.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI/CD](https://github.com/FRANK1-AZZA-Tekk/yby-seed/actions/workflows/ci.yml/badge.svg)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/actions)
-[![Documentation](https://img.shields.io/badge/docs-mkdocs-blue)](https://frank1-azza-tekk.github.io/yby-seed/)
-[![Model Card](https://img.shields.io/badge/model-card-HuggingFace-orange)](MODEL_CARD.md)
-[![Citation](https://zenodo.org/badge/DOI/10.0000/zenodo.yby-seed-2026.svg)](https://doi.org/10.0000/zenodo.yby-seed-2026)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/release/python-3110/)
+[![Ubuntu 26.04](https://img.shields.io/badge/Ubuntu-26.04-orange.svg)](https://ubuntu.com/download/desktop)
 
-[![GitHub stars](https://img.shields.io/github/stars/FRANK1-AZZA-Tekk/yby-seed?style=social)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/FRANK1-AZZA-Tekk/yby-seed?style=social)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/network)
-[![GitHub issues](https://img.shields.io/github/issues/FRANK1-AZZA-Tekk/yby-seed)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/issues)
+![YBY SEED Demo](https://via.placeholder.com/800x400.png?text=YBY+SEED+Demo+-+Voz+para+C%C3%B3digo)
 
 ---
 
-## 🚀 Quick Start (15 minutos)
+## 🎯 O Que É Isso?
+
+**YBY SEED** é um assistente de IA que **ouve você falar** e **cria automações Python automaticamente**.
+
+### Exemplos Reais:
+
+| Você Fala | YBY SEED Cria |
+|---|---|
+| _"Me avise se chover amanhã"_ | Script que consulta API do clima e envia notificação |
+| _"Conte meus passos e meta 10.000"_ | Monitor de passos com alerta ao atingir meta |
+| _"Backup dos meus PDFs todo dia"_ | Script que compacta e salva PDFs automaticamente |
+
+**Não precisa saber Python.** Só falar em português natural.
+
+---
+
+## 🚀 Comece Agora (5 Minutos)
 
 ### Pré-requisitos
 
-- Docker + Docker Compose
-- Python 3.10+
-- (Opcional) VS Code + Dev Containers extension
+- ✅ Ubuntu 26.04 (ou Windows com WSL2)
+- ✅ 16GB RAM
+- ✅ NVIDIA GTX 1650 (ou superior) com 4GB VRAM
+- ✅ Docker instalado
 
-### Instalação
+### Instalação Rápida
 
 ```bash
 # 1. Clone o repositório
 git clone https://github.com/FRANK1-AZZA-Tekk/yby-seed.git
 cd yby-seed
 
-# 2. Configure variáveis de ambiente
-cp .env.example .env
-nano .env  # Preencha GROQ_API_KEY e OPENROUTER_API_KEY
-
-# 3. Execute setup
+# 2. Execute o setup automático
 make setup
 
-# 4. Teste a instalação
-make test
-```
-
-### Primeiro Comando
-
-```bash
-# Publique um prompt NL2Code
-mosquitto_pub -t "yby/user/prompt" -m "Crie um alerta se BPM > 120"
-
-# Ouça a resposta
-mosquitto_sub -t "yby/agent/response" -v
-```
-
----
-
-## 📚 Documentação
-
-- **[📖 Getting Started](docs/getting-started/installation.md)** - Instalação detalhada
-- **[🏗️ Architecture](docs/architecture/overview.md)** - Diagramas e componentes
-- **[🛠️ Development](docs/development/setup.md)** - Setup para contribuidores
-- **[📡 API Reference](docs/api/mqtt-topics.md)** - Tópicos MQTT e endpoints
-- **[💡 Examples](docs/examples/bpm-alert.md)** - Automações prontas
-- **[🎓 Model Card](MODEL_CARD.md)** - Detalhes do modelo, avaliação, limitações
-
----
-
-## 🏗️ Arquitetura
-
-```
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│  Wearable    │    │  Nó Móvel    │    │  Servidor    │
-│ LilyGO T-    │───▶│  Xiaomi 12   │───▶│   Ubuntu     │
-│ Watch S3+    │◀───│  Termux      │◀───│  Docker      │
-└──────────────┘    └──────────────┘    └──────────────┘
-         │                   │                   │
-         └───────────────────┼───────────────────┘
-                             │
-                    ┌────────▼────────┐
-                    │  MQTT Broker    │
-                    │  (Mosquitto)    │
-                    └─────────────────┘
-```
-
-### Stack Tecnológico
-
-| Componente | Tecnologia | Função |
-|---|---|---|
-| **LLM Local** | Qwen2.5-Coder-3B-Instruct (Q4_K_M) | Gera código Python via NL |
-| **Gateway LLM** | LiteLLM Proxy | Roteamento Ollama → Groq → OpenRouter |
-| **Orquestrador** | Node-RED | Fluxos MQTT + automações |
-| **Broker MQTT** | Eclipse Mosquitto | Comunicação nervosa central |
-| **Sandbox** | subprocess + resource limits | Execução segura de código |
-| **Registry** | SQLite | Metadados de automações |
-| **Interface** | Textual (TUI) | Monitoramento em terminal |
-
----
-
-## 🎯 Casos de Uso
-
-### Educacional
-- _"Crie um quiz de matemática que me avisa se errar 3 seguidas"_
-- _"Monitore meu tempo de estudo e sugira pausas a cada 50min"_
-
-### Industrial
-- _"Alerte se a temperatura do motor passar de 80°C"_
-- _"Registre consumo de energia e gere relatório diário"_
-
-### Saúde
-- _"Monitore batimento e alerte se ficar acima de 120 por 5min"_
-- _"Conte passos e avise se não atingir 10.000 até 20h"_
-
----
-
-## 🧪 Testes
-
-```bash
-# Todos os testes
+# 3. Teste a instalação
 make test
 
-# Apenas wearable (PlatformIO + Wokwi)
-make test-wearable
-
-# Apenas servidor (Pytest)
-make test-server
-
-# Com coverage
-cd tests && pytest --cov=server --cov-report=html
+# 4. Inicie o sistema
+make run
 ```
 
-### CI/CD
-
-GitHub Actions roda automaticamente:
-- ✅ Testes Python (pytest + coverage)
-- ✅ Testes ESP32 (PlatformIO Native)
-- ✅ Build Docker images
-- ✅ Deploy documentação (MkDocs)
+**Pronto!** Acesse http://localhost:1880 (Node-RED) e comece a criar automações.
 
 ---
 
-## 🤝 Contribuindo
+## 📚 Tutoriais Passo a Passo
 
-Contribuições são bem-vindas! Veja:
+### Para Iniciantes Absolutos
 
-1. **[CONTRIBUTING.md](CONTRIBUTING.md)** - Como contribuir
-2. **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** - Código de conduta
-3. **[SECURITY.md](SECURITY.md)** - Política de segurança
-4. **[Good First Issues](https://github.com/FRANK1-AZZA-Tekk/yby-seed/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)** - Issues para iniciantes
+1. **[Primeiros Passos](docs/tutorials/01-first-steps.md)** - O que é YBY SEED, como funciona
+2. **[Sua Primeira Automação](docs/tutorials/02-first-automation.md)** - Crie um alerta de chuva em 10 minutos
+3. **[Comandos de Voz](docs/tutorials/03-voice-commands.md)** - Configure microfone e fale com o sistema
 
-### Áreas que Precisam de Ajuda
+### Para Usuários Intermediários
 
-- [ ] Testes E2E (wearable → mobile → server)
-- [ ] Traduções (espanhol, francês)
-- [ ] Otimização de energia (ESP32, BLE)
-- [ ] UI/UX (interface TUI mais amigável)
-- [ ] Papers acadêmicos (escrita, submissão)
+4. **[Personalizando Modelos](docs/tutorials/04-custom-models.md)** - Troque Llama 3.2 por Qwen2.5
+5. **[Integrações com APIs](docs/tutorials/05-api-integrations.md)** - Conecte Google Drive, Telegram, etc.
+
+### Para Avançados
+
+6. **[Criando Novos Agentes](docs/tutorials/06-custom-agents.md)** - Adicione seus próprios agentes de IA
+7. **[Deploy em Produção](docs/tutorials/07-production-deploy.md)** - Coloque o sistema para rodar 24/7
+
+---
+
+## 🛠️ Comandos Úteis (Makefile)
+
+```bash
+# Veja todos os comandos disponíveis
+make help
+
+# Instale dependências
+make setup
+
+# Rode testes
+make test
+
+# Inicie o sistema
+make run
+
+# Pare o sistema
+make stop
+
+# Limpe arquivos temporários
+make clean
+
+# Gere documentação
+make docs
+```
+
+---
+
+## 📁 Estrutura do Projeto
+
+```
+yby-seed/
+├── README.md              # Este arquivo (você está aqui)
+├── Makefile               # Comandos úteis (make setup, make test)
+├── requirements.txt       # Dependências Python
+├── docker-compose.yml     # Configuração Docker (Ollama, Node-RED, etc.)
+│
+├── src/                   # Código principal
+│   ├── core/              # Lógica central (NL2Code, RAG, etc.)
+│   ├── agents/            # Agentes de IA (Planning, Execution, etc.)
+│   ├── utils/             # Funções utilitárias
+│   └── main.py            # Ponto de entrada
+│
+├── tests/                 # Testes automatizados
+│   ├── test_core.py
+│   ├── test_agents.py
+│   └── test_utils.py
+│
+├── docs/                  # Documentação completa
+│   ├── tutorials/         # Tutoriais passo a passo
+│   ├── architecture/      # Arquitetura do sistema
+│   └── api/               # Referência de API
+│
+├── examples/              # Exemplos prontos
+│   ├── 01_weather_alert.py
+│   ├── 02_steps_tracker.py
+│   └── 03_backup_automation.py
+│
+└── scripts/               # Scripts de setup/deploy
+    ├── setup.sh
+    └── deploy.sh
+```
+
+---
+
+## 🤔 Perguntas Frequentes (FAQ)
+
+### Preciso saber programar?
+
+**Não!** O YBY SEED foi feito exatamente para quem **não sabe programar**. Você fala em português natural e o sistema cria o código Python automaticamente.
+
+### Funciona no Windows?
+
+**Sim!** Use WSL2 (Windows Subsystem for Linux) com Ubuntu 26.04. Siga o guia [Instalação no Windows](docs/tutorials/install-windows.md).
+
+### Quanto de VRAM preciso?
+
+**Mínimo:** 4GB (GTX 1650)  
+**Recomendado:** 8GB (RTX 3060 ou superior)
+
+Com 4GB, o sistema roda modelos 3B rapidamente. Modelos 7B+ usam offloading para RAM (mais lento).
+
+### Posso usar sem internet?
+
+**Sim!** Ollama roda modelos localmente. Só precisa de internet para baixar os modelos na primeira vez.
+
+### Como contribuo?
+
+Veja [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes. Comece com issues marcadas como ["good first issue"](https://github.com/FRANK1-AZZA-Tekk/yby-seed/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+
+---
+
+## 🙏 Agradecimentos
+
+- **Ollama Team** - Motor de inferência local
+- **Node-RED** - Orquestração de fluxos
+- **Hugging Face** - Modelos open-source
+- **Comunidade Python Brasil** - Suporte e inspiração
 
 ---
 
@@ -161,40 +182,11 @@ MIT License - ver [LICENSE](LICENSE)
 
 ---
 
-## 📚 Como Citar
-
-Se usar YBY SEED em pesquisa acadêmica, cite:
-
-```bibtex
-@software{yby-seed,
-  author = {Alisson De Faria},
-  title = {YBY SEED: Natural Language Programming for Educational and Industrial Automations},
-  year = {2026},
-  url = {https://github.com/FRANK1-AZZA-Tekk/yby-seed},
-  version = {1.0.0},
-  doi = {10.0000/zenodo.yby-seed-2026}
-}
-```
-
-**DOI:** [10.0000/zenodo.yby-seed-2026](https://doi.org/10.0000/zenodo.yby-seed-2026) (pendente de registro no Zenodo)
-
----
-
-## 🙏 Agradecimentos
-
-- **Qwen Team** (Qwen2.5-Coder-3B)
-- **Hugging Face** (infraestrutura de model cards)
-- **PlatformIO** (desenvolvimento ESP32)
-- **Node-RED** (orquestração de fluxos)
-- **Eclipse Mosquitto** (broker MQTT)
-
----
-
 ## 📞 Contato
 
 - **Email:** alissonfaria4@gmail.com
 - **GitHub:** [@FRANK1-AZZA-Tekk](https://github.com/FRANK1-AZZA-Tekk)
-- **LinkedIn:** [Alisson De Faria](https://linkedin.com/in/alissonfaria)
+- **Discord:** [Entre no servidor](https://discord.gg/yby-seed)
 
 ---
 

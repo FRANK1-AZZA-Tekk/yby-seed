@@ -1,0 +1,19 @@
+# YBY SEED - Dependências de Desenvolvimento
+
+# Testes
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+
+# Qualidade de Código
+flake8>=6.1.0
+black>=23.11.0
+mypy>=1.7.0
+isort>=5.12.0
+
+# Documentação
+mkdocs>=1.5.0
+mkdocs-material>=9.5.0
+
+# Dev Tools
+pre-commit>=3.5.0

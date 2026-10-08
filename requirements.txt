@@ -1,0 +1,22 @@
+# YBY SEED - Dependências Principais
+
+# Core
+paho-mqtt>=1.6.1
+requests>=2.31.0
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# SQLite + FTS5
+sqlite3  # Nativo do Python
+
+# TUI (Terminal)
+textual>=0.40.0
+rich>=13.7.0
+
+# Utilitários
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+click>=8.1.0
+
+# Logging
+loguru>=0.7.0
