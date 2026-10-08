@@ -1,291 +1,343 @@
-#!/usr/bin/env python3
 """
-Learning Agent - Auto-evolução diária baseada em feedback do usuário
+Learning Agent — Aprendizado contínuo com PostgreSQL + pgvector
 
-Uso:
-    learner = LearningAgent(sqlite_db)
-    learner.learn_from_feedback(user_feedback, error_log)
+Responsabilidade:
+- Armazenar execuções em PostgreSQL (histórico)
+- Aprender com feedback do usuário (Bayesian Teaching)
+- Sugerir melhorias no sistema (auto-otimização)
+
+Arquitetura:
+[Execução] → [PostgreSQL + pgvector] → [Learning Agent] → [Melhorias]
+
+Otimizações:
+- Embeddings de execuções (similaridade semântica)
+- Bayesian update (atualizar crenças com feedback)
+- Auto-otimização (sugerir melhorias baseado em erros)
+
+Licença: MIT
 """
 
-import json
-from datetime import datetime, timedelta
+import psycopg2
+from psycopg2.extras import execute_values
+import pgvector
+from pgvector.psycopg2 import register_vector
 from typing import Dict, Any, List
-from loguru import logger
-import sqlite3
+import logging
+from datetime import datetime, timedelta
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class LearningAgent:
-    """Agente de aprendizado contínuo"""
+    """
+    Agente de aprendizado contínuo.
+    """
     
-    def __init__(self, db_path: str = "/opt/yby/registry/yby_seeds.db"):
-        self.db_path = db_path
-        self._init_db()
-        logger.info("🧠 Learning Agent inicializado")
+    def __init__(self, db_url: str = "postgresql://yby:yby_seed_password@localhost:5432/yby_seed"):
+        """
+        Inicializar agente.
+        
+        Args:
+            db_url: URL do PostgreSQL
+        """
+        self.db_url = db_url
+        self.conn = None
+        self._connect()
     
-    def _init_db(self):
-        """Inicializa tabela de aprendizado"""
+    def _connect(self):
+        """Conectar ao PostgreSQL"""
+        logger.info("🧠 Conectando PostgreSQL...")
         
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        self.conn = psycopg2.connect(self.db_url)
+        register_vector(self.conn)
         
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS learning_events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL,
-            user_feedback TEXT NOT NULL,
-            error_log TEXT,
-            lesson_learned TEXT,
-            applied_to_prd TEXT,
-            status TEXT DEFAULT 'pending'
-        )
-        """)
+        # Criar tabelas
+        self._create_tables()
         
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS daily_reports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL UNIQUE,
-            total_events INTEGER,
-            lessons_learned INTEGER,
-            optimizations_applied INTEGER,
-            report_json TEXT
-        )
-        """)
-        
-        conn.commit()
-        conn.close()
+        logger.info("✅ PostgreSQL conectado")
     
-    def learn_from_feedback(
-        self,
-        user_feedback: str,
-        error_log: str = "",
-        prd_id: str = ""
-    ) -> Dict[str, Any]:
-        """Aprende de feedback do usuário"""
-        
-        logger.info("📚 Aprendendo de feedback...")
-        
-        # Salva evento de aprendizado
-        event_id = self._save_learning_event(
-            user_feedback,
-            error_log,
-            prd_id
-        )
-        
-        # Gera lição aprendida (usando Ollama)
-        lesson = self._generate_lesson(user_feedback, error_log)
-        
-        # Atualiza evento com lição
-        self._update_event(event_id, lesson)
-        
-        # Verifica se deve aplicar otimizações
-        should_optimize = self._should_apply_optimization(user_feedback)
-        
-        if should_optimize:
-            # Gera relatório de otimização
-            optimization_report = self._generate_optimization_report()
+    def _create_tables(self):
+        """Criar tabelas se não existirem"""
+        with self.conn.cursor() as cur:
+            # Tabela de execuções
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS executions (
+                    id SERIAL PRIMARY KEY,
+                    timestamp TIMESTAMPTZ DEFAULT NOW(),
+                    intent VARCHAR(100),
+                    slots JSONB,
+                    code TEXT,
+                    result JSONB,
+                    feedback VARCHAR(50),
+                    embedding vector(384)
+                )
+            """)
             
-            return {
-                "event_id": event_id,
-                "lesson_learned": lesson,
-                "optimization_report": optimization_report,
-                "status": "optimization_pending"
-            }
+            # Tabela de crenças (Bayesian Teaching)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS beliefs (
+                    id SERIAL PRIMARY KEY,
+                    key VARCHAR(100) UNIQUE,
+                    prior FLOAT,
+                    likelihood FLOAT,
+                    posterior FLOAT,
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            
+            # Índice para busca vetorial
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_executions_embedding
+                ON executions
+                USING ivfflat (embedding vector_cosine_ops)
+                WITH (lists = 100)
+            """)
+            
+            self.conn.commit()
+    
+    def log_execution(self, intent: str, slots: Dict, code: str, result: Dict, feedback: str = None):
+        """
+        Logar execução.
+        
+        Args:
+            intent: Intenção (ex: backup_automation)
+            slots: Slots preenchidos
+            code: Código gerado
+            result: Resultado da execução
+            feedback: Feedback do usuário (success, error, neutral)
+        """
+        logger.info(f"🧠 Logando execução: {intent}")
+        
+        # Gerar embedding da execução
+        embedding = self._generate_embedding(f"{intent} {slots} {code}")
+        
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO executions (intent, slots, code, result, feedback, embedding)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (intent, slots, code, result, feedback, embedding))
+            
+            self.conn.commit()
+        
+        logger.info("✅ Execução logada")
+    
+    def learn_from_feedback(self, execution_id: int, feedback: str):
+        """
+        Aprender com feedback do usuário.
+        
+        Args:
+            execution_id: ID da execução
+            feedback: Feedback (success, error, neutral)
+        """
+        logger.info(f"🧠 Aprendendo com feedback: {feedback}")
+        
+        # Atualizar feedback
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                UPDATE executions
+                SET feedback = %s
+                WHERE id = %s
+            """, (feedback, execution_id))
+            
+            self.conn.commit()
+        
+        # Bayesian update
+        self._bayesian_update(execution_id, feedback)
+        
+        logger.info("✅ Feedback aprendido")
+    
+    def _bayesian_update(self, execution_id: int, feedback: str):
+        """
+        Atualizar crenças com Bayesian Teaching.
+        
+        Args:
+            execution_id: ID da execução
+            feedback: Feedback (success, error)
+        """
+        # Obter execução
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                SELECT intent, slots, result
+                FROM executions
+                WHERE id = %s
+            """, (execution_id,))
+            
+            row = cur.fetchone()
+            intent, slots, result = row
+        
+        # Calcular likelihood (probabilidade do feedback dado a crença)
+        likelihood = 0.9 if feedback == "success" else 0.1
+        
+        # Obter crença anterior (prior)
+        prior = self._get_belief(f"intent_{intent}")
+        
+        # Calcular posterior (Bayes)
+        posterior = (likelihood * prior) / ((likelihood * prior) + ((1 - likelihood) * (1 - prior)))
+        
+        # Atualizar crença
+        self._update_belief(f"intent_{intent}", prior, likelihood, posterior)
+        
+        logger.info(f"✅ Bayesian update: {intent} (prior={prior:.2f}, likelihood={likelihood:.2f}, posterior={posterior:.2f})")
+    
+    def _get_belief(self, key: str) -> float:
+        """
+        Obter crença (prior).
+        
+        Args:
+            key: Chave da crença
+        
+        Returns:
+            Valor do prior (0.0-1.0)
+        """
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                SELECT prior
+                FROM beliefs
+                WHERE key = %s
+            """, (key,))
+            
+            row = cur.fetchone()
+            return row[0] if row else 0.5  # Default: 0.5 (incerteza)
+    
+    def _update_belief(self, key: str, prior: float, likelihood: float, posterior: float):
+        """
+        Atualizar crença.
+        
+        Args:
+            key: Chave da crença
+            prior: Prior anterior
+            likelihood: Likelihood calculada
+            posterior: Posterior calculado
+        """
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO beliefs (key, prior, likelihood, posterior)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (key)
+                DO UPDATE SET
+                    prior = EXCLUDED.posterior,
+                    likelihood = EXCLUDED.likelihood,
+                    posterior = EXCLUDED.posterior,
+                    updated_at = NOW()
+            """, (key, prior, likelihood, posterior))
+            
+            self.conn.commit()
+    
+    def suggest_improvements(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Sugerir melhorias baseado em erros.
+        
+        Args:
+            limit: Número máximo de sugestões
+        
+        Returns:
+            Lista de sugestões
+        """
+        logger.info(f"🧠 Sugerindo melhorias (top {limit})...")
+        
+        with self.conn.cursor() as cur:
+            # Buscar execuções com erro
+            cur.execute("""
+                SELECT intent, slots, code, result
+                FROM executions
+                WHERE feedback = 'error'
+                ORDER BY timestamp DESC
+                LIMIT %s
+            """, (limit,))
+            
+            errors = cur.fetchall()
+            
+            # Gerar sugestões
+            suggestions = []
+            
+            for intent, slots, code, result in errors:
+                suggestion = self._generate_suggestion(intent, slots, code, result)
+                suggestions.append(suggestion)
+            
+            logger.info(f"✅ {len(suggestions)} sugestões geradas")
+            return suggestions
+    
+    def _generate_suggestion(self, intent: str, slots: Dict, code: str, result: Dict) -> Dict[str, Any]:
+        """
+        Gerar sugestão de melhoria.
+        
+        Args:
+            intent: Intenção
+            slots: Slots
+            code: Código
+            result: Resultado com erro
+        
+        Returns:
+            Sugestão
+        """
+        # Analisar erro
+        error_message = result.get("error", "Unknown error")
+        
+        # Gerar sugestão baseada no erro
+        if "timeout" in error_message.lower():
+            suggestion = f"Aumentar timeout para {intent} (atual: 30s, sugerido: 60s)"
+        
+        elif "memory" in error_message.lower():
+            suggestion = f"Otimizar uso de memória em {intent} (reduzir batch size, usar generators)"
+        
+        elif "permission" in error_message.lower():
+            suggestion = f"Verificar permissões para {intent} (chmod, chown, sudo)"
+        
+        else:
+            suggestion = f"Revisar código de {intent}: {error_message[:100]}"
         
         return {
-            "event_id": event_id,
-            "lesson_learned": lesson,
-            "status": "learned"
+            "intent": intent,
+            "error": error_message,
+            "suggestion": suggestion,
+            "priority": "high" if "timeout" in error_message.lower() else "medium"
         }
     
-    def _save_learning_event(
-        self,
-        feedback: str,
-        error_log: str,
-        prd_id: str
-    ) -> int:
-        """Salva evento de aprendizado no DB"""
+    def _generate_embedding(self, text: str) -> List[float]:
+        """
+        Gerar embedding (modelo local via Ollama).
         
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        Args:
+            text: Texto para embedar
         
-        cursor.execute("""
-        INSERT INTO learning_events
-        (timestamp, user_feedback, error_log, applied_to_prd)
-        VALUES (?, ?, ?, ?)
-        """, (
-            datetime.now().isoformat(),
-            feedback,
-            error_log,
-            prd_id
-        ))
-        
-        event_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        
-        return event_id
+        Returns:
+            Vetor de 384 dimensões
+        """
+        # TODO: Implementar com Ollama embeddings
+        # Por enquanto, retornar vetor dummy
+        return [0.0] * 384
     
-    def _generate_lesson(self, feedback: str, error_log: str) -> str:
-        """Gera lição aprendida do erro"""
-        
-        from src.core.ollama_client import OllamaClient
-        ollama = OllamaClient()
-        
-        prompt = f"""
-Feedback do usuário: {feedback}
-Log de erro: {error_log}
+    def close(self):
+        """Fechar conexão"""
+        if self.conn:
+            self.conn.close()
+            logger.info("🛑 PostgreSQL desconectado")
 
-Extraia UMA lição aprendida clara e acionável.
-Formato: "Sempre [ação] quando [condição] para evitar [problema]."
-Exemplo: "Sempre validar API key antes de usar para evitar falhas de autenticação."
-"""
-        
-        lesson = ollama.generate(
-            model="llama3.2:3b-instruct-q4_K_M",
-            prompt=prompt,
-            options={"temperature": 0.2, "num_predict": 256}
-        )
-        
-        return lesson.strip()
-    
-    def _update_event(self, event_id: int, lesson: str):
-        """Atualiza evento com lição aprendida"""
-        
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-        UPDATE learning_events
-        SET lesson_learned = ?, status = 'learned'
-        WHERE id = ?
-        """, (lesson, event_id))
-        
-        conn.commit()
-        conn.close()
-    
-    def _should_apply_optimization(self, feedback: str) -> bool:
-        """Decide se aplica otimização baseada no feedback"""
-        
-        # Padrões que indicam necessidade de otimização
-        optimization_keywords = [
-            "lento",
-            "demorado",
-            "ineficiente",
-            "poderia ser melhor",
-            "muitos passos",
-            "complicado"
-        ]
-        
-        return any(keyword in feedback.lower() for keyword in optimization_keywords)
-    
-    def _generate_optimization_report(self) -> Dict[str, Any]:
-        """Gera relatório de otimizações sugeridas"""
-        
-        from src.core.ollama_client import OllamaClient
-        ollama = OllamaClient()
-        
-        # Busca eventos recentes
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-        SELECT user_feedback, error_log, lesson_learned
-        FROM learning_events
-        WHERE timestamp > datetime('now', '-7 days')
-        AND status = 'learned'
-        """)
-        
-        events = cursor.fetchall()
-        conn.close()
-        
-        if not events:
-            return {"optimizations": []}
-        
-        # Gera relatório
-        events_text = "\n".join([
-            f"Feedback: {e[0]}\nErro: {e[1]}\nLição: {e[2]}"
-            for e in events
-        ])
-        
-        prompt = f"""
-Eventos de aprendizado dos últimos 7 dias:
-{events_text}
 
-Gere 3-5 otimizações acionáveis para o sistema.
-Formato JSON:
-{{
-    "optimizations": [
-        {{
-            "title": "Título",
-            "description": "Descrição",
-            "impact": "Alto/Médio/Baixo",
-            "effort": "Baixo/Médio/Alto"
-        }}
-    ]
-}}
-"""
-        
-        report_json = ollama.generate(
-            model="llama3.2:3b-instruct-q4_K_M",
-            prompt=prompt,
-            options={"temperature": 0.2, "num_predict": 1024}
-        )
-        
-        import json
-        import re
-        
-        json_match = re.search(r'\{[^}]+\}', report_json, re.DOTALL)
-        
-        if json_match:
-            return json.loads(json_match.group())
-        
-        return {"optimizations": []}
+# Instância global
+learning_agent = LearningAgent()
+
+
+if __name__ == "__main__":
+    # Logar execução
+    learning_agent.log_execution(
+        intent="backup_automation",
+        slots={"source": "/home/user/docs", "dest": "/backup"},
+        code="import zipfile; ...",
+        result={"success": True},
+        feedback="success"
+    )
     
-    def generate_daily_report(self, date: str = None) -> Dict[str, Any]:
-        """Gera relatório diário de aprendizado"""
-        
-        if not date:
-            date = datetime.now().strftime("%Y-%m-%d")
-        
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Conta eventos do dia
-        cursor.execute("""
-        SELECT COUNT(*), COUNT(lesson_learned)
-        FROM learning_events
-        WHERE DATE(timestamp) = ?
-        """, (date,))
-        
-        total_events, lessons_learned = cursor.fetchone()
-        
-        conn.close()
-        
-        report = {
-            "date": date,
-            "total_events": total_events,
-            "lessons_learned": lessons_learned,
-            "optimizations_applied": 0
-        }
-        
-        # Salva relatório
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-        INSERT OR REPLACE INTO daily_reports
-        (date, total_events, lessons_learned, report_json)
-        VALUES (?, ?, ?, ?)
-        """, (
-            date,
-            total_events,
-            lessons_learned,
-            json.dumps(report)
-        ))
-        
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"📊 Relatório diário gerado: {total_events} eventos, {lessons_learned} lições")
-        
-        return report
+    # Aprender com feedback
+    learning_agent.learn_from_feedback(execution_id=1, feedback="success")
+    
+    # Sugerir melhorias
+    suggestions = learning_agent.suggest_improvements(limit=5)
+    
+    print(f"\n🧠 Sugestões ({len(suggestions)}):")
+    for s in suggestions:
+        print(f"- {s['suggestion']}")
+    
+    # Fechar
+    learning_agent.close()
