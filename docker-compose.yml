@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # Broker MQTT central
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: yby-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"  # WebSocket
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+    restart: unless-stopped
+    networks:
+      - yby-network
+
+  # Orquestrador de fluxos
+  node-red:
+    image: nodered/node-red:latest
+    container_name: yby-node-red
+    ports:
+      - "1880:1880"
+    volumes:
+      - ./node-red/data:/data
+    environment:
+      - TZ=America/Sao_Paulo
+    restart: unless-stopped
+    networks:
+      - yby-network
+    depends_on:
+      - mosquitto
+
+  # LLM local
+  ollama:
+    image: ollama/ollama:latest
+    container_name: yby-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+        limits:
+          cpus: '8.0'  # Reserva 4 threads para Mosquitto/Node-RED
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    restart: unless-stopped
+    networks:
+      - yby-network
+
+  # Gateway de roteamento LLM
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: yby-litellm
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    command: ["--config", "/app/config.yaml"]
+    restart: unless-stopped
+    networks:
+      - yby-network
+    depends_on:
+      - ollama
+
+  # Gerenciador de processos (automações persistentes)
+  process-manager:
+    build: ./process-manager
+    container_name: yby-process-manager
+    volumes:
+      - ./registry:/opt/yby/registry
+      - ./automations:/opt/yby/automations
+    environment:
+      - DATABASE_URL=sqlite:////opt/yby/registry/yby_seeds.db
+    restart: unless-stopped
+    networks:
+      - yby-network
+    depends_on:
+      - mosquitto
+
+networks:
+  yby-network:
+    driver: bridge
+
+volumes:
+  ollama_data:
