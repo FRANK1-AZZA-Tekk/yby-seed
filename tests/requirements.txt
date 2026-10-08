@@ -1,0 +1,25 @@
+# Test dependencies for YBY SEED
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.11.0
+
+# MQTT testing
+paho-mqtt>=1.6.1
+
+# HTTP mocking
+responses>=0.23.0
+httpx>=0.24.0
+
+# Code quality
+black>=23.7.0
+pylint>=2.17.0
+mypy>=1.5.0
+
+# Coverage reporting
+coverage[toml]>=7.3.0
+
+# Dev tools
+pre-commit>=3.4.0
