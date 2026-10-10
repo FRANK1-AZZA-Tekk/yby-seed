@@ -1,20 +1,17 @@
 version: '3.8'
 
-# YBY SEED - Stack de Automação Local-First (Foco PC Hub)
-# Otimizado para: 16GB RAM, GTX 1650 (4GB VRAM), Ubuntu 26.04
-
+# YBY SEED — compose safe defaults for local-first development.
+# Copy docker-compose.env.example to .env and fill local values; never commit .env.
 services:
-  # ============================================
-  # OLLAMA — Motor de Inferência Local (LLM)
-  # ============================================
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.12.11
     container_name: yby-ollama
     restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
+    # Ollama API has no built-in local API authentication. Keep it host-local.
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     deploy:
       resources:
         reservations:
@@ -22,150 +19,93 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-        limits:
-          cpus: '8.0'
-          memory: 8G
     environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_ORIGINS=*
-      - OLLAMA_MAX_VRAM=4096  # Limitar a 4GB VRAM
-      - OLLAMA_NUM_GPU=1      # Usar 1 GPU
+      OLLAMA_HOST: 0.0.0.0
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_CONTEXT_LENGTH: "4096"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "ollama", "ps"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # ============================================
-  # NODE-RED — Orquestração de Fluxos
-  # ============================================
   nodered:
-    image: nodered/node-red:latest
+    image: nodered/node-red:4.1.4
     container_name: yby-node-red
     restart: unless-stopped
     ports:
-      - "1880:1880"   # UI do Node-RED
+      - "${TAILSCALE_HOST_IP:?Set TAILSCALE_HOST_IP in .env}:1880:1880"
     volumes:
       - ./nodered/data:/data
       - ./nodered/flows:/flows
     environment:
-      - TZ=America/Sao_Paulo
-      - NODE_RED_ENABLE_ADMIN_UI=true
+      TZ: America/Sao_Paulo
     depends_on:
       - mosquitto
       - ollama
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1880"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # ============================================
-  # MOSQUITTO — Broker MQTT (IoT Messaging)
-  # ============================================
   mosquitto:
-    image: eclipse-mosquitto:2.0
+    image: eclipse-mosquitto:2.0.22
     container_name: yby-mosquitto
     restart: unless-stopped
-    ports:
-      - "1883:1883"   # MQTT não-criptografado (rede interna)
-      - "9001:9001"   # WebSocket (opcional, para browser)
+    # Keep broker internal; publish only after configuring authentication/ACLs.
     volumes:
-      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/config:/mosquitto/config:ro
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
-    healthcheck:
-      test: ["CMD", "mosquitto_sub", "-t", "#", "-C", "1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # ============================================
-  # POSTGRESQL — Banco de Dados (RAG, Memória)
-  # ============================================
   postgres:
-    image: postgres:16
+    image: postgres:16.10
     container_name: yby-postgres
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_USER: yby
-      POSTGRES_PASSWORD: yby_seed_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: yby_seed
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U yby"]
+      test: ["CMD-SHELL", "pg_isready -U yby -d yby_seed"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # ============================================
-  # REDIS — Cache e Filas (Baixa Latência)
-  # ============================================
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
     container_name: yby-redis
     restart: unless-stopped
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # ============================================
-  # PROMETHEUS — Métricas (Grafana)
-  # ============================================
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.5.0
     container_name: yby-prometheus
     restart: unless-stopped
     volumes:
-      - ./prometheus/config:/etc/prometheus
+      - ./prometheus/config:/etc/prometheus:ro
       - prometheus_data:/prometheus
-    ports:
-      - "9090:9090"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9090/-/healthy"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    ports:
+      - "127.0.0.1:9090:9090"
 
-  # ============================================
-  # GRAFANA — Dashboard de Métricas
-  # ============================================
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.1.1
     container_name: yby-grafana
     restart: unless-stopped
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "${TAILSCALE_HOST_IP:?Set TAILSCALE_HOST_IP in .env}:3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=yby_grafana_password
-      - GF_USERS_ALLOW_SIGN_UP=false
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:?Set GF_SECURITY_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
     depends_on:
       - prometheus
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-# ============================================
-# VOLUMES PERSISTENTES
-# ============================================
 volumes:
   ollama_data:
   postgres_data:
@@ -173,9 +113,6 @@ volumes:
   prometheus_data:
   grafana_data:
 
-# ============================================
-# REDE ISOLADA
-# ============================================
 networks:
   default:
     name: yby-seed-network
