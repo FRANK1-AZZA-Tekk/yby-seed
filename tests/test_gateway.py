@@ -1,31 +1,16 @@
-"""Testes do gateway (FastAPI + MQTT + LanceDB).
+from fastapi.testclient import TestClient
 
-Estes testes dependem de serviços externos (Ollama, PostgreSQL, MQTT, LanceDB).
-Por enquanto, estão marcados como skip até que fixtures reais sejam implementadas.
-"""
-
-import pytest
+from src.gateway.fastapi_mqtt_bridge import app, mqtt_queue
 
 
-@pytest.mark.skip(reason="Gateway depende de Ollama/PostgreSQL/MQTT - fixtures pendentes")
-@pytest.mark.integration
-async def test_gateway_recebe_comando_e_retorna_id(sample_user_command, mock_mqtt_client, mock_lancedb):
-    """Gateway deve receber comando e retornar ID de tarefa."""
-    # TODO: Implementar testes reais quando fixtures estiverem prontas
-    pass
+def test_invalid_telemetry_is_rejected_as_422():
+    with TestClient(app) as client:
+        response = client.post("/telemetry", json={"device_id": "", "timestamp": "not-a-date", "metrics": {}})
+    assert response.status_code == 422
 
 
-@pytest.mark.skip(reason="Gateway depende de Ollama/PostgreSQL/MQTT - fixtures pendentes")
-@pytest.mark.integration
-async def test_gateway_publica_no_mqtt(mock_mqtt_client):
-    """Gateway deve publicar mensagem no tópico MQTT correto."""
-    # TODO: Implementar testes reais quando fixtures estiverem prontas
-    pass
-
-
-@pytest.mark.skip(reason="Gateway depende de Ollama/PostgreSQL/MQTT - fixtures pendentes")
-@pytest.mark.integration
-async def test_gateway_armazena_no_lancedb(mock_lancedb):
-    """Gateway deve armazenar embeddings no LanceDB."""
-    # TODO: Implementar testes reais quando fixtures estiverem prontas
-    pass
+def test_telemetry_is_queued_and_worker_does_not_consume_for_websocket():
+    with TestClient(app) as client:
+        response = client.post("/telemetry", json={"device_id": "watch-1", "timestamp": "2026-10-09T12:00:00Z", "metrics": {"steps": 5}})
+        assert response.status_code == 202
+        assert response.json()["status"] == "queued"

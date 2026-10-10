@@ -1,182 +1,100 @@
-version: '3.8'
-
-# YBY SEED - Stack de Automação Local-First (Foco PC Hub)
-# Otimizado para: 16GB RAM, GTX 1650 (4GB VRAM), Ubuntu 26.04
-
+# Local-first development stack. Do not expose these services to untrusted networks.
 services:
-  # ============================================
-  # OLLAMA — Motor de Inferência Local (LLM)
-  # ============================================
   ollama:
-    image: ollama/ollama:latest
-    container_name: yby-ollama
+    image: ollama/ollama:0.12.6
     restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
     ports:
-      - "11434:11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-        limits:
-          cpus: '8.0'
-          memory: 8G
+      - "127.0.0.1:11434:11434"
     environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_ORIGINS=*
-      - OLLAMA_MAX_VRAM=4096  # Limitar a 4GB VRAM
-      - OLLAMA_NUM_GPU=1      # Usar 1 GPU
+      OLLAMA_HOST: 0.0.0.0
+      OLLAMA_ORIGINS: "http://localhost,http://127.0.0.1"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "ollama", "--version"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # ============================================
-  # NODE-RED — Orquestração de Fluxos
-  # ============================================
   nodered:
-    image: nodered/node-red:latest
-    container_name: yby-node-red
+    image: nodered/node-red:4.1.0
     restart: unless-stopped
     ports:
-      - "1880:1880"   # UI do Node-RED
+      - "127.0.0.1:1880:1880"
     volumes:
       - ./nodered/data:/data
-      - ./nodered/flows:/flows
     environment:
-      - TZ=America/Sao_Paulo
-      - NODE_RED_ENABLE_ADMIN_UI=true
+      TZ: America/Sao_Paulo
     depends_on:
-      - mosquitto
-      - ollama
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1880"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      mosquitto:
+        condition: service_started
 
-  # ============================================
-  # MOSQUITTO — Broker MQTT (IoT Messaging)
-  # ============================================
   mosquitto:
-    image: eclipse-mosquitto:2.0
-    container_name: yby-mosquitto
+    image: eclipse-mosquitto:2.0.22
     restart: unless-stopped
     ports:
-      - "1883:1883"   # MQTT não-criptografado (rede interna)
-      - "9001:9001"   # WebSocket (opcional, para browser)
+      - "127.0.0.1:1883:1883"
+      - "127.0.0.1:9001:9001"
     volumes:
-      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/config:/mosquitto/config:ro
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
-    healthcheck:
-      test: ["CMD", "mosquitto_sub", "-t", "#", "-C", "1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # ============================================
-  # POSTGRESQL — Banco de Dados (RAG, Memória)
-  # ============================================
   postgres:
-    image: postgres:16
-    container_name: yby-postgres
+    image: postgres:16.10-alpine
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
-      POSTGRES_USER: yby
-      POSTGRES_PASSWORD: yby_seed_password
-      POSTGRES_DB: yby_seed
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-yby_seed}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U yby"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # ============================================
-  # REDIS — Cache e Filas (Baixa Latência)
-  # ============================================
   redis:
-    image: redis:7-alpine
-    container_name: yby-redis
+    image: redis:7.4.2-alpine
     restart: unless-stopped
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # ============================================
-  # PROMETHEUS — Métricas (Grafana)
-  # ============================================
   prometheus:
-    image: prom/prometheus:latest
-    container_name: yby-prometheus
+    image: prom/prometheus:v3.7.1
     restart: unless-stopped
     volumes:
-      - ./prometheus/config:/etc/prometheus
+      - ./prometheus/config:/etc/prometheus:ro
       - prometheus_data:/prometheus
     ports:
-      - "9090:9090"
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9090/-/healthy"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - "127.0.0.1:9090:9090"
 
-  # ============================================
-  # GRAFANA — Dashboard de Métricas
-  # ============================================
   grafana:
-    image: grafana/grafana:latest
-    container_name: yby-grafana
+    image: grafana/grafana:12.2.0
     restart: unless-stopped
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=yby_grafana_password
-      - GF_USERS_ALLOW_SIGN_UP=false
-    depends_on:
-      - prometheus
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
 
-# ============================================
-# VOLUMES PERSISTENTES
-# ============================================
 volumes:
   ollama_data:
   postgres_data:
   redis_data:
   prometheus_data:
   grafana_data:
-
-# ============================================
-# REDE ISOLADA
-# ============================================
-networks:
-  default:
-    name: yby-seed-network
-    driver: bridge
