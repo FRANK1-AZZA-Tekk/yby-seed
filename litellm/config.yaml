@@ -1,31 +1,18 @@
 model_list:
-  # Modelo local (Ollama + Qwen2.5-Coder)
-  - model_name: yby-default
+  # Rota local explícita. Provedores externos devem ser configurados em aliases
+  # separados e chamados somente após a política de privacidade e consentimento.
+  - model_name: yby-local
     litellm_params:
       model: ollama_chat/qwen2.5-coder:3b-instruct-q4_K_M
       api_base: http://ollama:11434
-      timeout: 3  # Fallback após 3s
+      timeout: 60
 
-  # Fallback 1: Groq (rápido e barato)
-  - model_name: yby-default
-    litellm_params:
-      model: groq/llama-3.1-8b-instant
-      api_key: os.environ/GROQ_API_KEY
-
-  # Fallback 2: OpenRouter (acesso a GPT-4o-mini, Claude, etc.)
-  - model_name: yby-default
-    litellm_params:
-      model: openrouter/meta-llama/llama-3.1-8b-instruct
-      api_key: os.environ/OPENROUTER_API_KEY
-
-# Configurações de roteamento
 router_settings:
   routing_strategy: simple-shuffle
-  set_verbose: true
-  num_retries: 2
-  timeout: 10
+  set_verbose: false
+  num_retries: 0
+  timeout: 60
 
-# Logging e observabilidade
 general_settings:
-  master_key: sk-yby-master-key-2026  # Trocar em produção
+  master_key: os.environ/LITELLM_MASTER_KEY
   database_url: sqlite:///litellm_logs.db
