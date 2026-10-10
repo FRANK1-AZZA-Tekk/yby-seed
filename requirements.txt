@@ -8,3 +8,4 @@ pydantic-settings>=2.4,<3
 click>=8.1,<9
 loguru>=0.7,<1
 lancedb>=0.20,<1
+ollama>=0.4,<1

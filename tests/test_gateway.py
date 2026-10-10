@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -44,8 +46,6 @@ def test_full_queue_returns_503(monkeypatch):
     class FullQueue:
         def put_nowait(self, _item):
             raise asyncio.QueueFull
-
-    import asyncio
 
     monkeypatch.setattr("src.gateway.fastapi_mqtt_bridge.telemetry_queue", FullQueue())
     payload = {
