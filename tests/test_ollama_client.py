@@ -3,11 +3,7 @@ import json
 import pytest
 import requests
 
-from src.core.ollama_client import (
-    OllamaClient,
-    OllamaHTTPError,
-    OllamaProtocolError,
-)
+from src.core.ollama_client import OllamaClient, OllamaHTTPError, OllamaProtocolError
 
 
 class FakeResponse:
@@ -35,10 +31,11 @@ class FakeResponse:
 
 
 class FakeSession:
-    def __init__(self, post_response=None, get_response=None, post_error=None):
+    def __init__(self, post_response=None, get_response=None, post_error=None, get_error=None):
         self.post_response = post_response
         self.get_response = get_response
         self.post_error = post_error
+        self.get_error = get_error
         self.kwargs = None
 
     def post(self, url, **kwargs):
@@ -49,42 +46,56 @@ class FakeSession:
 
     def get(self, url, **kwargs):
         self.kwargs = kwargs
+        if self.get_error:
+            raise self.get_error
         return self.get_response
 
 
-def test_generate_success_and_timeout_passed():
+def test_generate_success_closes_response_and_sets_timeout():
     response = FakeResponse({"response": "olá"})
     session = FakeSession(post_response=response)
-    client = OllamaClient(session=session, timeout=(2, 10))
+    client = OllamaClient(session=session, timeout=(2.0, 10.0))
     assert client.generate("model", "oi") == "olá"
-    assert session.kwargs["timeout"] == (2, 10)
+    assert session.kwargs["timeout"] == (2.0, 10.0)
     assert response.closed
 
 
-def test_http_error_is_not_hidden():
+def test_timeout_is_reported_as_http_error():
     session = FakeSession(post_error=requests.Timeout("timeout"))
-    client = OllamaClient(session=session)
     with pytest.raises(OllamaHTTPError):
-        client.generate("model", "oi")
+        OllamaClient(session=session).generate("model", "oi")
 
 
-def test_invalid_json_response_raises_protocol_error():
-    response = FakeResponse(json_error=json.JSONDecodeError("bad", "x", 0))
-    client = OllamaClient(session=FakeSession(post_response=response))
-    with pytest.raises(OllamaProtocolError):
-        client.generate("model", "oi")
-    assert response.closed
-
-
-def test_stream_closes_response_after_consumption():
-    response = FakeResponse(lines=[b'{"response":"a"}', b'{"response":"b"}'])
-    client = OllamaClient(session=FakeSession(post_response=response))
-    assert list(client.generate("model", "oi", stream=True)) == ['{"response":"a"}', '{"response":"b"}']
-    assert response.closed
-
-
-def test_list_models_http_error_raises():
+def test_http_status_error_is_not_hidden():
     response = FakeResponse(status=503)
-    client = OllamaClient(session=FakeSession(get_response=response))
     with pytest.raises(OllamaHTTPError):
-        client.list_models()
+        OllamaClient(session=FakeSession(post_response=response)).generate("model", "oi")
+
+
+def test_invalid_json_raises_protocol_error_and_closes():
+    response = FakeResponse(json_error=json.JSONDecodeError("bad", "x", 0))
+    with pytest.raises(OllamaProtocolError):
+        OllamaClient(session=FakeSession(post_response=response)).generate("model", "oi")
+    assert response.closed
+
+
+def test_stream_parses_events_and_closes():
+    response = FakeResponse(lines=[b'{"response":"a"}', b'{"response":"b"}'])
+    chunks = OllamaClient(session=FakeSession(post_response=response)).generate("model", "oi", stream=True)
+    assert list(chunks) == ['{"response":"a"}', '{"response":"b"}']
+    assert response.closed
+
+
+def test_stream_closes_if_consumer_stops_early():
+    response = FakeResponse(lines=[b'{"response":"a"}', b'{"response":"b"}'])
+    chunks = OllamaClient(session=FakeSession(post_response=response)).generate("model", "oi", stream=True)
+    next(chunks)
+    chunks.close()
+    assert response.closed
+
+
+def test_list_models_rejects_invalid_shape():
+    response = FakeResponse({"models": ["not-an-object"]})
+    with pytest.raises(OllamaProtocolError):
+        OllamaClient(session=FakeSession(get_response=response)).list_models()
+    assert response.closed

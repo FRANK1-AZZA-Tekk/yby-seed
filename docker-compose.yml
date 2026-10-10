@@ -1,7 +1,7 @@
 version: '3.8'
 
-# YBY SEED — compose safe defaults for local-first development.
-# Copy docker-compose.env.example to .env and fill local values; never commit .env.
+# YBY SEED: local defaults. Copy docker-compose.env.example to .env.
+# Keep Ollama bound to loopback; use Tailscale Serve for approved remote web UIs.
 services:
   ollama:
     image: ollama/ollama:0.12.11
@@ -9,7 +9,6 @@ services:
     restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
-    # Ollama API has no built-in local API authentication. Keep it host-local.
     ports:
       - "127.0.0.1:11434:11434"
     deploy:
@@ -34,7 +33,7 @@ services:
     container_name: yby-node-red
     restart: unless-stopped
     ports:
-      - "${TAILSCALE_HOST_IP:?Set TAILSCALE_HOST_IP in .env}:1880:1880"
+      - "127.0.0.1:1880:1880"
     volumes:
       - ./nodered/data:/data
       - ./nodered/flows:/flows
@@ -48,7 +47,9 @@ services:
     image: eclipse-mosquitto:2.0.22
     container_name: yby-mosquitto
     restart: unless-stopped
-    # Keep broker internal; publish only after configuring authentication/ACLs.
+    ports:
+      - "127.0.0.1:1883:1883"
+      - "127.0.0.1:9001:9001"
     volumes:
       - ./mosquitto/config:/mosquitto/config:ro
       - ./mosquitto/data:/mosquitto/data
@@ -60,6 +61,8 @@ services:
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: yby
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
@@ -76,6 +79,8 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
 
   prometheus:
     image: prom/prometheus:v3.5.0
@@ -84,11 +89,11 @@ services:
     volumes:
       - ./prometheus/config:/etc/prometheus:ro
       - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-    ports:
-      - "127.0.0.1:9090:9090"
 
   grafana:
     image: grafana/grafana:12.1.1
@@ -99,7 +104,7 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     ports:
-      - "${TAILSCALE_HOST_IP:?Set TAILSCALE_HOST_IP in .env}:3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:?Set GF_SECURITY_ADMIN_PASSWORD in .env}
       GF_USERS_ALLOW_SIGN_UP: "false"
