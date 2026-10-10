@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main, ci-fix]
+    branches:
+      - main
+      - ci-fix
+      - 'hardening/**'
   pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   lint-and-test:
