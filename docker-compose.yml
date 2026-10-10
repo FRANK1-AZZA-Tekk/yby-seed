@@ -1,7 +1,7 @@
 version: '3.8'
 
 # YBY SEED: local defaults. Copy docker-compose.env.example to .env.
-# Keep Ollama bound to loopback; use Tailscale Serve for approved remote web UIs.
+# Keep published ports on loopback. Use Tailscale Serve selectively for UIs.
 services:
   ollama:
     image: ollama/ollama:0.12.11
@@ -29,7 +29,7 @@ services:
       retries: 3
 
   nodered:
-    image: nodered/node-red:4.1.4
+    image: nodered/node-red:4.1.4-22
     container_name: yby-node-red
     restart: unless-stopped
     ports:

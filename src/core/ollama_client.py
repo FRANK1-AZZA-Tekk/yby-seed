@@ -57,6 +57,8 @@ class OllamaClient:
             response.raise_for_status()
             return response
         except requests.RequestException as exc:
+            if "response" in locals():
+                response.close()
             raise OllamaHTTPError(f"Falha na chamada Ollama {endpoint}: {exc}") from exc
 
     def _get(self, endpoint: str) -> requests.Response:
@@ -65,6 +67,8 @@ class OllamaClient:
             response.raise_for_status()
             return response
         except requests.RequestException as exc:
+            if "response" in locals():
+                response.close()
             raise OllamaHTTPError(f"Falha na chamada Ollama {endpoint}: {exc}") from exc
 
     @staticmethod

@@ -3,7 +3,7 @@ import json
 import pytest
 import requests
 
-from src.core.ollama_client import OllamaClient, OllamaHTTPError, OllamaProtocolError
+from src.core.ollama_client import OllamaClient, OllamaClientError, OllamaHTTPError, OllamaProtocolError
 
 
 class FakeResponse:
@@ -66,10 +66,11 @@ def test_timeout_is_reported_as_http_error():
         OllamaClient(session=session).generate("model", "oi")
 
 
-def test_http_status_error_is_not_hidden():
+def test_http_status_error_closes_response():
     response = FakeResponse(status=503)
     with pytest.raises(OllamaHTTPError):
         OllamaClient(session=FakeSession(post_response=response)).generate("model", "oi")
+    assert response.closed
 
 
 def test_invalid_json_raises_protocol_error_and_closes():
@@ -94,7 +95,15 @@ def test_stream_closes_if_consumer_stops_early():
     assert response.closed
 
 
-def test_list_models_rejects_invalid_shape():
+def test_stream_propagates_ollama_error_and_closes():
+    response = FakeResponse(lines=[b'{"error":"model not found"}'])
+    chunks = OllamaClient(session=FakeSession(post_response=response)).generate("model", "oi", stream=True)
+    with pytest.raises(OllamaClientError):
+        list(chunks)
+    assert response.closed
+
+
+def test_list_models_rejects_invalid_shape_and_closes():
     response = FakeResponse({"models": ["not-an-object"]})
     with pytest.raises(OllamaProtocolError):
         OllamaClient(session=FakeSession(get_response=response)).list_models()
