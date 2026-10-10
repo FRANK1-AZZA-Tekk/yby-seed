@@ -17,9 +17,12 @@ ENV/
 *.log
 logs/
 
-# Environment variables
+# Environment variables and secrets
 .env
-.env.local
+.env.*
+!.env.example
+!.env.*.example
+litellm/.env
 
 # Docker volumes
 mosquitto/data/
