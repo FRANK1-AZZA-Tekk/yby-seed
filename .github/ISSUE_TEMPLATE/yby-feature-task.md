@@ -1,6 +1,6 @@
 ---
 name: Tarefa de produto/engenharia YBY SEED
-about: Definir uma tarefa pequena, verificável e aprovada para o YBY SEED
+about: Propor uma tarefa pequena e verificável para o YBY SEED
 title: "[YBY] "
 labels: ["enhancement"]
 assignees: []
@@ -16,7 +16,7 @@ Quem enfrenta qual problema? Em que contexto?
 
 ## Comportamento esperado
 
-Descreva o fluxo observável antes e depois da mudança. Marque fatos confirmados e hipóteses separadamente.
+Descreva o fluxo observável antes e depois da mudança. Separe fatos confirmados de hipóteses.
 
 ## Escopo
 
@@ -28,25 +28,29 @@ Descreva o fluxo observável antes e depois da mudança. Marque fatos confirmado
 
 ## Critérios de aceite
 
-- [ ] Um resultado verificável pelo usuário.
-- [ ] Requisitos e ambiguidades relevantes estão documentados.
-- [ ] Nenhuma ação externa ou irreversível ocorre sem aprovação explícita.
+Liste resultados que outra pessoa consiga verificar. Inclua apenas requisitos relevantes para esta tarefa.
 
-## Testes
+- [ ] Resultado observável definido.
+- [ ] Ambiguidades e hipóteses relevantes identificadas.
+- [ ] Teste ou método de verificação reproduzível descrito.
 
-- [ ] Teste automatizado ou manual reproduzível definido.
-- [ ] Regressões relevantes consideradas.
-- [ ] Resultado esperado registrado.
+## Testes e regressões
+
+Descreva comandos ou passos de teste e o resultado esperado. Indique regressões relevantes; use “não aplicável” se necessário.
 
 ## Segurança, privacidade e custo
 
-Indique dados tratados, permissões, dependências externas, riscos e custos. Use “não aplicável” quando apropriado.
+Descreva dados tratados, permissões, dependências externas, riscos e custos pertinentes. Use “não aplicável” quando não houver impacto conhecido. Qualquer ação externa, destrutiva, privilegiada ou com custo precisa de autorização específica no momento da execução.
 
-## Plano de implementação
+## Plano de implementação (opcional)
 
-Liste tarefas pequenas, arquivos/componentes prováveis e dependências. Não executar alterações antes de aprovar o escopo.
+Se já conhecido, liste tarefas pequenas, componentes/arquivos prováveis e dependências. A solução técnica pode ser definida após a revisão dos requisitos.
 
-## Aprovação
+## Registro de revisão e aprovação de escopo
 
-- [ ] O usuário aprovou este escopo para implementação.
-- [ ] O usuário aprovou separadamente qualquer ação externa, destrutiva, privilegiada ou com custo.
+- Decisão: [ ] proposta  [ ] aprovada para planejamento  [ ] aprovada para implementação  [ ] rejeitada
+- Escopo exato aprovado, se aplicável:
+- Pessoa que aprovou:
+- Data:
+
+A aprovação nesta issue registra somente o escopo acima. Ela não autoriza automaticamente comandos, alterações fora do escopo, instalação de dependências, publicação, chamadas externas ou ações destrutivas/com custo. Essas ações exigem autorização específica antes da execução.

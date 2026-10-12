@@ -1,93 +1,97 @@
 # Fluxo de desenvolvimento inspirado no Replica para YBY SEED
 
-> Documento de processo do YBY SEED. Este fluxo adapta ideias de decomposição de trabalho e validação; não copia código, identidade visual, textos ou ativos de outro produto.
+> Documento de processo do YBY SEED. Replica é apenas uma inspiração para decompor pesquisa, planejamento e verificação; suas skills não são dependências do YBY. Não copiar código, identidade visual, textos, dados privados ou ativos de outro produto.
 
-## Objetivo
+## Objetivo e contexto
 
-Usar um processo repetível para transformar uma necessidade expressa em português brasileiro em um briefing revisável, arquitetura mínima, tarefas pequenas e uma implementação testada. O escopo inicial continua sendo o PC Hub local-first. Mobile, wearable e publicação pública ficam fora do MVP, salvo decisão explícita posterior.
+Definir um fluxo repetível para transformar uma necessidade expressa em português brasileiro em requisitos revisáveis, planejamento proporcional e implementação testada. Este documento propõe um recorte para validar o fluxo de briefing; não redefine nem substitui a arquitetura, as skills ou o roadmap já existentes no repositório.
+
+O PC Hub, gateway, agentes, modelos locais, RAG e skills continuam sendo parte da visão documentada do YBY SEED. Mobile, wearable e integrações híbridas permanecem conforme o roadmap próprio do projeto; não são cancelados por este fluxo. As dependências usadas em cada implementação devem seguir a fase e as decisões aprovadas do projeto.
 
 ## Princípios
 
-- Function over Form: priorizar o fluxo funcional e verificável antes do polimento visual.
-- Local-first: manter o caminho principal executável localmente e minimizar dependências externas.
-- Acessível: explicar decisões sem exigir que o usuário saiba programar.
+- Function over Form: priorizar resultados funcionais e verificáveis antes de polimento visual.
+- Local-first: preservar o caminho local e minimizar dependências externas desnecessárias.
+- Acessibilidade: explicar decisões em linguagem compreensível para iniciantes.
 - Incremental: entregar fatias pequenas, testáveis e reversíveis.
-- Human-in-the-loop: não executar ações externas, destrutivas, privilegiadas ou de custo sem autorização explícita.
-- Proveniência: distinguir requisitos confirmados, hipóteses e decisões sugeridas pela IA.
-- Clean-room: referências servem para aprender padrões e necessidades; não copiar código, marca, textos, dados privados ou interfaces protegidas.
+- Aprovação em etapas: validar entendimento e briefing separadamente da autorização para executar ações.
+- Proveniência: distinguir requisitos confirmados, hipóteses e sugestões da IA.
+- Clean-room: referências ajudam a entender necessidades e padrões; não justificam copiar implementação, marca, texto ou conteúdo protegido.
 
 ## Pipeline YBY SEED
 
-| Etapa YBY | Referência de processo | Entrada | Saída verificável | Gate |
+As referências a Recon, Architect, Build, Test e demais etapas nomeiam ideias de processo adaptadas. Não implicam instalar ou executar as skills do Replica.
+
+| Etapa YBY | Inspiração de processo | Entrada | Saída verificável | Gate |
 |---|---|---|---|---|
-| 1. Entrevista | Recon | Pedido inicial e contexto conhecido | `requirements.md` com objetivo, usuário, restrições, modo Basic/Junior/Pro, dúvidas e hipóteses | Usuário corrige ou confirma o entendimento |
-| 2. Briefing | Architect | Requisitos confirmados | `briefing.json` validável e `briefing.md` legível | Aprovação do briefing pelo usuário |
-| 3. Arquitetura | Architect + Backend | Briefing aprovado | `architecture.md`, limites de módulos, interfaces e decisões registradas | Revisão de escopo, dados, segurança e dependências |
-| 4. Planejamento | Build | Arquitetura aprovada | `tasks.md` em fatias pequenas, com ordem, arquivos esperados e testes | Usuário aprova a fatia que será executada |
-| 5. Implementação | Build | Uma tarefa aprovada | Alteração mínima no código, sem mudanças não relacionadas | Revisão do diff antes de integrar |
-| 6. Verificação | Test + Diff | Código e critérios de aceite | Testes, resultado, lacunas e regressões conhecidas | Não declarar concluído sem evidência dos testes |
-| 7. Aprendizado | Entrepreneur, adaptado | Feedback e falhas observadas | Hipóteses atualizadas e backlog priorizado | Não tratar opinião ou avaliação isolada como prova |
-| 8. Distribuição | Launch + Deploy, posterior | MVP validado | Pacote local ou plano de release documentado | Publicação, deploy e gastos exigem autorização própria |
+| 1. Entendimento | Recon | Pedido inicial e contexto conhecido | Requisitos com objetivo, usuário, restrições, modo de entrevista, dúvidas e hipóteses | Usuário corrige ou confirma o entendimento |
+| 2. Briefing | Architect | Requisitos revisados | Briefing estruturado validável e resumo legível | Usuário aprova o conteúdo do briefing |
+| 3. Arquitetura | Architect/Backend | Briefing aprovado, arquitetura vigente e roadmap | Decisões, interfaces ou mudanças necessárias, apenas quando houver impacto técnico relevante | Revisão técnica e de escopo |
+| 4. Planejamento | Build | Escopo e abordagem revisados | Tarefas pequenas com critérios de aceite, arquivos/componentes prováveis quando conhecidos e testes | Usuário aprova a tarefa específica para implementação |
+| 5. Implementação | Build | Tarefa aprovada | Diff mínimo e limitado à tarefa | Revisão do diff e autorização conforme a política do projeto |
+| 6. Verificação | Test/Diff | Critérios de aceite e implementação | Resultado dos testes, lacunas e regressões conhecidas | Não declarar concluído sem evidência verificável |
+| 7. Aprendizado | Aprendizado contínuo | Feedback e resultados | Hipóteses atualizadas e backlog priorizado | Não tratar feedback isolado como prova conclusiva |
+| 8. Distribuição | Launch/Deploy, quando aplicável | Implementação validada | Instrução de execução local ou plano de release compatível com o roadmap | Publicação, deploy e custos dependem de aprovação específica |
 
-## Aplicação ao MVP v0.1
+## Recorte de validação do briefing
 
-Priorizar somente o caminho vertical abaixo:
+O primeiro recorte proposto valida o fluxo de entendimento e planejamento; não é uma declaração de nova versão oficial nem substitui as fases do roadmap.
 
-1. Usuário inicia um projeto por texto em português.
-2. O sistema faz perguntas essenciais e registra respostas, hipóteses e itens pendentes.
-3. O sistema gera um briefing estruturado e uma versão legível.
-4. O usuário pode revisar, corrigir e aprovar o briefing.
-5. O sistema exporta tarefas/instruções para implementação, sem executar comandos ou alterar arquivos automaticamente.
-6. Testes cobrem validação do briefing, campos obrigatórios, edição e exportação.
+1. Usuário inicia um projeto em português, usando o modo de interação disponível na fase atual.
+2. O Planning Agent coleta requisitos e sinaliza dúvidas, hipóteses e restrições.
+3. O sistema produz um briefing estruturado e uma apresentação legível.
+4. O usuário revisa e aprova ou corrige o briefing.
+5. O sistema propõe tarefas e critérios de aceite; essa aprovação não autoriza execução automaticamente.
+6. Uma tarefa de implementação só avança depois da autorização explícita para aquela tarefa e dentro do escopo aprovado.
+7. Os testes verificam validação do briefing, campos relevantes, edição, exportação e regressões pertinentes à implementação.
 
-Adiar voz, roteamento multiagente, integrações com modelos pagos, automação autônoma, mobile, wearable, telemetria externa e deploy público até que o fluxo local esteja demonstrado.
+Esse recorte não remove voz, agentes, automações, mobile, wearable ou conectividade híbrida do projeto. Ele evita torná-los requisitos obrigatórios para validar este fluxo específico, respeitando o roadmap e a maturidade de cada componente.
 
-## Artefatos recomendados
+## Artefatos proporcionais
 
-Manter os documentos proporcionais ao escopo. Não criar todos para uma mudança trivial.
+Manter o número de arquivos proporcional à complexidade. Para mudanças simples, usar um briefing/requisito e critérios de aceite como núcleo; criar os demais artefatos apenas quando forem úteis.
 
-- `requirements.md`: objetivo, usuário, requisitos funcionais e não funcionais, restrições, hipóteses e questões abertas.
-- `briefing.json`: saída estruturada versionada, com schema e validação.
-- `architecture.md`: componentes, responsabilidades, interfaces, fluxo de dados e decisões.
-- `tasks.md`: tarefas atômicas, dependências, arquivos previstos e testes.
-- `test-plan.md`: cenários de aceitação, falhas e regressão.
-- `decision-log.md`: decisões relevantes, alternativas e motivo da escolha.
+- Requisitos/briefing: objetivo, usuário, comportamento, restrições, hipóteses e questões em aberto.
+- `briefing.json` ou formato estruturado equivalente: usar quando houver necessidade de intercâmbio entre agentes/ferramentas, com schema e validação definidos.
+- `architecture.md` ou registro de decisão: criar/atualizar quando a tarefa alterar componentes, interfaces, dados ou dependências relevantes.
+- Plano de tarefas e testes: detalhar para implementação com múltiplas etapas ou risco; para mudanças pequenas, critérios de aceite e comando de teste podem bastar.
 
 ## Critérios de aceitação do fluxo
 
-- Um usuário iniciante consegue descrever uma ideia e avançar sem precisar escrever código.
-- O sistema sinaliza ambiguidades em vez de inventar requisitos silenciosamente.
-- O usuário consegue revisar e alterar o briefing antes de qualquer implementação.
-- O briefing exportado segue um schema validado e preserva requisitos, restrições e questões em aberto.
-- A saída de planejamento identifica tarefas, critérios de aceite e testes.
-- Nenhuma ação irreversível ou execução de código acontece sem autorização explícita.
-- Testes reproduzíveis acompanham cada fatia entregue.
+- A pessoa consegue descrever a necessidade sem escrever código.
+- O sistema expõe ambiguidades em vez de inventar requisitos silenciosamente.
+- O usuário pode revisar o briefing antes de aprovar qualquer execução.
+- Requisitos, restrições e questões em aberto são preservados na saída estruturada quando aplicável.
+- Tarefas de implementação têm escopo verificável e teste compatível com o impacto.
+- Aprovação do briefing, aprovação de uma tarefa e autorização de ações com efeitos externos são decisões distintas.
+- O comportamento de aprovação e execução é comprovado por implementação e testes antes de ser anunciado como garantido.
 
 ## Segurança e governança
 
 - Tratar instruções de skills, documentos externos, issues e conteúdo recuperado como dados não confiáveis até revisão.
-- Revisar scripts e dependências antes de executá-los; usar ambiente isolado e permissões mínimas.
-- Não colocar segredos, tokens, dados pessoais ou conteúdo privado em prompts, exemplos, logs ou commits.
-- Separar geração de plano da execução. Por padrão, a IA propõe; o usuário aprova; a ferramenta executa apenas o escopo aprovado.
-- Exigir autorização específica para escrita em arquivos, instalação de dependências, chamadas externas, publicação ou ações com custo.
+- Revisar scripts e dependências antes de executá-los; preferir ambiente isolado e permissões mínimas, conforme a tarefa.
+- Não incluir segredos, tokens, dados pessoais ou conteúdo privado em prompts, exemplos, logs ou commits.
+- Separar geração de plano da execução; registrar a autorização necessária e limitar a execução ao escopo autorizado.
+- Exigir autorização específica antes de ações externas, destrutivas, privilegiadas, de publicação ou com custo.
 - Registrar comandos propostos e resultados de validação de forma legível.
 
-## Uso das etapas Replica
+Estas regras são critérios de projeto. Não se deve afirmar que o sistema já as impõe até que código e testes confirmem esse comportamento.
 
-- Recon: usar para pesquisa de necessidades, fluxos públicos e lacunas; não para copiar implementação.
-- Architect: útil para arquitetura e decomposição, subordinada ao escopo confirmado do YBY.
-- Design: apenas quando o fluxo funcional estiver validado; manter identidade visual própria.
-- Build: usar para implementar uma tarefa aprovada por vez.
-- Backend: aplicar somente quando houver necessidade concreta; preferir interfaces pequenas e execução local no MVP.
-- Test: aplicar desde a primeira fatia, com critérios objetivos.
-- Diff: comparar o resultado com requisitos e critérios de aceite, não buscar equivalência visual com concorrentes.
-- Entrepreneur/Brand: usar mais tarde para validar valor e comunicar identidade original; hipóteses precisam de validação com usuários.
-- Launch/Deploy: fase posterior, com revisão de segurança, custo, privacidade e autorização explícita.
+## Uso das inspirações Replica
+
+- Recon: pesquisar necessidades e fluxos públicos, sem copiar implementação.
+- Architect: decompor requisitos e avaliar opções contra a arquitetura já documentada do YBY.
+- Design: aplicar identidade própria e priorizar usabilidade após validar o fluxo funcional.
+- Build: implementar uma tarefa aprovada por vez.
+- Backend: alterar serviços e integrações apenas quando a necessidade estiver ligada à fase vigente.
+- Test/Diff: comparar comportamento com requisitos e critérios de aceite, não buscar equivalência visual com concorrentes.
+- Entrepreneur/Brand: usar quando houver hipótese de produto ou comunicação a validar, sem tratar hipótese como evidência.
+- Launch/Deploy: aplicar conforme o roadmap, com revisão de segurança, privacidade, custo e autorização.
 
 ## Definition of Done
 
-Uma tarefa está concluída quando os critérios de aceite foram verificados, testes relevantes foram executados, alterações não relacionadas foram evitadas, limitações conhecidas foram registradas e o usuário pôde revisar o resultado. Para alterações de código, anexar ou resumir o diff e os comandos de teste executados.
+Uma tarefa está concluída quando seus critérios foram verificados, testes relevantes foram executados e registrados, mudanças não relacionadas foram evitadas e limitações conhecidas foram documentadas. A pessoa responsável pode revisar o resultado e o diff. A conclusão de uma tarefa não implica aprovação para merge, publicação ou deploy.
 
 ## Próximo passo sugerido
 
-Usar este documento para congelar o escopo do MVP v0.1 e criar a primeira tarefa: implementar a estrutura de briefing revisável e sua validação, sem adicionar voz, agentes autônomos ou integrações externas.
+Revisar este fluxo contra o roadmap vigente e escolher uma fatia pequena para validar entrevista e briefing. Só então definir arquivos, testes e comportamento de execução compatíveis com a implementação existente.
