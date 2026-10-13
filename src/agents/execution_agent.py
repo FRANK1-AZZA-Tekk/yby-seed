@@ -89,11 +89,12 @@ if __name__ == "__main__":
 
         logger.info("📝 Gerando código Python...")
 
+        context_section = f"Contexto adicional:\n{context}" if context else ""
         prompt = f"""
 PRD:
 {prd}
 
-{f'Contexto adicional:\n{context}' if context else ''}
+{context_section}
 
 Gere o código Python completo e funcional.
 Inclua TODOS os imports necessários.
