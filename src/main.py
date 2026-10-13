@@ -16,6 +16,7 @@ from src.core.ollama_client import OllamaClient, OllamaError
 from src.agents.router_agent import RouterAgent
 from src.agents.planning_agent import PlanningAgent
 from src.agents.execution_agent import ExecutionAgent
+from src.agents.validation_agent import ValidationAgent
 from src.rag.rag_optimizer import RAGOptimizer
 
 # Configura logging
@@ -85,6 +86,8 @@ def run(command: str, host: str, port: int, rag: bool):
         f"entrevista={requires_interview}"
     )
 
+    validator = ValidationAgent()
+
     if agent == "planning":
         planner = PlanningAgent(ollama)
         try:
@@ -108,6 +111,17 @@ def run(command: str, host: str, port: int, rag: bool):
         except OllamaError as e:
             logger.error(f"❌ Falha no ExecutionAgent: {e}")
             sys.exit(1)
+
+        # Validação do código gerado
+        is_valid, errors = validator.validate(generated.code)
+
+        if not is_valid:
+            logger.error(f"❌ Código gerado falhou na validação: {errors}")
+            suggestions = validator.suggest_fixes(generated.code, errors)
+            logger.info(f"💡 Sugestões: {suggestions}")
+            sys.exit(1)
+
+        logger.info("✅ Código validado com sucesso")
 
         click.echo("\n--- PRD ---\n")
         click.echo(prd.model_dump_json(indent=2))
@@ -133,6 +147,17 @@ def run(command: str, host: str, port: int, rag: bool):
         except OllamaError as e:
             logger.error(f"❌ Falha no ExecutionAgent: {e}")
             sys.exit(1)
+
+        # Validação do código gerado
+        is_valid, errors = validator.validate(generated.code)
+
+        if not is_valid:
+            logger.error(f"❌ Código gerado falhou na validação: {errors}")
+            suggestions = validator.suggest_fixes(generated.code, errors)
+            logger.info(f"💡 Sugestões: {suggestions}")
+            sys.exit(1)
+
+        logger.info("✅ Código validado com sucesso")
 
         click.echo("\n--- RESPOSTA ---\n")
         click.echo(generated.code)
