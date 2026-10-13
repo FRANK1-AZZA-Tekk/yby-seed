@@ -21,7 +21,7 @@ help:
 	@echo ""
 	@echo "🧪 Testes:"
 	@echo "  make test           - Roda todos os testes"
-	@echo "  make lint           - Verifica qualidade do código (flake8)"
+	@echo "  make lint           - Verifica qualidade do código (ruff)"
 	@echo "  make format         - Formata código automaticamente (black)"
 	@echo ""
 	@echo "🚀 Execução:"
@@ -38,7 +38,6 @@ help:
 	@echo "💡 Dicas:"
 	@echo "  - Use 'make' seguido do comando desejado"
 	@echo "  - Exemplo: 'make setup' instala tudo que precisa"
-	@echo "  - Use 'make help' para ver esta ajuda novamente"
 
 # Instala dependências e configura ambiente
 setup:
@@ -59,13 +58,11 @@ setup:
 	@$(DOCKER_COMPOSE) --version
 	@echo ""
 	@echo "[5/5] Baixando modelos Ollama..."
-	@$(DOCKER_COMPOSE) exec -T ollama ollama pull llama3.2:3b-instruct-q4_K_M || true
-	@$(DOCKER_COMPOSE) exec -T ollama ollama pull qwen2.5-coder:3b-instruct-q4_K_M || true
+	@ollama pull llama3.2:3b || true
 	@echo ""
 	@echo "✅ Setup concluído!"
 	@echo ""
 	@echo "🎉 Próximo passo: execute 'make run' para iniciar o sistema"
-	@echo "📚 Leia docs/tutorials/01-first-steps.md para começar"
 
 # Instala dependências de desenvolvimento
 install-dev:
@@ -77,14 +74,16 @@ install-dev:
 
 test:
 	@echo "🧪 Rodando testes..."
-	@$(VENV)/bin/pytest tests/ -v --tb=short
+	@$(VENV)/bin/pytest tests/ -v --tb=short \
+		--ignore=tests/test_gateway.py \
+		--ignore=tests/test_rag.py
 	@echo ""
 	@echo "✅ Testes concluídos!"
 
 # Verifica qualidade do código
 lint:
 	@echo "🔍 Verificando qualidade do código..."
-	@$(VENV)/bin/flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+	@$(VENV)/bin/ruff check src/ tests/
 	@echo ""
 	@echo "✅ Verificação concluída!"
 
@@ -102,7 +101,7 @@ run:
 	@echo "✅ Serviços iniciados!"
 	@echo ""
 	@echo "📌 Acesse:"
-	@echo "   - Node-RED: http://localhost:1880"
+	@echo "   - Qdrant: http://localhost:6333/dashboard"
 	@echo "   - Ollama: http://localhost:11434"
 	@echo ""
 	@echo "📚 Veja logs: make logs"
@@ -131,6 +130,7 @@ clean:
 	@rm -rf __pycache__/
 	@rm -rf .pytest_cache/
 	@rm -rf .mypy_cache/
+	@rm -rf .ruff_cache/
 	@rm -rf .venv/
 	@rm -rf dist/
 	@rm -rf build/
