@@ -5,17 +5,42 @@ Router Agent - Classifica intenção e roteia para agente correto
 Uso:
     router = RouterAgent(ollama_client)
     result = router.classify("Crie um script de backup")
-    # Output: {"agent": "planning", "intent": "backup_automation"}
+    # Output: RouterResult(agent="planning", intent="backup_automation", ...)
 """
 
-from typing import Dict, Any
+import json
+import re
+from typing import Literal
 from loguru import logger
+from pydantic import BaseModel, Field, ValidationError
+
 from src.core.ollama_client import OllamaClient
 
 
+class RouterResult(BaseModel):
+    """Schema Pydantic para o resultado do RouterAgent."""
+
+    agent: Literal["planning", "execution"] = Field(
+        description="Agente de destino"
+    )
+    intent: str = Field(
+        description="Intenção classificada",
+        min_length=1,
+    )
+    confidence: float = Field(
+        description="Confiança da classificação (0.0 a 1.0)",
+        ge=0.0,
+        le=1.0,
+    )
+    requires_interview: bool = Field(
+        description="Se requer entrevista por voz",
+        default=False,
+    )
+
+
 class RouterAgent:
-    """Agente de roteamento baseado em Llama 3.2 3B"""
-    
+    """Agente de roteamento baseado em Llama 3.2 3B com validação Pydantic."""
+
     SYSTEM_PROMPT = """
 Você é um Router Agent que classifica intenções de usuários.
 
@@ -42,23 +67,23 @@ Formato de saída (JSON):
     "requires_interview": true | false
 }
 """
-    
+
     def __init__(self, ollama: OllamaClient):
         self.ollama = ollama
         self.model = "llama3.2:3b-instruct-q4_K_M"
-        logger.info("🎯 Router Agent inicializado")
-    
-    def classify(self, user_command: str) -> Dict[str, Any]:
-        """Classifica intenção do usuário"""
-        
+        logger.info("🎯 Router Agent inicializado (com validação Pydantic)")
+
+    def classify(self, user_command: str) -> RouterResult:
+        """Classifica intenção do usuário e valida com Pydantic."""
+
         logger.info(f"🔍 Classificando: {user_command[:50]}...")
-        
+
         prompt = f"""
 Comando do usuário: "{user_command}"
 
 Classifique a intenção e retorne APENAS o JSON:
 """
-        
+
         response = self.ollama.generate(
             model=self.model,
             prompt=prompt,
@@ -69,39 +94,38 @@ Classifique a intenção e retorne APENAS o JSON:
                 "top_p": 0.9
             }
         )
-        
-        # Parse JSON da resposta
-        import json
-        import re
-        
-        # Extrai JSON da resposta (pode ter texto antes/depois)
+
+        # Extrai JSON da resposta
         json_match = re.search(r'\{[^}]+\}', response, re.DOTALL)
-        
+
         if json_match:
             try:
-                result = json.loads(json_match.group())
-                logger.info(f"✅ Classificado: {result}")
+                data = json.loads(json_match.group())
+                result = RouterResult(**data)
+                logger.info(f"✅ Classificado e validado: {result}")
                 return result
-            
-            except json.JSONDecodeError:
-                logger.warning("⚠️  JSON inválido, usando fallback")
-        
+            except json.JSONDecodeError as e:
+                logger.warning(f"⚠️  JSON inválido: {e}")
+            except ValidationError as e:
+                logger.warning(f"⚠️  Validação Pydantic falhou: {e}")
+
         # Fallback
-        return {
-            "agent": "planning",
-            "intent": "unknown",
-            "confidence": 0.5,
-            "requires_interview": True
-        }
-    
+        logger.warning("⚠️  Usando fallback (planning, unknown, 0.5)")
+        return RouterResult(
+            agent="planning",
+            intent="unknown",
+            confidence=0.5,
+            requires_interview=True,
+        )
+
     def should_use_voice_interview(self, intent: str) -> bool:
-        """Decide se usa entrevista por voz (complexidade alta)"""
-        
+        """Decide se usa entrevista por voz (complexidade alta)."""
+
         voice_interview_intents = [
             "backup_automation",
             "api_integration",
             "data_processing",
             "notification_system"
         ]
-        
+
         return intent in voice_interview_intents
