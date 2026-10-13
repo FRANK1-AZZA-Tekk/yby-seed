@@ -28,5 +28,8 @@ ollama pull llama3.2:3b
 
 ## Documentação
 
+- [Arquitetura](ARCHITECTURE.md)
+- [Roadmap](ROADMAP.md)
+- [Decisões](DECISIONS.md)
 - [Plano PC-first](docs/PLANO-PC-FIRST.md)
 - [Otimizações e gargalos](docs/OTIMIZACOES.md)
