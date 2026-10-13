@@ -17,6 +17,7 @@ from src.agents.router_agent import RouterAgent
 from src.agents.planning_agent import PlanningAgent
 from src.agents.execution_agent import ExecutionAgent
 from src.agents.validation_agent import ValidationAgent
+from src.agents.governance_agent import GovernanceAgent
 from src.rag.rag_optimizer import RAGOptimizer
 
 # Configura logging
@@ -52,7 +53,12 @@ def cli():
     default=False,
     help="Usar RAG para enriquecer contexto",
 )
-def run(command: str, host: str, port: int, rag: bool):
+@click.option(
+    "--action",
+    default="execute",
+    help="Ação pretendida (execute, delete, send_email, etc.)",
+)
+def run(command: str, host: str, port: int, rag: bool, action: str):
     """Executa comando em linguagem natural via fluxo completo"""
     logger.info("🌱 Iniciando YBY SEED...")
 
@@ -87,6 +93,7 @@ def run(command: str, host: str, port: int, rag: bool):
     )
 
     validator = ValidationAgent()
+    governance = GovernanceAgent()
 
     if agent == "planning":
         planner = PlanningAgent(ollama)
@@ -123,6 +130,15 @@ def run(command: str, host: str, port: int, rag: bool):
 
         logger.info("✅ Código validado com sucesso")
 
+        # Governança
+        is_allowed, reason = governance.check(generated.code, action)
+
+        if not is_allowed:
+            logger.error(f"❌ Código bloqueado pela governança: {reason}")
+            sys.exit(1)
+
+        logger.info("✅ Código aprovado pela governança")
+
         click.echo("\n--- PRD ---\n")
         click.echo(prd.model_dump_json(indent=2))
         click.echo("\n--- CÓDIGO ---\n")
@@ -158,6 +174,15 @@ def run(command: str, host: str, port: int, rag: bool):
             sys.exit(1)
 
         logger.info("✅ Código validado com sucesso")
+
+        # Governança
+        is_allowed, reason = governance.check(generated.code, action)
+
+        if not is_allowed:
+            logger.error(f"❌ Código bloqueado pela governança: {reason}")
+            sys.exit(1)
+
+        logger.info("✅ Código aprovado pela governança")
 
         click.echo("\n--- RESPOSTA ---\n")
         click.echo(generated.code)
