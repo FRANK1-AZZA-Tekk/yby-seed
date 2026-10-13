@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from loguru import logger
+
 
 @dataclass
 class MemoryEntry:
@@ -16,7 +18,8 @@ class MemoryEntry:
 class MemoryStore:
     """Memória simples e persistente em JSONL.
 
-    Cada linha é um objeto JSON. O arquivo é local e não deve ser versionado.
+    Linhas inválidas são ignoradas com aviso, para que um registro corrompido
+    não torne toda a memória inacessível.
     """
 
     def __init__(self, path: Path | None = None):
@@ -37,11 +40,14 @@ class MemoryStore:
         if not self.path.exists():
             return []
         entries: list[MemoryEntry] = []
-        for line in self.path.read_text(encoding="utf-8").splitlines():
+        for number, line in enumerate(self.path.read_text(encoding="utf-8").splitlines(), start=1):
             if not line.strip():
                 continue
-            data = json.loads(line)
-            entries.append(MemoryEntry(**data))
+            try:
+                data = json.loads(line)
+                entries.append(MemoryEntry(**data))
+            except (json.JSONDecodeError, TypeError, ValueError) as exc:
+                logger.warning(f"Ignorando memória inválida na linha {number}: {exc}")
         return entries
 
     def search(self, question: str, limit: int = 3) -> list[MemoryEntry]:

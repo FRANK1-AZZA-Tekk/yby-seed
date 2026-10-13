@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from loguru import logger
+
 
 @dataclass(frozen=True)
 class Chunk:
@@ -18,10 +20,16 @@ def _tokenize(text: str) -> set[str]:
 def _iter_markdown_files(roots: list[Path]) -> list[Path]:
     files: list[Path] = []
     for root in roots:
+        resolved_root = root.resolve()
         if root.is_file() and root.suffix == ".md":
             files.append(root)
         elif root.is_dir():
-            files.extend(sorted(root.rglob("*.md")))
+            for path in sorted(root.rglob("*.md")):
+                try:
+                    path.resolve().relative_to(resolved_root)
+                    files.append(path)
+                except ValueError:
+                    logger.warning(f"Ignorando arquivo fora da raiz permitida: {path}")
     return files
 
 
@@ -30,7 +38,11 @@ def build_index(roots: list[Path] | None = None) -> list[Chunk]:
     roots = roots or [Path("docs"), Path("README.md")]
     chunks: list[Chunk] = []
     for path in _iter_markdown_files(roots):
-        lines = path.read_text(encoding="utf-8").splitlines()
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeError) as exc:
+            logger.warning(f"Ignorando documento ilegível {path}: {exc}")
+            continue
         buffer: list[str] = []
         start = 1
         for number, line in enumerate(lines, start=1):
