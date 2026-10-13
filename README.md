@@ -7,34 +7,51 @@ PC Hub local-first para automações e IA.
 
 ## Status
 
-Fase atual: **Fase 0 — Consolidação**. Foco exclusivo no PC (Ubuntu 26.04 LTS). Mobile e ESP32 ficam para fases futuras.
+Fase atual: **Fase 0 — Consolidação**. O foco é o PC (Ubuntu 26.04 LTS); mobile e ESP32 ficam para fases futuras.
 
-## O que é
+O projeto está em consolidação: a CLI existe, mas ainda não inicia um sistema completo de IA ou automação. Não há integração funcional com Ollama, Node-RED ou MQTT nesta fase.
 
-YBY SEED é um hub central no PC que:
+## O que já existe
 
-- Conversa localmente via Ollama.
-- Executa automações seguras.
-- Organiza e busca documentos.
-- Usa nuvem apenas como fallback.
+- Estrutura inicial do projeto e testes automatizados.
+- CLI de desenvolvimento em `src/main.py`.
+- Serviço opcional Qdrant via Docker Compose.
+- Ferramentas de teste, lint e formatação.
 
-## MVP
+## O que ainda não funciona
 
-O MVP funciona sem Docker:
-
-```text
-yby.py → RouterAgent → Ollama → resposta
-```
+- `python src/main.py run` não inicia Ollama, Node-RED, MQTT ou o sistema YBY completo.
+- `python src/main.py test` não substitui a suíte de testes; use `make test`.
+- `python src/main.py setup` não substitui `make setup`.
+- Não há download automático de modelos nem integração funcional com Ollama.
 
 ## Início rápido
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-ollama pull llama3.2:3b
-python src/main.py
+make setup
+make test
 ```
+
+Para iniciar apenas o Qdrant local:
+
+```bash
+make run
+```
+
+O Qdrant fica disponível em `http://127.0.0.1:6333`. O comando não inicia Node-RED, Ollama ou o app YBY.
+
+## Comandos
+
+| Comando | O que faz hoje |
+|---|---|
+| `make setup` | Cria `.venv` e instala dependências Python. |
+| `make install-dev` | Instala dependências de desenvolvimento. |
+| `make test` | Executa os testes com pytest. |
+| `make lint` | Executa verificações básicas com flake8. |
+| `make format` | Formata o código com black. |
+| `make run` | Inicia somente o Qdrant via Docker Compose. |
+| `make stop` | Para os serviços do Docker Compose. |
+| `make logs` | Mostra os logs do Docker Compose. |
 
 ## Estrutura
 
