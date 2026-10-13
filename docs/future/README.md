@@ -48,6 +48,16 @@
 
 ---
 
+## 🧪 Ferramenta opcional de pesquisa: REA
+
+O REA pode ser avaliado futuramente, apenas quando houver uma necessidade concreta e autorização para investigar o comportamento de um aplicativo, artefato ou sistema próprio ou autorizado. Ele oferece ferramentas locais via MCP/CLI; isso não significa que os dados enviados ao modelo conectado permaneçam locais, pois o provedor do modelo tem sua própria política de dados.
+
+- Não é dependência do YBY SEED, nem parte do PR #2.
+- Não instalar nem configurar sem decisão explícita e revisão da versão, dependências, permissões e efeitos da análise.
+- Limitar a pesquisa a alvos próprios ou autorizados; não copiar código, marca ou ativos.
+
+---
+
 ## 🔗 Referências
 
 - [Roadmap YBY SEED](../README.md#roadmap)
