@@ -10,6 +10,14 @@ from src.main import cli
 runner = CliRunner()
 
 
+def test_status_command_reports_environment():
+    result = runner.invoke(cli, ["status"])
+    assert result.exit_code == 0
+    assert "YBY SEED — status local" in result.output
+    assert "Python:" in result.output
+    assert "Nenhum serviço foi iniciado" in result.output
+
+
 def test_test_command_runs_pytest():
     with patch("src.main.subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0

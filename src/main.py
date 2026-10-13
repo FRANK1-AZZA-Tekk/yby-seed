@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """YBY SEED - Ponto de Entrada Principal."""
 
+import importlib.util
+import platform
+import shutil
 import subprocess
 import sys
 
@@ -8,10 +11,32 @@ import click
 from loguru import logger
 
 
+def _port_open(host: str, port: int) -> bool:
+    import socket
+
+    try:
+        with socket.create_connection((host, port), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
 @click.group()
 def cli():
     """YBY SEED - Programação em Linguagem Natural"""
     pass
+
+
+@cli.command()
+def status():
+    """Mostra o estado local do ambiente YBY SEED."""
+    click.echo("YBY SEED — status local")
+    click.echo(f"Python: {platform.python_version()}")
+    click.echo(f"pytest: {'disponível' if importlib.util.find_spec('pytest') else 'não encontrado'}")
+    click.echo(f"Ollama: {'disponível' if shutil.which('ollama') else 'não encontrado (opcional)'}")
+    click.echo(f"Docker: {'disponível' if shutil.which('docker') else 'não encontrado (opcional)'}")
+    click.echo(f"Qdrant (127.0.0.1:6333): {'acessível' if _port_open('127.0.0.1', 6333) else 'indisponível (opcional)'}")
+    click.echo("Nenhum serviço foi iniciado por este comando.")
 
 
 @cli.command()
