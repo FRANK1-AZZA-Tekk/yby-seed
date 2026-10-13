@@ -30,7 +30,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ollama pull llama3.2:3b
-python src/yby.py
+python src/main.py
 ```
 
 ## Estrutura
