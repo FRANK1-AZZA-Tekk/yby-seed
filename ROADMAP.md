@@ -1,50 +1,20 @@
 # Roadmap — YBY SEED
 
-## Fase 0 — Consolidação
+| Fase | Descrição | Status |
+|---|---|---|
+| 0 | Consolidação de repositórios | Em andamento |
+| 1 | Núcleo local (yby.py + Ollama) | Pendente |
+| 2 | Qualidade (Pytest, Ruff, Black, mypy) | Pendente |
+| 3 | RouterAgent | Pendente |
+| 4 | Primeira skill (dry-run) | Pendente |
+| 5 | Memória (Qdrant) | Pendente |
+| 6 | Serviço (FastAPI) | Pendente |
+| 7 | Persistência (PostgreSQL + Redis) | Pendente |
+| 8 | Interface web | Pendente |
+| 9 | Mobile (Tailscale + Termux) | Pendente |
 
-- Inventariar yby-seed, YBY e YBY Zero.
-- Definir o que unifica.
-- Criar fonte única de verdade.
+## Escopo por fase
 
-## Fase 1 — Núcleo local
-
-- Ubuntu + Ollama.
-- llama3.2:3b.
-- yby.py no terminal.
-
-## Fase 2 — Qualidade
-
-- Pytest, Ruff, Black, mypy.
-- Logs estruturados.
-
-## Fase 3 — RouterAgent
-
-- Classificação de intenções.
-- Pydantic.
-
-## Fase 4 — Primeira skill
-
-- organizar_pdfs em dry-run.
-- Confirmação do usuário.
-
-## Fase 5 — Memória
-
-- Qdrant com limite de RAM.
-- Indexação de PDFs.
-
-## Fase 6 — Serviço
-
-- FastAPI com /health e /chat.
-- Timeout e fallback.
-
-## Fase 7 — Persistência
-
-- PostgreSQL e Redis.
-
-## Fase 8 — Interface
-
-- Web simples.
-
-## Fase 9 — Mobile
-
-- Tailscale e Termux.
+- **MVP (fases 0–4):** src, tests, skills, scripts, docs — sem Docker.
+- **Pós-MVP (fases 5–8):** Qdrant, FastAPI, PostgreSQL, Redis, interface.
+- **Futuro (fase 9+):** Tailscale, Termux, firmware/ESP32.
