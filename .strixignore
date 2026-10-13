@@ -1,0 +1,62 @@
+# .strixignore — reduz custo e ruído dos scans da Strix
+# Pastas e arquivos que não precisam de análise de segurança profunda
+
+# Dependências e caches
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.tox/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Modelos, datasets e artefatos pesados
+*.bin
+*.onnx
+*.tflite
+*.gguf
+*.safetensors
+*.pt
+*.pth
+*.h5
+models/
+weights/
+datasets/
+data/
+
+# Build e artefatos
+build/
+dist/
+*.egg-info/
+*.whl
+*.tar.gz
+*.zip
+
+# Documentação e assets
+*.md
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.pdf
+*.mp4
+*.mp3
+*.wav
+
+# Config de ferramentas de dev (não é código em produção)
+.devcontainer/
+.github/
+.pre-commit-config.yaml
+
+# Notebooks e logs
+*.ipynb
+*.log
+logs/
+
+# Firmware compilado
+firmware/build/
+firmware/sdkconfig.old
