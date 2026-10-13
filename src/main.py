@@ -28,41 +28,25 @@ def cli():
 @cli.command()
 def run():
     """Inicia o sistema YBY SEED"""
-    logger.info("🌱 Iniciando YBY SEED...")
-    
-    # TODO: Implementar inicialização completa
-    # 1. Carrega modelos Ollama
-    # 2. Inicia Node-RED flows
-    # 3. Conecta ao MQTT broker
-    # 4. Inicia TUI (Textual)
-    
-    logger.info("✅ YBY SEED iniciado com sucesso!")
-    logger.info("📌 Acesse http://localhost:1880 (Node-RED)")
+    logger.error("❌ Comando 'run' ainda não está implementado.")
+    logger.info("📌 Estado atual: Fase 0 — Consolidação; nenhum serviço completo é iniciado por este comando.")
+    raise click.exceptions.Exit(code=1)
 
 
 @cli.command()
 def test():
     """Rodar testes rápidos"""
-    logger.info("🧪 Rodando testes...")
-    
-    # TODO: Implementar suite de testes
-    # pytest tests/ -v
-    
-    logger.info("✅ Testes concluídos!")
+    logger.error("❌ Comando 'test' ainda não está implementado.")
+    logger.info("📌 Use 'make test' para executar a suíte pytest atual.")
+    raise click.exceptions.Exit(code=1)
 
 
 @cli.command()
 def setup():
     """Configurar ambiente"""
-    logger.info("🛠️  Configurando ambiente...")
-    
-    # TODO: Implementar setup automático
-    # 1. Cria ambiente virtual
-    # 2. Instala dependências
-    # 3. Baixa modelos Ollama
-    # 4. Configura Docker
-    
-    logger.info("✅ Ambiente configurado!")
+    logger.error("❌ Comando 'setup' ainda não está implementado.")
+    logger.info("📌 Use 'make setup' para criar o ambiente virtual e instalar dependências.")
+    raise click.exceptions.Exit(code=1)
 
 
 if __name__ == "__main__":
