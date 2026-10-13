@@ -13,6 +13,7 @@ from loguru import logger
 
 from src.core.graph import ask
 from src.core.memory import MemoryStore
+from src.core.skills import list_skills, run_skill
 
 
 def _port_open(host: str, port: int) -> bool:
@@ -29,6 +30,44 @@ def _port_open(host: str, port: int) -> bool:
 def cli():
     """YBY SEED - Programação em Linguagem Natural"""
     pass
+
+
+@cli.group()
+def skills():
+    """Gerencia skills locais do YBY."""
+
+
+@skills.command("list")
+def skills_list():
+    """Lista as skills disponíveis."""
+    for skill in list_skills():
+        confirmation = " [requer confirmação]" if skill.requires_confirmation else ""
+        click.echo(f"{skill.name}: {skill.description}{confirmation}")
+
+
+@skills.command("run")
+@click.argument("name")
+@click.option("--arg", "args", multiple=True, help="Argumento no formato chave=valor.")
+@click.option("--yes", is_flag=True, help="Confirma execução de skill que exige aprovação.")
+def skills_run(name: str, args: tuple[str, ...], yes: bool):
+    """Executa uma skill registrada."""
+    parsed: dict[str, str] = {}
+    for item in args:
+        if "=" not in item:
+            raise click.exceptions.Exit(code=1)
+        key, value = item.split("=", 1)
+        parsed[key] = value
+    try:
+        click.echo(run_skill(name, parsed, confirm=yes))
+    except KeyError as exc:
+        logger.error(str(exc))
+        raise click.exceptions.Exit(code=1)
+    except PermissionError as exc:
+        logger.error(str(exc))
+        raise click.exceptions.Exit(code=2)
+    except Exception as exc:
+        logger.error(f"Falha ao executar a skill: {exc}")
+        raise click.exceptions.Exit(code=1)
 
 
 @cli.command()
