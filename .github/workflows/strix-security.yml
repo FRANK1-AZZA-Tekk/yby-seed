@@ -11,25 +11,72 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      checks: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Run Strix (quick, diff scope)
+      - name: Check Strix credentials
         env:
-          STRIX_API_KEY: ${{ secrets.STRIX_API_KEY }}
+          STRIX_LLM: ${{ secrets.STRIX_LLM }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
         run: |
-          curl -fsSL https://raw.githubusercontent.com/usestrix/strix/main/install.sh | bash
-          strix -n --target ./ --scan-mode quick --scope-mode diff --diff-base origin/main --fail-on high --max-budget 5 --max-turns 150
+          if [ -z "$STRIX_LLM" ] || [ -z "$LLM_API_KEY" ]; then
+            echo "::error::Configure STRIX_LLM and LLM_API_KEY as Actions secrets for the open-source Strix CLI."
+            exit 1
+          fi
 
-      - name: Upload Strix report
+      - name: Determine diff base
+        id: diff
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          base="${BASE_REF:-main}"
+          git fetch origin "$base" --no-tags
+          git rev-parse --verify "refs/remotes/origin/$base^{commit}" >/dev/null
+          echo "base=origin/$base" >> "$GITHUB_OUTPUT"
+
+      - name: Install pinned Strix v1.7.0
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            --output /tmp/strix.tar.gz \
+            https://github.com/usestrix/strix/releases/download/v1.7.0/strix-1.7.0-linux-x86_64.tar.gz
+          echo "b8cd7e84d63cbeff6726301a9e08fddedf40fc6a4edcdb4edda8a853b3312de6  /tmp/strix.tar.gz" | sha256sum --check
+          mkdir -p "$HOME/.local/bin"
+          tar -xzf /tmp/strix.tar.gz -C "$HOME/.local/bin" strix-1.7.0-linux-x86_64
+          mv "$HOME/.local/bin/strix-1.7.0-linux-x86_64" "$HOME/.local/bin/strix"
+          chmod 755 "$HOME/.local/bin/strix"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Show Strix version and help
+        run: |
+          strix --version
+          strix --help | tee strix-help.txt
+
+      - name: Run Strix scan
+        env:
+          STRIX_LLM: ${{ secrets.STRIX_LLM }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          DIFF_BASE: ${{ steps.diff.outputs.base }}
+        run: |
+          set -o pipefail
+          strix -n --target ./ --scan-mode quick --scope-mode diff \
+            --diff-base "$DIFF_BASE" --fail-on high \
+            --max-budget 5 --max-turns 150 \
+            2>&1 | tee strix-output.log
+
+      - name: Upload Strix diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: strix-report
           path: |
             .strix/**
+            strix_runs/**
             strix-report*/**
+            strix-output.log
+            strix-help.txt
           if-no-files-found: ignore
