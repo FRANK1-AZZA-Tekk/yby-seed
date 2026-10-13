@@ -1,140 +1,64 @@
-# YBY SEED - Makefile para Programadores Iniciantes
+# YBY SEED - Makefile para desenvolvimento local
 # Uso: make [comando]
-# Exemplo: make setup, make test, make run
 
-.PHONY: help setup test run stop clean docs lint format install-dev
+.PHONY: help setup test run stop logs clean docs lint format install-dev
 
-# Variáveis
 PYTHON := python3
-PIP := pip3
 VENV := .venv
-DOCKER := docker
 DOCKER_COMPOSE := docker compose
 
-# Target padrão (ajuda)
 help:
-	@echo "🌱 YBY SEED - Comandos Disponíveis"
-	@echo ""
-	@echo "📦 Instalação:"
-	@echo "  make setup          - Instala dependências e configura ambiente"
-	@echo "  make install-dev    - Instala dependências de desenvolvimento"
-	@echo ""
-	@echo "🧪 Testes:"
-	@echo "  make test           - Roda todos os testes"
-	@echo "  make lint           - Verifica qualidade do código (flake8)"
-	@echo "  make format         - Formata código automaticamente (black)"
-	@echo ""
-	@echo "🚀 Execução:"
-	@echo "  make run            - Inicia todos os serviços (Docker)"
-	@echo "  make stop           - Para todos os serviços"
-	@echo "  make logs           - Mostra logs em tempo real"
-	@echo ""
-	@echo "📚 Documentação:"
-	@echo "  make docs           - Gera documentação local (MkDocs)"
-	@echo ""
-	@echo "🧹 Limpeza:"
-	@echo "  make clean          - Remove arquivos temporários e cache"
-	@echo ""
-	@echo "💡 Dicas:"
-	@echo "  - Use 'make' seguido do comando desejado"
-	@echo "  - Exemplo: 'make setup' instala tudo que precisa"
-	@echo "  - Use 'make help' para ver esta ajuda novamente"
+	@echo "YBY SEED - comandos disponíveis"
+	@echo "  make setup       - Cria .venv e instala requirements.txt (sem baixar modelos)"
+	@echo "  make install-dev - Instala requirements-dev.txt na .venv"
+	@echo "  make test        - Executa os testes com pytest"
+	@echo "  make lint        - Executa flake8 em src/ e tests/"
+	@echo "  make format      - Formata src/ e tests/ com black"
+	@echo "  make run         - Inicia apenas Qdrant pelo Docker Compose"
+	@echo "  make stop        - Para o serviço Docker Compose"
+	@echo "  make logs        - Mostra logs do Docker Compose"
+	@echo "  make docs        - Informa o estado da documentação"
+	@echo "  make clean       - Remove caches e o ambiente virtual"
 
-# Instala dependências e configura ambiente
 setup:
-	@echo "🌱 Configurando YBY SEED..."
-	@echo ""
-	@echo "[1/5] Verificando Python..."
-	@$(PYTHON) --version
-	@echo ""
-	@echo "[2/5] Criando ambiente virtual..."
+	@echo "Criando ambiente virtual e instalando dependências Python..."
 	@$(PYTHON) -m venv $(VENV)
-	@echo ""
-	@echo "[3/5] Instalando dependências..."
-	@$(VENV)/bin/pip install --upgrade pip
-	@$(VENV)/bin/pip install -r requirements.txt
-	@echo ""
-	@echo "[4/5] Verificando Docker..."
-	@$(DOCKER) --version
-	@$(DOCKER_COMPOSE) --version
-	@echo ""
-	@echo "[5/5] Baixando modelos Ollama..."
-	@$(DOCKER_COMPOSE) exec -T ollama ollama pull llama3.2:3b-instruct-q4_K_M || true
-	@$(DOCKER_COMPOSE) exec -T ollama ollama pull qwen2.5-coder:3b-instruct-q4_K_M || true
-	@echo ""
-	@echo "✅ Setup concluído!"
-	@echo ""
-	@echo "🎉 Próximo passo: execute 'make run' para iniciar o sistema"
-	@echo "📚 Leia docs/tutorials/01-first-steps.md para começar"
+	@$(VENV)/bin/python -m pip install --upgrade pip
+	@$(VENV)/bin/python -m pip install -r requirements.txt
+	@echo "Dependências Python instaladas. Modelos e serviços opcionais não são configurados por este comando."
 
-# Instala dependências de desenvolvimento
 install-dev:
-	@echo "🛠️  Instalando dependências de desenvolvimento..."
-	@$(VENV)/bin/pip install -r requirements-dev.txt
-	@echo "✅ Dependências de desenvolvimento instaladas!"
-
-# Roda testes
+	@test -x $(VENV)/bin/python || (echo "Execute make setup antes de make install-dev." >&2; exit 1)
+	@$(VENV)/bin/python -m pip install -r requirements-dev.txt
 
 test:
-	@echo "🧪 Rodando testes..."
+	@test -x $(VENV)/bin/pytest || (echo "pytest não encontrado; execute make setup e make install-dev." >&2; exit 1)
 	@$(VENV)/bin/pytest tests/ -v --tb=short
-	@echo ""
-	@echo "✅ Testes concluídos!"
 
-# Verifica qualidade do código
 lint:
-	@echo "🔍 Verificando qualidade do código..."
+	@test -x $(VENV)/bin/flake8 || (echo "flake8 não encontrado; execute make install-dev." >&2; exit 1)
 	@$(VENV)/bin/flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-	@echo ""
-	@echo "✅ Verificação concluída!"
 
-# Formata código automaticamente
 format:
-	@echo "🎨 Formatando código..."
+	@test -x $(VENV)/bin/black || (echo "black não encontrado; execute make install-dev." >&2; exit 1)
 	@$(VENV)/bin/black src/ tests/
-	@echo "✅ Código formatado!"
 
-# Inicia todos os serviços
 run:
-	@echo "🚀 Iniciando YBY SEED..."
-	@$(DOCKER_COMPOSE) up -d
-	@echo ""
-	@echo "✅ Serviços iniciados!"
-	@echo ""
-	@echo "📌 Acesse:"
-	@echo "   - Node-RED: http://localhost:1880"
-	@echo "   - Ollama: http://localhost:11434"
-	@echo ""
-	@echo "📚 Veja logs: make logs"
-	@echo "🛑 Pare: make stop"
+	@echo "Iniciando somente Qdrant (127.0.0.1:6333) pelo Docker Compose..."
+	@$(DOCKER_COMPOSE) up -d qdrant
+	@echo "Qdrant iniciado; Node-RED, Ollama e o app YBY não são iniciados por make run."
 
-# Para todos os serviços
 stop:
-	@echo "🛑 Parando YBY SEED..."
 	@$(DOCKER_COMPOSE) down
-	@echo "✅ Serviços parados!"
 
-# Mostra logs em tempo real
 logs:
 	@$(DOCKER_COMPOSE) logs -f
 
-# Gera documentação local
 docs:
-	@echo "📚 Gerando documentação..."
-	@cd docs && mkdocs serve
-	@echo ""
-	@echo "✅ Documentação disponível em http://localhost:8000"
+	@echo "A documentação está em docs/; não há servidor MkDocs configurado neste alvo."
 
-# Limpa arquivos temporários
 clean:
-	@echo "🧹 Limpando arquivos temporários..."
-	@rm -rf __pycache__/
-	@rm -rf .pytest_cache/
-	@rm -rf .mypy_cache/
-	@rm -rf .venv/
-	@rm -rf dist/
-	@rm -rf build/
-	@rm -rf *.egg-info
+	@rm -rf __pycache__/ .pytest_cache/ .mypy_cache/ .venv/ dist/ build/ *.egg-info
 	@find . -type f -name "*.pyc" -delete
 	@find . -type d -name "__pycache__" -delete
-	@echo "✅ Limpeza concluída!"
+	@echo "Caches locais removidos."
