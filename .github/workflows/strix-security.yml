@@ -1,0 +1,35 @@
+name: Strix Security Scan
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  strix-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Strix (quick, diff scope)
+        env:
+          STRIX_API_KEY: ${{ secrets.STRIX_API_KEY }}
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/usestrix/strix/main/install.sh | bash
+          strix -n --target ./ --scan-mode quick --scope-mode diff --diff-base origin/main --fail-on high --max-budget 5 --max-turns 150
+
+      - name: Upload Strix report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strix-report
+          path: |
+            .strix/**
+            strix-report*/**
+          if-no-files-found: ignore
