@@ -10,6 +10,8 @@ import sys
 import click
 from loguru import logger
 
+from src.core.graph import ask
+
 
 def _port_open(host: str, port: int) -> bool:
     import socket
@@ -37,6 +39,20 @@ def status():
     click.echo(f"Docker: {'disponível' if shutil.which('docker') else 'não encontrado (opcional)'}")
     click.echo(f"Qdrant (127.0.0.1:6333): {'acessível' if _port_open('127.0.0.1', 6333) else 'indisponível (opcional)'}")
     click.echo("Nenhum serviço foi iniciado por este comando.")
+
+
+@cli.command()
+@click.argument("question", nargs=-1, required=True)
+def ask(question: tuple[str, ...]):
+    """Faz uma pergunta mínima ao núcleo YBY."""
+    text = " ".join(question).strip()
+    if not text:
+        raise click.exceptions.Exit(code=1)
+    try:
+        click.echo(ask(text))
+    except Exception as exc:
+        logger.error(f"Falha ao processar a pergunta: {exc}")
+        raise click.exceptions.Exit(code=1)
 
 
 @cli.command()

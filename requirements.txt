@@ -6,6 +6,7 @@ pydantic>=2.5.0
 python-dotenv>=1.0.0
 click>=8.1.0
 loguru>=0.7.0
+langgraph>=0.2.0
 
 # TUI (Terminal)
 rich>=13.7.0
