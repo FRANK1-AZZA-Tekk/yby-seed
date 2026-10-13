@@ -9,49 +9,75 @@ PC Hub local-first para automações e IA.
 
 Fase atual: **Fase 0 — Consolidação**. O foco é o PC (Ubuntu 26.04 LTS); mobile e ESP32 ficam para fases futuras.
 
-O projeto está em consolidação: a CLI existe, mas ainda não inicia um sistema completo de IA ou automação. Não há integração funcional com Ollama, Node-RED ou MQTT nesta fase.
-
-## O que já existe
-
-- Estrutura inicial do projeto e testes automatizados.
-- CLI de desenvolvimento em `src/main.py`.
-- Serviço opcional Qdrant via Docker Compose.
-- Ferramentas de teste, lint e formatação.
-
-## O que ainda não funciona
-
-- `python src/main.py run` não inicia Ollama, Node-RED, MQTT ou o sistema YBY completo.
-- `python src/main.py test` não substitui a suíte de testes; use `make test`.
-- `python src/main.py setup` não substitui `make setup`.
-- Não há download automático de modelos nem integração funcional com Ollama.
+A branch `fix/issue-18-honest-cli` contém um protótipo de CLI, não o sistema completo. O fluxo `ask` usa LangGraph com resposta simulada por padrão; Ollama é opcional e só é acessado se já estiver disponível localmente. Node-RED e MQTT não são iniciados. O PR #23 ainda requer validação de CI e revisão de segurança antes de merge.
 
 ## Início rápido
 
+Execute na raiz do repositório:
+
 ```bash
 make setup
-make test
+make install-dev
+.venv/bin/python -m src.main status
+.venv/bin/python -m src.main ask "olá"
+.venv/bin/python -m src.main test
 ```
 
-Para iniciar apenas o Qdrant local:
+`make setup` instala as dependências de `requirements.txt`; `make install-dev` instala pytest e outras ferramentas. O modo `mock` responde com `[mock] Resposta para: ...`: demonstra o fluxo, mas não responde com IA.
+
+## Perguntas e documentos
 
 ```bash
-make run
+.venv/bin/python -m src.main ask "olá"
+.venv/bin/python -m src.main ask --cite "arquitetura do YBY"
+.venv/bin/python -m src.main ask --remember "Minha preferência é local-first"
+.venv/bin/python -m src.main ask --memory-dir .yby "qual é minha preferência?"
 ```
 
-O Qdrant fica disponível em `http://127.0.0.1:6333`. O comando não inicia Node-RED, Ollama ou o app YBY.
+| Opção | Comportamento atual |
+|---|---|
+| Sem opções | Grafo LangGraph `route` → `respond`, com provedor `mock` por padrão. |
+| `--cite` | Busca lexical em Markdown de `docs/` e `README.md`, incluindo referências `arquivo:linha` para os trechos recuperados. Não verifica se a resposta é sustentada por eles. |
+| `--remember` | Grava pergunta e resposta em `.yby/memory.jsonl`. |
+| `--memory-dir DIRETÓRIO` | Lê e grava em `DIRETÓRIO/memory.jsonl`. |
 
-## Comandos
+A memória é consultada automaticamente, mesmo sem `--remember`; esta opção controla apenas a gravação. `memory:N` é uma posição entre os resultados daquela consulta, não um identificador estável. O arquivo JSONL local não é criptografado: não armazene segredos ou dados sensíveis. Respostas simuladas também podem ser gravadas, portanto não trate memórias como fatos verificados.
+
+Para usar o provedor opcional Ollama, que deve estar instalado, em execução e com o modelo disponível:
+
+```bash
+YBY_LLM_PROVIDER=ollama YBY_LLM_MODEL=llama3.2:3b .venv/bin/python -m src.main ask "olá"
+```
+
+O comando não instala nem inicia Ollama. `--cite` não usa Qdrant, embeddings ou RAGFlow; as fontes listadas mostram o que foi recuperado, não comprovam a resposta gerada.
+
+## Skills e diagnóstico
+
+```bash
+.venv/bin/python -m src.main skills list
+.venv/bin/python -m src.main skills run echo --arg 'message=olá'
+.venv/bin/python -m src.main skills run read_doc --arg name=PLANO-PC-FIRST
+.venv/bin/python -m src.main skills run write_note --arg title=exemplo --arg content=olá --yes
+```
+
+`read_doc` lê apenas nomes simples de documentos Markdown em `docs/`; não lê arquivos arbitrários nem `README.md` na raiz. `write_note` grava em `.yby/notes/` apenas com `--yes`, que é uma autorização explícita na própria linha de comando — não um diálogo interativo. Não há sandbox ou política completa de permissões e auditoria; não exponha essas skills a entradas não confiáveis.
+
+`status` mostra a versão do Python, a presença de pytest, Ollama e Docker no ambiente e se a porta local 6333 aceita conexão. Porta aberta não prova que o serviço seja Qdrant; o comando não inicia nada.
+
+## Outros comandos
 
 | Comando | O que faz hoje |
 |---|---|
-| `make setup` | Cria `.venv` e instala dependências Python. |
+| `.venv/bin/python -m src.main test` | Executa pytest em `tests/` e propaga o código de saída. |
+| `.venv/bin/python -m src.main run` | Não implementado; retorna código 1. |
+| `.venv/bin/python -m src.main setup` | Não implementado; retorna código 1. |
+| `make setup` | Cria `.venv` e instala dependências Python; não baixa modelos. |
 | `make install-dev` | Instala dependências de desenvolvimento. |
-| `make test` | Executa os testes com pytest. |
-| `make lint` | Executa verificações básicas com flake8. |
-| `make format` | Formata o código com black. |
-| `make run` | Inicia somente o Qdrant via Docker Compose. |
-| `make stop` | Para os serviços do Docker Compose. |
-| `make logs` | Mostra os logs do Docker Compose. |
+| `make test` | Executa a suíte pytest instalada na `.venv`. |
+| `make lint` | Verifica erros básicos com flake8. |
+| `make format` | Formata com black. |
+| `make run` | Inicia apenas Qdrant via Docker Compose em `127.0.0.1:6333`, se Docker estiver disponível. |
+| `make stop` / `make logs` | Para o Compose / mostra seus logs. |
 
 ## Estrutura
 
@@ -76,3 +102,4 @@ firmware/  → futuro (ESP32)
 - [Segurança](SECURITY.md)
 - [Plano PC-first](docs/PLANO-PC-FIRST.md)
 - [Otimizações](docs/OTIMIZACOES.md)
+- [Plano de reuso](docs/ARCHITECTURE-REUSE.md)
