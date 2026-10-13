@@ -24,7 +24,7 @@ def build_ask_graph(
 ):
     """Constrói o fluxo mínimo: route -> respond."""
     client = llm or LLMClient()
-    store = memory or MemoryStore()
+    store = memory
     index = build_index() if cite else []
 
     def route(state: AskState) -> AskState:
@@ -44,13 +44,14 @@ def build_ask_graph(
                 context_parts.append("Documentos:\n" + "\n\n".join(chunk.text for chunk in results))
                 citations.extend(f"{chunk.source}:{chunk.line}" for chunk in results)
 
-        memories = store.search(question)
-        if memories:
-            context_parts.append(
-                "Memórias relevantes:\n"
-                + "\n".join(f"Q: {m.question}\nA: {m.answer}" for m in memories)
-            )
-            citations.extend(f"memory:{number}" for number, _ in enumerate(memories, start=1))
+        if store is not None:
+            memories = store.search(question)
+            if memories:
+                context_parts.append(
+                    "Memórias relevantes:\n"
+                    + "\n".join(f"Q: {m.question}\nA: {m.answer}" for m in memories)
+                )
+                citations.extend(f"memory:{number}" for number, _ in enumerate(memories, start=1))
 
         if context_parts:
             prompt = f"Responda usando apenas o contexto abaixo.\n\n{chr(10).join(context_parts)}\n\nPergunta: {question}"
@@ -60,6 +61,9 @@ def build_ask_graph(
         answer = client.generate(prompt)
 
         if remember:
+            nonlocal store
+            if store is None:
+                store = MemoryStore()
             store.add(question, answer)
 
         return {**state, "answer": answer, "citations": citations}
