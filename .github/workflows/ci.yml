@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, ci-fix]
+    branches: [main, ci-fix, feat/pydantic-validacao-execution]
   pull_request:
-    branches: [main]
+    branches: [main, feat/pydantic-validacao-execution]
 
 jobs:
   lint-and-test:

@@ -88,7 +88,7 @@ def run(command: str, host: str, port: int):
 
         executor = ExecutionAgent(ollama)
         try:
-            code = executor.generate(prd)
+            generated = executor.generate(prd)
         except OllamaError as e:
             logger.error(f"❌ Falha no ExecutionAgent: {e}")
             sys.exit(1)
@@ -96,12 +96,12 @@ def run(command: str, host: str, port: int):
         click.echo("\n--- PRD ---\n")
         click.echo(prd)
         click.echo("\n--- CÓDIGO ---\n")
-        click.echo(code)
+        click.echo(generated.code)
 
     elif agent == "execution":
         executor = ExecutionAgent(ollama)
         try:
-            code = executor.generate(
+            generated = executor.generate(
                 f"Responda diretamente à pergunta: {command}"
             )
         except OllamaError as e:
@@ -109,7 +109,7 @@ def run(command: str, host: str, port: int):
             sys.exit(1)
 
         click.echo("\n--- RESPOSTA ---\n")
-        click.echo(code)
+        click.echo(generated.code)
 
     else:
         logger.warning(f"⚠️ Agente desconhecido: {agent}")
