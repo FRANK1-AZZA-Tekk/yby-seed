@@ -11,6 +11,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      checks: write
 
     steps:
       - name: Checkout
@@ -27,12 +28,27 @@ jobs:
             exit 1
           fi
 
+      - name: Determine diff base
+        id: diff
+        run: |
+          BASE="${{ github.base_ref }}"
+          if [ -z "$BASE" ]; then
+            BASE="main"
+          fi
+          echo "base=origin/$BASE" >> "$GITHUB_OUTPUT"
+          git rev-parse --verify "$BASE" >/dev/null 2>&1 || {
+            echo "::error::Diff base not found: $BASE"
+            exit 1
+          }
+
       - name: Install Strix
         env:
           STRIX_API_KEY: ${{ secrets.STRIX_API_KEY }}
         run: |
+          set -euxo pipefail
           curl -fsSL https://raw.githubusercontent.com/usestrix/strix/main/install.sh | bash
           strix --version
+          strix --help > strix-help.txt
 
       - name: Run Strix scan
         env:
@@ -43,13 +59,13 @@ jobs:
             --target ./ \
             --scan-mode quick \
             --scope-mode diff \
-            --diff-base "origin/${{ github.base_ref }}" \
+            --diff-base "${{ steps.diff.outputs.base }}" \
             --fail-on high \
             --max-budget 5 \
             --max-turns 150 \
             2>&1 | tee strix-output.log
 
-      - name: Upload Strix report
+      - name: Upload Strix diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -58,4 +74,5 @@ jobs:
             .strix/**
             strix-report*/**
             strix-output.log
+            strix-help.txt
           if-no-files-found: ignore
