@@ -3,17 +3,19 @@
 YBY SEED - Ponto de Entrada Principal
 
 Uso:
-    python src/main.py
-
-Comandos:
-    run     - Inicia o sistema
-    test    - Roda testes rápidos
-    setup   - Configura ambiente
+    python src/main.py run --command "Crie um script de backup"
+    python src/main.py test
+    python src/main.py setup
 """
 
 import sys
 import click
 from loguru import logger
+
+from src.core.ollama_client import OllamaClient, OllamaError
+from src.agents.router_agent import RouterAgent
+from src.agents.planning_agent import PlanningAgent
+from src.agents.execution_agent import ExecutionAgent
 
 # Configura logging
 logger.add("logs/yby_seed_{time}.log", rotation="1 day", retention="7 days")
@@ -26,28 +28,110 @@ def cli():
 
 
 @cli.command()
-def run():
-    """Inicia o sistema YBY SEED"""
+@click.option(
+    "--command",
+    "-c",
+    required=True,
+    help="Comando em linguagem natural para o YBY",
+)
+@click.option(
+    "--host",
+    default="localhost",
+    help="Host do Ollama",
+)
+@click.option(
+    "--port",
+    default=11434,
+    help="Porta do Ollama",
+)
+def run(command: str, host: str, port: int):
+    """Executa comando em linguagem natural via fluxo completo"""
     logger.info("🌱 Iniciando YBY SEED...")
-    
-    # TODO: Implementar inicialização completa
-    # 1. Carrega modelos Ollama
-    # 2. Inicia Node-RED flows
-    # 3. Conecta ao MQTT broker
-    # 4. Inicia TUI (Textual)
-    
-    logger.info("✅ YBY SEED iniciado com sucesso!")
-    logger.info("📌 Acesse http://localhost:1880 (Node-RED)")
+
+    ollama = OllamaClient(host=host, port=port)
+
+    if not ollama.is_healthy():
+        logger.error(
+            "❌ Ollama não está acessível em "
+            f"http://{host}:{port}. "
+            "Inicie com: ollama serve"
+        )
+        sys.exit(1)
+
+    router = RouterAgent(ollama)
+
+    try:
+        result = router.classify(command)
+    except OllamaError as e:
+        logger.error(f"❌ Falha no RouterAgent: {e}")
+        sys.exit(1)
+
+    agent = result.get("agent", "planning")
+    intent = result.get("intent", "unknown")
+    confidence = result.get("confidence", 0.0)
+    requires_interview = result.get("requires_interview", False)
+
+    logger.info(
+        f"✅ Roteado para {agent} | "
+        f"intenção={intent} | "
+        f"confiança={confidence} | "
+        f"entrevista={requires_interview}"
+    )
+
+    if agent == "planning":
+        planner = PlanningAgent(ollama)
+        try:
+            prd = planner.interview(command, mode="junior")
+        except OllamaError as e:
+            logger.error(f"❌ Falha no PlanningAgent: {e}")
+            sys.exit(1)
+
+        executor = ExecutionAgent(ollama)
+        try:
+            code = executor.generate(prd)
+        except OllamaError as e:
+            logger.error(f"❌ Falha no ExecutionAgent: {e}")
+            sys.exit(1)
+
+        click.echo("\n--- PRD ---\n")
+        click.echo(prd)
+        click.echo("\n--- CÓDIGO ---\n")
+        click.echo(code)
+
+    elif agent == "execution":
+        executor = ExecutionAgent(ollama)
+        try:
+            code = executor.generate(
+                f"Responda diretamente à pergunta: {command}"
+            )
+        except OllamaError as e:
+            logger.error(f"❌ Falha no ExecutionAgent: {e}")
+            sys.exit(1)
+
+        click.echo("\n--- RESPOSTA ---\n")
+        click.echo(code)
+
+    else:
+        logger.warning(f"⚠️ Agente desconhecido: {agent}")
+        sys.exit(1)
 
 
 @cli.command()
 def test():
     """Rodar testes rápidos"""
     logger.info("🧪 Rodando testes...")
-    
-    # TODO: Implementar suite de testes
-    # pytest tests/ -v
-    
+
+    import subprocess
+
+    result = subprocess.run(
+        ["pytest", "tests/", "-v"],
+        check=False,
+    )
+
+    if result.returncode != 0:
+        logger.error("❌ Testes falharam")
+        sys.exit(result.returncode)
+
     logger.info("✅ Testes concluídos!")
 
 
@@ -55,13 +139,13 @@ def test():
 def setup():
     """Configurar ambiente"""
     logger.info("🛠️  Configurando ambiente...")
-    
+
     # TODO: Implementar setup automático
     # 1. Cria ambiente virtual
     # 2. Instala dependências
     # 3. Baixa modelos Ollama
     # 4. Configura Docker
-    
+
     logger.info("✅ Ambiente configurado!")
 
 
