@@ -11,18 +11,43 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Run Strix (quick, diff scope)
+      - name: Check Strix credentials
+        env:
+          STRIX_API_KEY: ${{ secrets.STRIX_API_KEY }}
+        run: |
+          if [ -z "$STRIX_API_KEY" ]; then
+            echo "::error::STRIX_API_KEY is not configured."
+            exit 1
+          fi
+
+      - name: Install Strix
         env:
           STRIX_API_KEY: ${{ secrets.STRIX_API_KEY }}
         run: |
           curl -fsSL https://raw.githubusercontent.com/usestrix/strix/main/install.sh | bash
-          strix -n --target ./ --scan-mode quick --scope-mode diff --diff-base origin/main --fail-on high --max-budget 5 --max-turns 150
+          strix --version
+
+      - name: Run Strix scan
+        env:
+          STRIX_API_KEY: ${{ secrets.STRIX_API_KEY }}
+        run: |
+          set -o pipefail
+          strix \
+            --target ./ \
+            --scan-mode quick \
+            --scope-mode diff \
+            --diff-base "origin/${{ github.base_ref }}" \
+            --fail-on high \
+            --max-budget 5 \
+            --max-turns 150 \
+            2>&1 | tee strix-output.log
 
       - name: Upload Strix report
         if: always()
@@ -32,4 +57,5 @@ jobs:
           path: |
             .strix/**
             strix-report*/**
+            strix-output.log
           if-no-files-found: ignore
