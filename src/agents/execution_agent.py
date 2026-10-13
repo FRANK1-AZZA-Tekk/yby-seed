@@ -14,6 +14,7 @@ from loguru import logger
 from pydantic import BaseModel, Field, ValidationError
 
 from src.core.ollama_client import OllamaClient
+from src.security.code_safety_validator import CodeSafetyValidator
 
 
 class GeneratedCode(BaseModel):
@@ -39,10 +40,18 @@ class GeneratedCode(BaseModel):
         description="Imports detectados",
         default_factory=list,
     )
+    is_safe: bool = Field(
+        description="Se o código passou na validação de segurança",
+        default=False,
+    )
+    safety_issues: List[str] = Field(
+        description="Problemas de segurança detectados",
+        default_factory=list,
+    )
 
 
 class ExecutionAgent:
-    """Agente de execução baseado em Qwen2.5-Coder 7B com validação Pydantic."""
+    """Agente de execução baseado em Qwen2.5-Coder 7B com validação Pydantic e segurança."""
 
     SYSTEM_PROMPT = """
 Você é um Execution Agent que gera código Python baseado em PRDs.
@@ -78,14 +87,18 @@ if __name__ == "__main__":
     def __init__(self, ollama: OllamaClient):
         self.ollama = ollama
         self.model = "qwen2.5-coder:7b-instruct-q4_K_M"
-        logger.info("⚙️  Execution Agent inicializado (com validação Pydantic)")
+        self.safety_validator = CodeSafetyValidator()
+        logger.info(
+            "⚙️  Execution Agent inicializado "
+            "(com validação Pydantic e segurança)"
+        )
 
     def generate(
         self,
         prd: str,
         context: Optional[str] = None
     ) -> GeneratedCode:
-        """Gera código Python validado com Pydantic baseado no PRD."""
+        """Gera código Python validado com Pydantic e segurança."""
 
         logger.info("📝 Gerando código Python...")
 
@@ -129,7 +142,7 @@ Inclua TODOS os imports necessários.
         return self.generate(prd, context)
 
     def _parse_code(self, raw: str) -> GeneratedCode:
-        """Extrai e valida código do bloco Markdown gerado."""
+        """Extrai, valida segurança e valida código do bloco Markdown gerado."""
 
         # Extrai código do bloco Markdown
         code_match = re.search(r'```python\n(.+?)\n```', raw, re.DOTALL)
@@ -142,6 +155,9 @@ Inclua TODOS os imports necessários.
         has_main = bool(re.search(r'def\s+main\s*\(', code))
         has_docstring = bool(re.search(r'"""', code) or re.search(r"'''", code))
 
+        # Valida segurança
+        safety = self.safety_validator.validate(code)
+
         try:
             result = GeneratedCode(
                 code=code,
@@ -149,12 +165,15 @@ Inclua TODOS os imports necessários.
                 has_main=has_main,
                 has_docstring=has_docstring,
                 imports=imports,
+                is_safe=safety.is_safe,
+                safety_issues=safety.issues,
             )
             logger.info(
                 f"✅ Código validado: "
                 f"main={result.has_main}, "
                 f"docstring={result.has_docstring}, "
-                f"imports={len(result.imports)}"
+                f"imports={len(result.imports)}, "
+                f"safe={result.is_safe}"
             )
             return result
         except ValidationError as e:
@@ -166,4 +185,6 @@ Inclua TODOS os imports necessários.
                 has_main=False,
                 has_docstring=False,
                 imports=[],
+                is_safe=False,
+                safety_issues=["Validação Pydantic falhou"],
             )
