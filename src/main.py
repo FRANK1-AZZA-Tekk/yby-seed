@@ -16,6 +16,7 @@ from src.core.ollama_client import OllamaClient, OllamaError
 from src.agents.router_agent import RouterAgent
 from src.agents.planning_agent import PlanningAgent
 from src.agents.execution_agent import ExecutionAgent
+from src.rag.rag_optimizer import RAGOptimizer
 
 # Configura logging
 logger.add("logs/yby_seed_{time}.log", rotation="1 day", retention="7 days")
@@ -44,7 +45,13 @@ def cli():
     default=11434,
     help="Porta do Ollama",
 )
-def run(command: str, host: str, port: int):
+@click.option(
+    "--rag",
+    is_flag=True,
+    default=False,
+    help="Usar RAG para enriquecer contexto",
+)
+def run(command: str, host: str, port: int, rag: bool):
     """Executa comando em linguagem natural via fluxo completo"""
     logger.info("🌱 Iniciando YBY SEED...")
 
@@ -66,10 +73,10 @@ def run(command: str, host: str, port: int):
         logger.error(f"❌ Falha no RouterAgent: {e}")
         sys.exit(1)
 
-    agent = result.get("agent", "planning")
-    intent = result.get("intent", "unknown")
-    confidence = result.get("confidence", 0.0)
-    requires_interview = result.get("requires_interview", False)
+    agent = result.agent
+    intent = result.intent
+    confidence = result.confidence
+    requires_interview = result.requires_interview
 
     logger.info(
         f"✅ Roteado para {agent} | "
@@ -87,29 +94,48 @@ def run(command: str, host: str, port: int):
             sys.exit(1)
 
         executor = ExecutionAgent(ollama)
+
         try:
-            code = executor.generate(prd)
+            if rag:
+                rag_optimizer = RAGOptimizer(ollama)
+                rag_chunks = rag_optimizer.retrieve(command)
+                logger.info(f"📚 RAG: {len(rag_chunks)} chunks recuperados")
+                generated = executor.generate_with_rag(
+                    prd.model_dump_json(), rag_chunks
+                )
+            else:
+                generated = executor.generate(prd.model_dump_json())
         except OllamaError as e:
             logger.error(f"❌ Falha no ExecutionAgent: {e}")
             sys.exit(1)
 
         click.echo("\n--- PRD ---\n")
-        click.echo(prd)
+        click.echo(prd.model_dump_json(indent=2))
         click.echo("\n--- CÓDIGO ---\n")
-        click.echo(code)
+        click.echo(generated.code)
 
     elif agent == "execution":
         executor = ExecutionAgent(ollama)
+
         try:
-            code = executor.generate(
-                f"Responda diretamente à pergunta: {command}"
-            )
+            if rag:
+                rag_optimizer = RAGOptimizer(ollama)
+                rag_chunks = rag_optimizer.retrieve(command)
+                logger.info(f"📚 RAG: {len(rag_chunks)} chunks recuperados")
+                generated = executor.generate_with_rag(
+                    f"Responda diretamente à pergunta: {command}",
+                    rag_chunks,
+                )
+            else:
+                generated = executor.generate(
+                    f"Responda diretamente à pergunta: {command}"
+                )
         except OllamaError as e:
             logger.error(f"❌ Falha no ExecutionAgent: {e}")
             sys.exit(1)
 
         click.echo("\n--- RESPOSTA ---\n")
-        click.echo(code)
+        click.echo(generated.code)
 
     else:
         logger.warning(f"⚠️ Agente desconhecido: {agent}")
