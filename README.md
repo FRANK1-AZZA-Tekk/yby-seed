@@ -244,5 +244,7 @@ MIT License - ver [LICENSE](LICENSE)
 
 **YBY SEED** - _Function Over Form_ 🚀
 
-**Última atualização:** 2026-10-08  
+**Última atualização:** 2026-10-12  
 **Versão:** 1.0.0 (PC Hub)
+
+- 2026-10-12: Validação do scan Strix no CI
