@@ -11,7 +11,7 @@ from pathlib import Path
 import click
 from loguru import logger
 
-from src.core.graph import ask
+from src.core.graph import ask as ask_graph
 from src.core.memory import MemoryStore
 from src.core.skills import list_skills, run_skill
 
@@ -94,7 +94,7 @@ def ask(question: tuple[str, ...], cite: bool, remember: bool, memory_dir: Path 
         raise click.exceptions.Exit(code=1)
     memory = MemoryStore(memory_dir / "memory.jsonl") if memory_dir else None
     try:
-        answer, citations = ask(text, cite=cite, remember=remember, memory=memory)
+        answer, citations = ask_graph(text, cite=cite, remember=remember, memory=memory)
         click.echo(answer)
         if citations:
             click.echo("\nFontes:")
