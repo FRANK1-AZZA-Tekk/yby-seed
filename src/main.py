@@ -43,13 +43,19 @@ def status():
 
 @cli.command()
 @click.argument("question", nargs=-1, required=True)
-def ask(question: tuple[str, ...]):
-    """Faz uma pergunta mínima ao núcleo YBY."""
+@click.option("--cite", is_flag=True, help="Usa documentos Markdown locais e inclui citações.")
+def ask(question: tuple[str, ...], cite: bool):
+    """Faz uma pergunta ao núcleo YBY; use --cite para consultar docs locais."""
     text = " ".join(question).strip()
     if not text:
         raise click.exceptions.Exit(code=1)
     try:
-        click.echo(ask(text))
+        answer, citations = ask(text, cite=cite)
+        click.echo(answer)
+        if citations:
+            click.echo("\nFontes:")
+            for citation in citations:
+                click.echo(f"- {citation}")
     except Exception as exc:
         logger.error(f"Falha ao processar a pergunta: {exc}")
         raise click.exceptions.Exit(code=1)
