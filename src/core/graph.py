@@ -5,6 +5,7 @@ from typing import TypedDict
 from langgraph.graph import END, StateGraph
 
 from src.core.llm import LLMClient
+from src.core.memory import MemoryStore
 from src.core.rag import build_index, search
 
 
@@ -15,9 +16,15 @@ class AskState(TypedDict):
     citations: list[str]
 
 
-def build_ask_graph(llm: LLMClient | None = None, cite: bool = False):
+def build_ask_graph(
+    llm: LLMClient | None = None,
+    cite: bool = False,
+    remember: bool = False,
+    memory: MemoryStore | None = None,
+):
     """Constrói o fluxo mínimo: route -> respond."""
     client = llm or LLMClient()
+    store = memory or MemoryStore()
     index = build_index() if cite else []
 
     def route(state: AskState) -> AskState:
@@ -28,15 +35,33 @@ def build_ask_graph(llm: LLMClient | None = None, cite: bool = False):
 
     def respond(state: AskState) -> AskState:
         question = state["question"]
+        context_parts: list[str] = []
+        citations: list[str] = []
+
         if cite:
             results = search(question, index)
-            context = "\n\n".join(chunk.text for chunk in results)
-            prompt = f"Responda usando apenas o contexto abaixo.\n\nContexto:\n{context}\n\nPergunta: {question}"
-            answer = client.generate(prompt)
-            citations = [f"{chunk.source}:{chunk.line}" for chunk in results]
+            if results:
+                context_parts.append("Documentos:\n" + "\n\n".join(chunk.text for chunk in results))
+                citations.extend(f"{chunk.source}:{chunk.line}" for chunk in results)
+
+        memories = store.search(question)
+        if memories:
+            context_parts.append(
+                "Memórias relevantes:\n"
+                + "\n".join(f"Q: {m.question}\nA: {m.answer}" for m in memories)
+            )
+            citations.extend(f"memory:{number}" for number, _ in enumerate(memories, start=1))
+
+        if context_parts:
+            prompt = f"Responda usando apenas o contexto abaixo.\n\n{chr(10).join(context_parts)}\n\nPergunta: {question}"
         else:
-            answer = client.generate(question)
-            citations = []
+            prompt = question
+
+        answer = client.generate(prompt)
+
+        if remember:
+            store.add(question, answer)
+
         return {**state, "answer": answer, "citations": citations}
 
     graph = StateGraph(AskState)
@@ -48,7 +73,13 @@ def build_ask_graph(llm: LLMClient | None = None, cite: bool = False):
     return graph.compile()
 
 
-def ask(question: str, llm: LLMClient | None = None, cite: bool = False) -> tuple[str, list[str]]:
-    graph = build_ask_graph(llm, cite=cite)
+def ask(
+    question: str,
+    llm: LLMClient | None = None,
+    cite: bool = False,
+    remember: bool = False,
+    memory: MemoryStore | None = None,
+) -> tuple[str, list[str]]:
+    graph = build_ask_graph(llm, cite=cite, remember=remember, memory=memory)
     result = graph.invoke({"question": question, "route": "", "answer": "", "citations": []})
     return result["answer"], result["citations"]

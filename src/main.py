@@ -6,11 +6,13 @@ import platform
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import click
 from loguru import logger
 
 from src.core.graph import ask
+from src.core.memory import MemoryStore
 
 
 def _port_open(host: str, port: int) -> bool:
@@ -44,13 +46,16 @@ def status():
 @cli.command()
 @click.argument("question", nargs=-1, required=True)
 @click.option("--cite", is_flag=True, help="Usa documentos Markdown locais e inclui citações.")
-def ask(question: tuple[str, ...], cite: bool):
-    """Faz uma pergunta ao núcleo YBY; use --cite para consultar docs locais."""
+@click.option("--remember", is_flag=True, help="Salva a interação na memória local.")
+@click.option("--memory-dir", type=click.Path(path_type=Path), default=None, help="Diretório da memória local.")
+def ask(question: tuple[str, ...], cite: bool, remember: bool, memory_dir: Path | None):
+    """Faz uma pergunta ao núcleo YBY."""
     text = " ".join(question).strip()
     if not text:
         raise click.exceptions.Exit(code=1)
+    memory = MemoryStore(memory_dir / "memory.jsonl") if memory_dir else None
     try:
-        answer, citations = ask(text, cite=cite)
+        answer, citations = ask(text, cite=cite, remember=remember, memory=memory)
         click.echo(answer)
         if citations:
             click.echo("\nFontes:")
