@@ -51,6 +51,7 @@ firmware/  → futuro (ESP32)
 
 ## Documentação
 
+- [Blueprint Técnico v3.1](docs/BLUEPRINT_YBY_SEED_v3.1.md)
 - [Arquitetura](ARCHITECTURE.md)
 - [Roadmap](ROADMAP.md)
 - [Decisões](DECISIONS.md)
