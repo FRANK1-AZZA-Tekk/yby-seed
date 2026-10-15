@@ -7,24 +7,26 @@ PC Hub local-first para automações e IA.
 
 ## Status
 
-Fase atual: **Fase 0 — Consolidação**. Foco exclusivo no PC (Ubuntu 26.04 LTS). Mobile e ESP32 ficam para fases futuras.
+Fase atual: **Fase 1 — Núcleo local**. Foco exclusivo no PC. Mobile, wearables e integrações externas ficam para fases futuras.
 
 ## O que é
 
 YBY SEED é um hub central no PC que:
 
 - Conversa localmente via Ollama.
-- Executa automações seguras.
-- Organiza e busca documentos.
-- Usa nuvem apenas como fallback.
+- Aplica regras determinísticas de segurança e roteamento.
+- Organiza e busca documentos localmente.
+- Usa nuvem apenas como fallback controlado.
 
-## MVP
+## MVP atual
 
-O MVP funciona sem Docker:
+O escopo atual está definido em [docs/MVP.md](docs/MVP.md).
 
 ```text
-yby.py → RouterAgent → Ollama → resposta
+Usuário → Gatekeeper → Router → Ollama → Resposta → SQLite
 ```
+
+O MVP roda nativamente no host. **Docker é opcional** e não faz parte do caminho principal nesta fase.
 
 ## Início rápido
 
@@ -32,9 +34,11 @@ yby.py → RouterAgent → Ollama → resposta
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-ollama pull llama3.2:3b
+ollama pull qwen3:4b
 python src/main.py
 ```
+
+O modelo final deve ser validado com benchmark de tokens/s, VRAM e RAM antes de ser fixado.
 
 ## Estrutura
 
@@ -43,7 +47,7 @@ src/       → núcleo YBY
 skills/    → automações
 tests/     → testes
 scripts/   → utilitários
-docs/      → planos e decisões
+docs/      → blueprint, MVP e decisões
 examples/  → exemplos (pós-MVP)
 grafana/   → observabilidade (pós-MVP)
 firmware/  → futuro (ESP32)
@@ -52,6 +56,7 @@ firmware/  → futuro (ESP32)
 ## Documentação
 
 - [Blueprint Técnico v3.1](docs/BLUEPRINT_YBY_SEED_v3.1.md)
+- [MVP](docs/MVP.md)
 - [Arquitetura](ARCHITECTURE.md)
 - [Roadmap](ROADMAP.md)
 - [Decisões](DECISIONS.md)
