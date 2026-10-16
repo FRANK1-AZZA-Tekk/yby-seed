@@ -25,6 +25,7 @@ from src.core.ollama_client import (
     OllamaPolicyError,
 )
 from src.core.gatekeeper import match_command
+from src.core.router import RunPolicy, route_request
 
 logger.remove()
 logger.add(lambda msg: print(msg, end=""), level="INFO")
@@ -92,7 +93,19 @@ def health():
 
 @cli.command()
 @click.argument("text")
-def ask(text: str):
+@click.option(
+    "--offline",
+    is_flag=True,
+    default=False,
+    help="Executa sem qualquer rota de nuvem (no MVP nenhuma rota de nuvem existe).",
+)
+@click.option(
+    "--private",
+    is_flag=True,
+    default=False,
+    help="Nao persiste auditoria desta interacao.",
+)
+def ask(text: str, offline: bool, private: bool):
     """Envia um pedido ao Ollama local"""
     command = match_command(text)
 
@@ -107,6 +120,19 @@ def ask(text: str):
             err=True,
         )
         raise SystemExit(5)
+
+    policy = RunPolicy(offline=offline, private=private)
+    decision = route_request(policy)
+
+    if decision.route != "local_ollama":
+        click.echo(
+            "ERRO: rota não implementada. Nenhuma alteração foi aplicada.",
+            err=True,
+        )
+        raise SystemExit(5)
+
+    # A auditoria opt-in (3B) respeitara decision.policy.private:
+    # interacoes privadas nao persistem metadados de auditoria.
 
     try:
         client = _make_ollama_client()

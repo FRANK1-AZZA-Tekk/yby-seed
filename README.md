@@ -14,7 +14,7 @@ Fase atual: **Fase 1 — Núcleo local**. Foco exclusivo no PC. Mobile, wearable
 YBY SEED é um hub central no PC que:
 
 - Conversa localmente via Ollama.
-- Aplica regras determinísticas de segurança.
+- Aplica regras determinísticas de segurança e roteamento.
 - Organiza e busca documentos localmente (planejado).
 - Usa nuvem apenas como fallback controlado (planejado; não conectado ao `ask`).
 
@@ -25,11 +25,12 @@ YBY SEED é um hub central no PC que:
 - Geração via Ollama, com erros tipados no caminho principal.
 - Storage SQLite isolado, ainda não conectado ao `ask`.
 - Política de transporte restrita a loopback, sem proxies e sem redirecionamentos.
+- Router determinístico de rota única (`local_ollama`) e flags `--offline`/`--private` no `ask`.
 
 Fluxo executável atual:
 
 ```text
-Usuário → comandos → verificações do Ollama → geração → resposta
+Usuário → comandos → Gatekeeper → Router → verificações do Ollama → geração → resposta
 ```
 
 ## Fluxo alvo do MVP
@@ -38,7 +39,7 @@ Usuário → comandos → verificações do Ollama → geração → resposta
 Usuário → Gatekeeper → Router → Ollama → resposta → SQLite
 ```
 
-Router determinístico, modos offline/privado e auditoria no `ask` ainda estão em desenvolvimento.
+Modos offline/privado estão disponíveis no `ask`; a auditoria opt-in no `ask` ainda está em desenvolvimento.
 
 Não há fallback de nuvem conectado ao `ask`.
 
@@ -56,6 +57,7 @@ ollama pull qwen3:4b
 python -m src.main --help
 python -m src.main health
 python -m src.main ask "Explique o que é local-first."
+python -m src.main ask --offline --private "Explique o que é local-first."
 ```
 
 O modelo final deve ser validado com benchmark de tokens/s, VRAM e RAM antes de ser fixado.
