@@ -1,6 +1,5 @@
 import sqlite3
 from contextlib import closing
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -183,32 +182,22 @@ def test_corrupt_database_has_controlled_error(db_path):
 
 
 def test_failed_initialization_rolls_back_schema(db_path, monkeypatch):
-    real_connect = sqlite3.connect
-
-    def fake_connect(*args, **kwargs):
-        connection = real_connect(*args, **kwargs)
-        original_execute = connection.execute
-
-        def execute(sql, *args, **kwargs):
-            if "CREATE INDEX" in sql:
-                raise sqlite3.OperationalError("falha simulada")
-            return original_execute(sql, *args, **kwargs)
-
-        connection.execute = execute
-        return connection
-
     monkeypatch.setattr(
-        "src.core.storage.sqlite3.connect", fake_connect
+        "src.core.storage.INDEX_SQL",
+        "CREATE INDEX",
     )
 
     with pytest.raises(StorageError):
         initialize_database(db_path)
 
-    with closing(real_connect(db_path)) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         assert connection.execute(
             "PRAGMA user_version"
         ).fetchone()[0] == 0
-        tables = connection.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'table'"
+
+        objects = connection.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE name NOT LIKE 'sqlite_%'"
         ).fetchall()
-        assert tables == []
+
+    assert objects == []
