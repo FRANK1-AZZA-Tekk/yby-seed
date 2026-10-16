@@ -22,7 +22,7 @@ mapeamento de imports antes de qualquer movimentação (Fase 9B).
 | `src/core/auto_improvement.py` | Experimental | Retorna métricas fixas; anuncia otimização com TODO | Mover para `src/experimental/` |
 | `src/core/auto_cleanup.py` | Experimental | Limpeza de arquivos + PostgreSQL/Redis incompatíveis com o núcleo | Mover para `src/experimental/` |
 | `src/core/fastapi_mqtt_bridge.py` | Experimental | Embeddings de zeros; WebSocket/worker consomem a mesma fila | Mover para `src/experimental/` |
-| `src/core/openrouter_sanitizer.py` | Experimental | Pode retornar exemplos de dados sensíveis | Mover para `src/experimental/` |
+| `src/core/openrouter_sanitizer.py` | **Movido (9B.2)** | Autocontido; zero consumidores confirmados no núcleo | Movido para `src/experimental/security/openrouter_sanitizer.py` |
 | `src/core/skill_manager.py` | Experimental | Registra trecho do comando do usuário | Mover para `src/experimental/` |
 | `src/security/sandbox_executor.py` | **Movido (9B.1)** | Autocontido; zero consumidores confirmados (main, testes e openrouter_sanitizer verificados) | Movido para `src/experimental/security/sandbox_executor.py` |
 | `src/gateway/` | Experimental | MQTT/LanceDB; fora do fluxo principal | Mover para `src/experimental/` |
@@ -51,3 +51,6 @@ mapeamento de imports antes de qualquer movimentação (Fase 9B).
   preliminar, baseado em estrutura de diretórios e auditoria estática
   anterior, não em leitura completa de cada arquivo.
 - Nenhuma execução de código ou teste foi realizada nesta sessão.
+- Risco conhecido no sanitizador: `validate_before_send()` retorna até 3
+  exemplos dos dados sensíveis encontrados — não logar nem exibir esse
+  retorno sem tratamento.
