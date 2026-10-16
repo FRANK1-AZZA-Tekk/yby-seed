@@ -6,14 +6,19 @@ Uso:
     python src/main.py
 
 Comandos:
-    health   - Verifica saude do ambiente (Ollama, data/)
+    health   - Verifica saude do ambiente (Ollama, data/, modelo padrao)
     ask      - Envia um pedido ao Ollama local
+
+Codigos de saida:
+    0 sucesso | 1 ambiente nao saudavel | 2 Ollama indisponivel
+    3 modelo ausente | 4 resposta vazia | 5 comando nao implementado
+    7 falha tecnica do cliente Ollama
 """
 
 import os
 import click
 from loguru import logger
-from src.core.ollama_client import OllamaClient
+from src.core.ollama_client import OllamaClient, OllamaClientError
 from src.core.gatekeeper import match_command
 
 logger.remove()
@@ -32,23 +37,30 @@ def cli():
 
 @cli.command()
 def health():
-    """Verifica saude do ambiente (Ollama, data/)"""
+    """Verifica saude do ambiente (Ollama, data/, modelo padrao)"""
     client = OllamaClient(host=OLLAMA_HOST, port=OLLAMA_PORT)
     ollama_ok = client.is_healthy()
     data_ok = os.path.isdir(DATA_DIR)
+    model_ok = False
 
     click.echo(f"Ollama ({OLLAMA_HOST}:{OLLAMA_PORT}): {'OK' if ollama_ok else 'FALHA'}")
     click.echo(f"Diretorio data/: {'OK' if data_ok else 'AUSENTE'}")
 
     if ollama_ok:
-        models = client.list_models()
+        try:
+            models = client.list_models()
+        except OllamaClientError as exc:
+            click.echo(f"ERRO: {exc}", err=True)
+            raise SystemExit(1) from None
+
         click.echo(f"Modelos disponiveis: {len(models)}")
-        if DEFAULT_MODEL in models:
+        model_ok = DEFAULT_MODEL in models
+        if model_ok:
             click.echo(f"Modelo padrao '{DEFAULT_MODEL}': OK")
         else:
             click.echo(f"Modelo padrao '{DEFAULT_MODEL}': NAO ENCONTRADO")
 
-    if not (ollama_ok and data_ok):
+    if not (ollama_ok and data_ok and model_ok):
         raise SystemExit(1)
 
     click.echo("Ambiente saudavel.")
@@ -78,7 +90,12 @@ def ask(text: str):
         click.echo("ERRO: Ollama nao esta respondendo.", err=True)
         raise SystemExit(2)
 
-    models = client.list_models()
+    try:
+        models = client.list_models()
+    except OllamaClientError as exc:
+        click.echo(f"ERRO: {exc}", err=True)
+        raise SystemExit(7) from None
+
     if DEFAULT_MODEL not in models:
         click.echo(
             f"ERRO: modelo '{DEFAULT_MODEL}' nao encontrado. "
@@ -88,11 +105,15 @@ def ask(text: str):
         raise SystemExit(3)
 
     logger.info(f"Enviando pedido ao modelo {DEFAULT_MODEL}...")
-    response = client.generate(
-        model=DEFAULT_MODEL,
-        prompt=text,
-        options={"num_ctx": 4096, "temperature": 0.6},
-    )
+    try:
+        response = client.generate(
+            model=DEFAULT_MODEL,
+            prompt=text,
+            options={"num_ctx": 4096, "temperature": 0.6},
+        )
+    except OllamaClientError as exc:
+        click.echo(f"ERRO: {exc}", err=True)
+        raise SystemExit(7) from None
 
     if not response:
         click.echo("ERRO: resposta vazia do Ollama.", err=True)

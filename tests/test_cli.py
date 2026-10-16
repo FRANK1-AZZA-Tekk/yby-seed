@@ -34,3 +34,34 @@ def test_normal_prompt_reaches_generation_path():
 
     assert result.exit_code == 0
     instance.generate.assert_called_once()
+
+
+def test_health_fails_when_default_model_is_missing():
+    with (
+        patch("src.main.OllamaClient") as client_class,
+        patch("src.main.os.path.isdir", return_value=True),
+    ):
+        client = client_class.return_value
+        client.is_healthy.return_value = True
+        client.list_models.return_value = []
+
+        result = CliRunner().invoke(cli, ["health"])
+
+    assert result.exit_code == 1
+    assert "NAO ENCONTRADO" in result.output
+    assert "Ambiente saudavel." not in result.output
+
+
+def test_ask_technical_failure_returns_exit_7():
+    from src.core.ollama_client import OllamaTransportError
+
+    with patch("src.main.OllamaClient") as client_class:
+        instance = client_class.return_value
+        instance.is_healthy.return_value = True
+        instance.list_models.side_effect = OllamaTransportError(
+            "Falha de conexão com o Ollama."
+        )
+
+        result = CliRunner().invoke(cli, ["ask", "oi"])
+
+    assert result.exit_code == 7

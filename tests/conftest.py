@@ -10,6 +10,8 @@ Regras:
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from src.core.ollama_client import OllamaClient
+
 
 # ============================================================================
 # FIXTURES GERAIS
@@ -18,12 +20,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 @pytest.fixture
 def mock_llm_client():
-    """Mock do cliente LLM (Ollama/LiteLLM) para testes unitários."""
-    with patch("src.agents.router_agent.LLMClient") as mock_client:
-        mock_instance = MagicMock()
-        mock_instance.generate = AsyncMock(return_value="mocked response")
-        mock_client.return_value = mock_instance
-        yield mock_instance
+    """Cliente síncrono simulado (Ollama), sem acesso à rede."""
+    client = MagicMock(spec=OllamaClient)
+    client.generate.return_value = "mocked response"
+    return client
 
 
 @pytest.fixture
