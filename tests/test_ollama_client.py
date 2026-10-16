@@ -12,7 +12,8 @@ from src.core.ollama_client import (
 )
 
 
-def _client_with(monkeypatch, post):
+def _client_with(monkeypatch, post, *, status_code=200):
+    post.return_value.status_code = status_code
     client = OllamaClient(timeout=(3.0, 180.0))
     monkeypatch.setattr(client.session, "request", post)
     return client
@@ -71,8 +72,7 @@ def test_generate_connection_error_is_transport_error(monkeypatch):
 def test_generate_http_error_is_typed_error(monkeypatch):
     post = Mock()
     post.return_value.raise_for_status.side_effect = requests.HTTPError("SEGREDO_TESTE")
-    post.return_value.status_code = 503
-    client = _client_with(monkeypatch, post)
+    client = _client_with(monkeypatch, post, status_code=503)
 
     with pytest.raises(OllamaHTTPError) as caught:
         client.generate(model="qwen3:4b", prompt="Olá")

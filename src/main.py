@@ -12,13 +12,18 @@ Comandos:
 Codigos de saida:
     0 sucesso | 1 ambiente nao saudavel | 2 Ollama indisponivel
     3 modelo ausente | 4 resposta vazia | 5 comando nao implementado
+    6 operacao bloqueada pela politica de transporte
     7 falha tecnica do cliente Ollama
 """
 
 import os
 import click
 from loguru import logger
-from src.core.ollama_client import OllamaClient, OllamaClientError
+from src.core.ollama_client import (
+    OllamaClient,
+    OllamaClientError,
+    OllamaPolicyError,
+)
 from src.core.gatekeeper import match_command
 
 logger.remove()
@@ -27,7 +32,18 @@ logger.add(lambda msg: print(msg, end=""), level="INFO")
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 DEFAULT_MODEL = os.environ.get("YBY_MODEL", "qwen3:4b")
 OLLAMA_HOST = os.environ.get("YBY_OLLAMA_HOST", "localhost")
-OLLAMA_PORT = int(os.environ.get("YBY_OLLAMA_PORT", "11434"))
+OLLAMA_PORT = os.environ.get("YBY_OLLAMA_PORT", "11434")
+
+
+def _make_ollama_client() -> OllamaClient:
+    try:
+        port = int(OLLAMA_PORT)
+    except (TypeError, ValueError):
+        raise OllamaPolicyError(
+            "Porta do Ollama não permitida pela política local."
+        ) from None
+
+    return OllamaClient(host=OLLAMA_HOST, port=port)
 
 
 @click.group()
@@ -38,8 +54,13 @@ def cli():
 @cli.command()
 def health():
     """Verifica saude do ambiente (Ollama, data/, modelo padrao)"""
-    client = OllamaClient(host=OLLAMA_HOST, port=OLLAMA_PORT)
-    ollama_ok = client.is_healthy()
+    try:
+        client = _make_ollama_client()
+        ollama_ok = client.is_healthy()
+    except OllamaPolicyError as exc:
+        click.echo(f"ERRO: {exc}", err=True)
+        raise SystemExit(1) from None
+
     data_ok = os.path.isdir(DATA_DIR)
     model_ok = False
 
@@ -49,6 +70,9 @@ def health():
     if ollama_ok:
         try:
             models = client.list_models()
+        except OllamaPolicyError as exc:
+            click.echo(f"ERRO: {exc}", err=True)
+            raise SystemExit(1) from None
         except OllamaClientError as exc:
             click.echo(f"ERRO: {exc}", err=True)
             raise SystemExit(1) from None
@@ -84,14 +108,22 @@ def ask(text: str):
         )
         raise SystemExit(5)
 
-    client = OllamaClient(host=OLLAMA_HOST, port=OLLAMA_PORT)
+    try:
+        client = _make_ollama_client()
+        ollama_ok = client.is_healthy()
+    except OllamaPolicyError as exc:
+        click.echo(f"ERRO: {exc}", err=True)
+        raise SystemExit(6) from None
 
-    if not client.is_healthy():
+    if not ollama_ok:
         click.echo("ERRO: Ollama nao esta respondendo.", err=True)
         raise SystemExit(2)
 
     try:
         models = client.list_models()
+    except OllamaPolicyError as exc:
+        click.echo(f"ERRO: {exc}", err=True)
+        raise SystemExit(6) from None
     except OllamaClientError as exc:
         click.echo(f"ERRO: {exc}", err=True)
         raise SystemExit(7) from None
@@ -111,6 +143,9 @@ def ask(text: str):
             prompt=text,
             options={"num_ctx": 4096, "temperature": 0.6},
         )
+    except OllamaPolicyError as exc:
+        click.echo(f"ERRO: {exc}", err=True)
+        raise SystemExit(6) from None
     except OllamaClientError as exc:
         click.echo(f"ERRO: {exc}", err=True)
         raise SystemExit(7) from None

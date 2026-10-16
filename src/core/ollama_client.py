@@ -2,8 +2,11 @@
 """
 Cliente Ollama para inferência local de modelos.
 
-Erros de timeout, transporte, HTTP e protocolo são reportados como
-exceções tipadas. Mensagens públicas nunca incluem prompt, resposta,
+Política de transporte: apenas endpoints loopback (localhost/127.0.0.1
+ou ::1), sem proxies por ambiente e sem redirecionamentos.
+
+Erros de timeout, transporte, HTTP, protocolo e política são reportados
+como exceções tipadas. Mensagens públicas nunca incluem prompt, resposta,
 corpo HTTP ou mensagem original da exceção.
 """
 
@@ -34,6 +37,27 @@ class OllamaProtocolError(OllamaClientError):
     """Resposta inválida recebida do Ollama."""
 
 
+class OllamaPolicyError(OllamaClientError):
+    """Operação bloqueada pela política de transporte."""
+
+
+def _loopback_base_url(host: str, port: int) -> str:
+    if type(port) is not int or not 1 <= port <= 65535:
+        raise OllamaPolicyError(
+            "Porta do Ollama não permitida pela política local."
+        )
+
+    if host in ("localhost", "127.0.0.1"):
+        return f"http://127.0.0.1:{port}"
+
+    if host == "::1":
+        return f"http://[::1]:{port}"
+
+    raise OllamaPolicyError(
+        "Endpoint do Ollama não permitido pela política local."
+    )
+
+
 class OllamaClient:
     """Cliente HTTP para API Ollama."""
 
@@ -51,10 +75,11 @@ class OllamaClient:
             raise ValueError(
                 "timeout deve ser (conexao, leitura) com valores positivos e finitos"
             )
-        self.base_url = f"http://{host}:{port}"
+        self.base_url = _loopback_base_url(host, port)
         self.timeout = timeout
         self.session = requests.Session()
-        logger.info("OllamaClient conectado em {}", self.base_url)
+        self.session.trust_env = False
+        logger.info("OllamaClient configurado para endpoint loopback.")
 
     def _request(
         self,
@@ -63,21 +88,33 @@ class OllamaClient:
         *,
         stream: bool = False,
         json_payload: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
     ) -> requests.Response:
         try:
-            return self.session.request(
+            response = self.session.request(
                 method,
                 f"{self.base_url}{path}",
                 json=json_payload,
                 stream=stream,
-                timeout=self.timeout,
+                timeout=self.timeout if timeout is None else timeout,
+                allow_redirects=False,
             )
         except requests.Timeout:
             raise OllamaTimeoutError(
                 "Tempo de espera excedido ao consultar o Ollama."
             ) from None
         except requests.RequestException:
-            raise OllamaTransportError("Falha de conexão com o Ollama.") from None
+            raise OllamaTransportError(
+                "Falha de conexão com o Ollama."
+            ) from None
+
+        if 300 <= response.status_code < 400:
+            response.close()
+            raise OllamaPolicyError(
+                "Redirecionamento bloqueado pela política local."
+            )
+
+        return response
 
     def _json_object(self, response: requests.Response) -> Dict[str, Any]:
         try:
@@ -101,17 +138,22 @@ class OllamaClient:
         return data
 
     def pull(self, model: str) -> bool:
-        """Baixa modelo Ollama (contrato anterior preservado; 2B depois)."""
+        """Baixa modelo Ollama (resultado legado; endurecimento completo no 2B)."""
         try:
             logger.info("Baixando modelo: {}", model)
-            response = self.session.post(
-                f"{self.base_url}/api/pull", json={"name": model}, stream=True
+            response = self._request(
+                "POST",
+                "/api/pull",
+                json_payload={"name": model},
+                stream=True,
             )
             for line in response.iter_lines():
                 if line:
                     logger.debug("pull: {}", line.decode())
             logger.info("Modelo {} baixado", model)
             return True
+        except OllamaPolicyError:
+            raise
         except Exception:
             logger.error("Erro ao baixar {}", model)
             return False
@@ -171,11 +213,11 @@ class OllamaClient:
         messages: list,
         stream: bool = False,
     ) -> str:
-        """Chat com histórico (contrato anterior preservado; endurecimento no 2B)."""
+        """Chat com histórico (resultado legado; endurecimento completo no 2B)."""
         payload = {"model": model, "messages": messages, "stream": stream}
         try:
-            response = self.session.post(
-                f"{self.base_url}/api/chat", json=payload, stream=stream
+            response = self._request(
+                "POST", "/api/chat", json_payload=payload, stream=stream
             )
             if stream:
                 def stream_generator():
@@ -185,6 +227,8 @@ class OllamaClient:
                 return stream_generator()
             result = response.json()
             return result.get("message", {}).get("content", "")
+        except OllamaPolicyError:
+            raise
         except Exception:
             logger.error("Erro no chat com {}", model)
             return ""
@@ -203,9 +247,18 @@ class OllamaClient:
         return names
 
     def is_healthy(self) -> bool:
-        """Verifica se Ollama está rodando."""
+        """Sonda disponibilidade sem ocultar bloqueios de política."""
         try:
-            response = self.session.get(f"{self.base_url}/api/tags", timeout=5)
-            return response.status_code == 200
-        except Exception:
+            response = self._request(
+                "GET",
+                "/api/tags",
+                timeout=5.0,
+            )
+            try:
+                return response.status_code == 200
+            finally:
+                response.close()
+        except OllamaPolicyError:
+            raise
+        except OllamaClientError:
             return False
