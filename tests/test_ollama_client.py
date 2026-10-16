@@ -18,15 +18,35 @@ def _client_with(monkeypatch, post):
     return client
 
 
-def test_generate_sends_configured_timeout(monkeypatch):
+def test_generate_sends_configured_timeout_and_payload(monkeypatch):
     post = Mock()
     post.return_value.json.return_value = {"response": "ok"}
     client = _client_with(monkeypatch, post)
 
-    result = client.generate(model="qwen3:4b", prompt="Olá")
+    result = client.generate(
+        model="qwen3:4b",
+        prompt="Olá",
+        options={"num_ctx": 4096, "temperature": 0.6},
+    )
 
     assert result == "ok"
     assert post.call_args.kwargs["timeout"] == (3.0, 180.0)
+    payload = post.call_args.kwargs["json"]
+    assert payload == {
+        "model": "qwen3:4b",
+        "prompt": "Olá",
+        "stream": False,
+        "options": {"num_ctx": 4096, "temperature": 0.6},
+    }
+
+
+def test_timeout_rejects_nan_and_infinity():
+    with pytest.raises(ValueError):
+        OllamaClient(timeout=(float("nan"), 180.0))
+    with pytest.raises(ValueError):
+        OllamaClient(timeout=(3.0, float("inf")))
+    with pytest.raises(ValueError):
+        OllamaClient(timeout=(0.0, 180.0))
 
 
 def test_generate_timeout_is_typed_error(monkeypatch):

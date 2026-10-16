@@ -7,6 +7,7 @@ exceções tipadas. Mensagens públicas nunca incluem prompt, resposta,
 corpo HTTP ou mensagem original da exceção.
 """
 
+import math
 from typing import Any, Dict, Iterator, Optional, Union
 
 import requests
@@ -43,12 +44,17 @@ class OllamaClient:
         *,
         timeout: tuple[float, float] = (3.0, 180.0),
     ):
-        if len(timeout) != 2 or timeout[0] <= 0 or timeout[1] <= 0:
-            raise ValueError("timeout deve ser (conexao, leitura) com valores positivos")
+        if (
+            len(timeout) != 2
+            or any(not math.isfinite(t) or t <= 0 for t in timeout)
+        ):
+            raise ValueError(
+                "timeout deve ser (conexao, leitura) com valores positivos e finitos"
+            )
         self.base_url = f"http://{host}:{port}"
         self.timeout = timeout
         self.session = requests.Session()
-        logger.info("OllamaClient conectado em %s", self.base_url)
+        logger.info("OllamaClient conectado em {}", self.base_url)
 
     def _request(
         self,
@@ -97,17 +103,17 @@ class OllamaClient:
     def pull(self, model: str) -> bool:
         """Baixa modelo Ollama (contrato anterior preservado; 2B depois)."""
         try:
-            logger.info("Baixando modelo: %s", model)
+            logger.info("Baixando modelo: {}", model)
             response = self.session.post(
                 f"{self.base_url}/api/pull", json={"name": model}, stream=True
             )
             for line in response.iter_lines():
                 if line:
-                    logger.debug("pull: %s", line.decode())
-            logger.info("Modelo %s baixado", model)
+                    logger.debug("pull: {}", line.decode())
+            logger.info("Modelo {} baixado", model)
             return True
         except Exception:
-            logger.error("Erro ao baixar %s", model)
+            logger.error("Erro ao baixar {}", model)
             return False
 
     def generate(
@@ -180,7 +186,7 @@ class OllamaClient:
             result = response.json()
             return result.get("message", {}).get("content", "")
         except Exception:
-            logger.error("Erro no chat com %s", model)
+            logger.error("Erro no chat com {}", model)
             return ""
 
     def list_models(self) -> list:
