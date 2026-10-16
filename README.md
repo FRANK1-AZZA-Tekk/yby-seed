@@ -23,9 +23,10 @@ YBY SEED é um hub central no PC que:
 - CLI Click com `health` e `ask`.
 - Reconhecimento determinístico de comandos.
 - Geração via Ollama, com erros tipados no caminho principal.
-- Storage SQLite isolado, ainda não conectado ao `ask`.
+- Storage SQLite isolado.
 - Política de transporte restrita a loopback, sem proxies e sem redirecionamentos.
 - Router determinístico de rota única (`local_ollama`) e flags `--offline`/`--private` no `ask`.
+- Auditoria opt-in de metadados no `ask` (`--audit`); `--private` nunca persiste.
 
 Fluxo executável atual:
 
@@ -39,7 +40,8 @@ Usuário → comandos → Gatekeeper → Router → verificações do Ollama →
 Usuário → Gatekeeper → Router → Ollama → resposta → SQLite
 ```
 
-Modos offline/privado estão disponíveis no `ask`; a auditoria opt-in no `ask` ainda está em desenvolvimento.
+Modos offline/privado e auditoria opt-in estão disponíveis no `ask`.
+Consulta e rotação da auditoria ficam para fases posteriores.
 
 Não há fallback de nuvem conectado ao `ask`.
 
@@ -58,6 +60,7 @@ python -m src.main --help
 python -m src.main health
 python -m src.main ask "Explique o que é local-first."
 python -m src.main ask --offline --private "Explique o que é local-first."
+python -m src.main ask --audit "Explique o que é local-first."
 ```
 
 O modelo final deve ser validado com benchmark de tokens/s, VRAM e RAM antes de ser fixado.

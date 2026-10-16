@@ -17,8 +17,11 @@ Codigos de saida:
 """
 
 import os
+from contextlib import nullcontext
+
 import click
 from loguru import logger
+from src.core.audit import audit_context
 from src.core.ollama_client import (
     OllamaClient,
     OllamaClientError,
@@ -105,7 +108,13 @@ def health():
     default=False,
     help="Nao persiste auditoria desta interacao.",
 )
-def ask(text: str, offline: bool, private: bool):
+@click.option(
+    "--audit",
+    is_flag=True,
+    default=False,
+    help="Grava metadados de auditoria (nunca prompt ou resposta).",
+)
+def ask(text: str, offline: bool, private: bool, audit: bool):
     """Envia um pedido ao Ollama local"""
     command = match_command(text)
 
@@ -131,56 +140,81 @@ def ask(text: str, offline: bool, private: bool):
         )
         raise SystemExit(5)
 
-    # A auditoria opt-in (3B) respeitara decision.policy.private:
-    # interacoes privadas nao persistem metadados de auditoria.
-
-    try:
-        client = _make_ollama_client()
-        ollama_ok = client.is_healthy()
-    except OllamaPolicyError as exc:
-        click.echo(f"ERRO: {exc}", err=True)
-        raise SystemExit(6) from None
-
-    if not ollama_ok:
-        click.echo("ERRO: Ollama nao esta respondendo.", err=True)
-        raise SystemExit(2)
-
-    try:
-        models = client.list_models()
-    except OllamaPolicyError as exc:
-        click.echo(f"ERRO: {exc}", err=True)
-        raise SystemExit(6) from None
-    except OllamaClientError as exc:
-        click.echo(f"ERRO: {exc}", err=True)
-        raise SystemExit(7) from None
-
-    if DEFAULT_MODEL not in models:
+    if audit and private:
         click.echo(
-            f"ERRO: modelo '{DEFAULT_MODEL}' nao encontrado. "
-            f"Execute: ollama pull {DEFAULT_MODEL}",
+            "AVISO: --private prevalece; auditoria não será gravada.",
             err=True,
         )
-        raise SystemExit(3)
 
-    logger.info(f"Enviando pedido ao modelo {DEFAULT_MODEL}...")
-    try:
-        response = client.generate(
-            model=DEFAULT_MODEL,
-            prompt=text,
-            options={"num_ctx": 4096, "temperature": 0.6},
-        )
-    except OllamaPolicyError as exc:
-        click.echo(f"ERRO: {exc}", err=True)
-        raise SystemExit(6) from None
-    except OllamaClientError as exc:
-        click.echo(f"ERRO: {exc}", err=True)
-        raise SystemExit(7) from None
+    audit_enabled = audit and not private
+    audit_cm = audit_context(DEFAULT_MODEL) if audit_enabled else nullcontext()
 
-    if not response:
-        click.echo("ERRO: resposta vazia do Ollama.", err=True)
-        raise SystemExit(4)
+    with audit_cm as recorder:
+        try:
+            client = _make_ollama_client()
+            ollama_ok = client.is_healthy()
+        except OllamaPolicyError as exc:
+            if recorder:
+                recorder.finish("error", 6)
+            click.echo(f"ERRO: {exc}", err=True)
+            raise SystemExit(6) from None
 
-    click.echo(response)
+        if not ollama_ok:
+            if recorder:
+                recorder.finish("error", 2)
+            click.echo("ERRO: Ollama nao esta respondendo.", err=True)
+            raise SystemExit(2)
+
+        try:
+            models = client.list_models()
+        except OllamaPolicyError as exc:
+            if recorder:
+                recorder.finish("error", 6)
+            click.echo(f"ERRO: {exc}", err=True)
+            raise SystemExit(6) from None
+        except OllamaClientError as exc:
+            if recorder:
+                recorder.finish("error", 7)
+            click.echo(f"ERRO: {exc}", err=True)
+            raise SystemExit(7) from None
+
+        if DEFAULT_MODEL not in models:
+            if recorder:
+                recorder.finish("error", 3)
+            click.echo(
+                f"ERRO: modelo '{DEFAULT_MODEL}' nao encontrado. "
+                f"Execute: ollama pull {DEFAULT_MODEL}",
+                err=True,
+            )
+            raise SystemExit(3)
+
+        logger.info(f"Enviando pedido ao modelo {DEFAULT_MODEL}...")
+        try:
+            response = client.generate(
+                model=DEFAULT_MODEL,
+                prompt=text,
+                options={"num_ctx": 4096, "temperature": 0.6},
+            )
+        except OllamaPolicyError as exc:
+            if recorder:
+                recorder.finish("error", 6)
+            click.echo(f"ERRO: {exc}", err=True)
+            raise SystemExit(6) from None
+        except OllamaClientError as exc:
+            if recorder:
+                recorder.finish("error", 7)
+            click.echo(f"ERRO: {exc}", err=True)
+            raise SystemExit(7) from None
+
+        if not response:
+            if recorder:
+                recorder.finish("empty", 4)
+            click.echo("ERRO: resposta vazia do Ollama.", err=True)
+            raise SystemExit(4)
+
+        if recorder:
+            recorder.finish("ok", 0)
+        click.echo(response)
 
 
 if __name__ == "__main__":
