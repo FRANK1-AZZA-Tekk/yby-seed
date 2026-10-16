@@ -1,0 +1,72 @@
+# =============================================================================
+# YBY SEED — Configuração LiteLLM
+# Roteamento em pirâmide de custos: local → grátis → econômico → crítico
+# Documentação: docs/PLANEJAMENTO-CUSTOS-IA.md
+# =============================================================================
+
+model_list:
+  # --- Nível 1: Volume local (custo zero, privacidade) ---
+  - model_name: yby-local
+    litellm_params:
+      model: ollama/llama3.2:3b
+      api_base: http://localhost:11434
+
+  # --- Nível 2: Modelos gratuitos OpenRouter (prototipagem/testes) ---
+  - model_name: yby-free
+    litellm_params:
+      model: openrouter/openrouter/free
+
+  # --- Nível 3a: Econômico rápido (debate, pesquisa, specs) ---
+  - model_name: yby-fast
+    litellm_params:
+      model: openrouter/meta-llama/llama-3.3-70b-instruct
+
+  # --- Nível 3b: Código médio (implementação, debug leve) ---
+  - model_name: yby-smart
+    litellm_params:
+      model: openrouter/deepseek/deepseek-chat-v3.1
+
+  # --- Nível 4: Crítico (implementação complexa, revisão final) ---
+  - model_name: yby-critical
+    litellm_params:
+      model: openrouter/anthropic/claude-sonnet-4.5
+
+# -----------------------------------------------------------------------------
+# Roteamento com fallback em cascata
+# Regra: tente o nível mais barato primeiro; suba só se falhar.
+# -----------------------------------------------------------------------------
+router_settings:
+  fallbacks:
+    - yby-free: [yby-local]
+    - yby-fast: [yby-free, yby-local]
+    - yby-smart: [yby-fast, yby-free]
+    - yby-critical: [yby-smart, yby-fast]
+  routing_strategy: latency-based-routing
+  num_retries: 2
+  timeout: 120
+
+# -----------------------------------------------------------------------------
+# Controle de gastos (proteção do crédito)
+# -----------------------------------------------------------------------------
+litellm_settings:
+  drop_params: true
+  max_budget: 10.0          # teto total do crédito (US$)
+  budget_duration: 30d      # janela de renovação mensal
+
+# Budget por chave de API (ajuste conforme necessário)
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+# -----------------------------------------------------------------------------
+# Variáveis de ambiente necessárias (.env — NÃO commitar):
+#   OPENROUTER_API_KEY=sk-or-v1-...
+#   LITELLM_MASTER_KEY=sk-...
+# -----------------------------------------------------------------------------
+
+# Como rodar:
+#   litellm --config litellm_config.yaml
+#
+# Exemplo de chamada (OpenAI-compatible):
+#   curl http://localhost:4000/v1/chat/completions \
+#     -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+#     -d '{"model": "yby-smart", "messages": [{"role": "user", "content": "..."}]}'
