@@ -24,7 +24,7 @@ mapeamento de imports antes de qualquer movimentação (Fase 9B).
 | `src/core/fastapi_mqtt_bridge.py` | Experimental | Embeddings de zeros; WebSocket/worker consomem a mesma fila | Mover para `src/experimental/` |
 | `src/core/openrouter_sanitizer.py` | Experimental | Pode retornar exemplos de dados sensíveis | Mover para `src/experimental/` |
 | `src/core/skill_manager.py` | Experimental | Registra trecho do comando do usuário | Mover para `src/experimental/` |
-| `src/security/sandbox_executor.py` | Legado | Não é fronteira de segurança; fora do MVP | Mover para `src/experimental/` ou arquivar |
+| `src/security/sandbox_executor.py` | **Movido (9B.1)** | Autocontido; zero consumidores confirmados (main, testes e openrouter_sanitizer verificados) | Movido para `src/experimental/security/sandbox_executor.py` |
 | `src/gateway/` | Experimental | MQTT/LanceDB; fora do fluxo principal | Mover para `src/experimental/` |
 | `src/mobile/` | Futuro | Fora do escopo PC-first da Fase 1 | Mover para `src/experimental/` |
 | `src/agents/` | A avaliar | Sem evidência de uso no núcleo | Avaliar no mapeamento de imports (9B) |
@@ -45,7 +45,8 @@ mapeamento de imports antes de qualquer movimentação (Fase 9B).
 
 ## Limitações desta fase
 
-- Mapeamento de imports por arquivo ainda não realizado (Fase 9B).
+- Mapeamento de imports por arquivo ainda não realizado para os módulos
+  marcados como "A avaliar" (Fase 9B).
 - Status de `agents`, `evaluation`, `monitoring`, `rag` e `skills` é
   preliminar, baseado em estrutura de diretórios e auditoria estática
   anterior, não em leitura completa de cada arquivo.
