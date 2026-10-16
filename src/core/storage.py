@@ -153,10 +153,15 @@ def initialize_database(path: Path) -> None:
             if mode.lower() != "wal":
                 raise StorageError("Não foi possível ativar WAL.")
             connection.execute("PRAGMA synchronous = FULL")
-            with connection:
+            connection.execute("BEGIN IMMEDIATE")
+            try:
                 connection.execute(TABLE_SQL)
                 connection.execute(INDEX_SQL)
                 connection.execute("PRAGMA user_version = 1")
+                connection.commit()
+            except BaseException:
+                connection.rollback()
+                raise
             _validate_schema(connection)
     except StorageError:
         raise
