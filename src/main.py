@@ -14,6 +14,7 @@ import os
 import click
 from loguru import logger
 from src.core.ollama_client import OllamaClient
+from src.core.gatekeeper import match_command
 
 logger.remove()
 logger.add(lambda msg: print(msg, end=""), level="INFO")
@@ -57,6 +58,20 @@ def health():
 @click.argument("text")
 def ask(text: str):
     """Envia um pedido ao Ollama local"""
+    command = match_command(text)
+
+    if command == "parar":
+        click.echo("Solicitação encerrada.")
+        raise SystemExit(0)
+
+    if command is not None:
+        click.echo(
+            "ERRO: comando reconhecido, mas a funcionalidade "
+            "ainda não está implementada. Nenhuma alteração foi aplicada.",
+            err=True,
+        )
+        raise SystemExit(5)
+
     client = OllamaClient(host=OLLAMA_HOST, port=OLLAMA_PORT)
 
     if not client.is_healthy():
