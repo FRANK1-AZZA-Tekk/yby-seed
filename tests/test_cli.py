@@ -1,0 +1,67 @@
+from unittest.mock import patch
+
+from click.testing import CliRunner
+
+from src.main import cli
+
+
+def test_stop_does_not_construct_ollama_client():
+    with patch("src.main.OllamaClient") as client_class:
+        result = CliRunner().invoke(cli, ["ask", "parar"])
+
+    assert result.exit_code == 0
+    assert "Solicitação encerrada." in result.output
+    client_class.assert_not_called()
+
+
+def test_unimplemented_command_returns_exit_5():
+    with patch("src.main.OllamaClient") as client_class:
+        result = CliRunner().invoke(cli, ["ask", "modo offline"])
+
+    assert result.exit_code == 5
+    assert "ainda não está implementada" in result.output
+    client_class.assert_not_called()
+
+
+def test_normal_prompt_reaches_generation_path():
+    with patch("src.main.OllamaClient") as client_class:
+        instance = client_class.return_value
+        instance.is_healthy.return_value = True
+        instance.list_models.return_value = ["qwen3:4b"]
+        instance.generate.return_value = "ok"
+
+        result = CliRunner().invoke(cli, ["ask", "como faço para parar de fumar"])
+
+    assert result.exit_code == 0
+    instance.generate.assert_called_once()
+
+
+def test_health_fails_when_default_model_is_missing():
+    with (
+        patch("src.main.OllamaClient") as client_class,
+        patch("src.main.os.path.isdir", return_value=True),
+    ):
+        client = client_class.return_value
+        client.is_healthy.return_value = True
+        client.list_models.return_value = []
+
+        result = CliRunner().invoke(cli, ["health"])
+
+    assert result.exit_code == 1
+    assert "NAO ENCONTRADO" in result.output
+    assert "Ambiente saudavel." not in result.output
+
+
+def test_ask_technical_failure_returns_exit_7():
+    from src.core.ollama_client import OllamaTransportError
+
+    with patch("src.main.OllamaClient") as client_class:
+        instance = client_class.return_value
+        instance.is_healthy.return_value = True
+        instance.list_models.side_effect = OllamaTransportError(
+            "Falha de conexão com o Ollama."
+        )
+
+        result = CliRunner().invoke(cli, ["ask", "oi"])
+
+    assert result.exit_code == 7

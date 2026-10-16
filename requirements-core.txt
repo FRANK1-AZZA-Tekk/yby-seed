@@ -1,0 +1,13 @@
+# YBY SEED - Dependências mínimas do núcleo (MVP)
+
+# CLI e configuração
+click>=8.1.0
+
+# Logging
+loguru>=0.7.0
+
+# Contratos e validação
+pydantic>=2.5.0
+
+# Cliente HTTP (Ollama local)
+requests>=2.31.0
