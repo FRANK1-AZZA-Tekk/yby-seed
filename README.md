@@ -1,30 +1,37 @@
 # YBY SEED
 
-[![CI](https://github.com/FRANK1-AZZA-Tekk/yby-seed/actions/workflows/ci.yml/badge.svg)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/FRANK1-AZZA-Tekk/yby-seed/branch/main/graph/badge.svg)](https://codecov.io/gh/FRANK1-AZZA-Tekk/yby-seed)
+PC Hub local-first para automações e IA pessoal.
 
-PC Hub local-first para automações e IA.
+## Status real
 
-## Status
+Fase atual: **F0 — Consolidação e fundação**.
 
-Fase atual: **Fase 0 — Consolidação**. Foco exclusivo no PC (Ubuntu 26.04 LTS). Mobile e ESP32 ficam para fases futuras.
+O projeto está em desenvolvimento inicial. Mobile, wearable, ESP32, voz e visão computacional não fazem parte do MVP.
 
 ## O que é
 
-YBY SEED é um hub central no PC que:
+O YBY SEED será um hub local no PC que:
 
-- Conversa localmente via Ollama.
-- Executa automações seguras.
-- Organiza e busca documentos.
-- Usa nuvem apenas como fallback.
+- Recebe pedidos em português do Brasil.
+- Classifica a intenção do usuário.
+- Usa modelos locais via Ollama sempre que possível.
+- Usa modelos na nuvem apenas como fallback controlado.
+- Registra decisões, custos e ações em auditoria.
+- Cria automações e projetos somente em workspaces isolados.
 
 ## MVP
 
-O MVP funciona sem Docker:
+O MVP prioriza:
 
-```text
-yby.py → RouterAgent → Ollama → resposta
-```
+- CLI `yby ask`.
+- Classificador de intenção.
+- Roteador local/nuvem com LiteLLM.
+- Auditoria em SQLite.
+- Memória local com SQLite + FTS5.
+- Workspace isolado por projeto.
+- Painel web simples com FastAPI + HTMX.
+
+O MVP não depende de Docker.
 
 ## Início rápido
 
@@ -36,26 +43,29 @@ ollama pull llama3.2:3b
 python src/main.py
 ```
 
+> Observação: os comandos acima descrevem o fluxo atual do repositório. Recursos ainda não implementados não devem ser considerados disponíveis.
+
 ## Estrutura
 
 ```text
-src/       → núcleo YBY
+src/       → núcleo YBY SEED
 skills/    → automações
 tests/     → testes
 scripts/   → utilitários
-docs/      → planos e decisões
-examples/  → exemplos (pós-MVP)
-grafana/   → observabilidade (pós-MVP)
-firmware/  → futuro (ESP32)
+docs/      → documentação canônica e políticas
+examples/  → exemplos
+firmware/  → congelado; não faz parte do MVP
 ```
 
-## Documentação
+## Documentação oficial
 
-- [Arquitetura](ARCHITECTURE.md)
-- [Roadmap](ROADMAP.md)
-- [Decisões](DECISIONS.md)
-- [Hardware](HARDWARE_SPEC.md)
-- [Model Card](MODEL_CARD.md)
-- [Segurança](SECURITY.md)
-- [Plano PC-first](docs/PLANO-PC-FIRST.md)
-- [Otimizações](docs/OTIMIZACOES.md)
+Consulte [docs/INDEX.md](docs/INDEX.md) para saber qual documento é a fonte da verdade de cada assunto.
+
+## Princípios
+
+- Function over Form.
+- Local-first.
+- Privacidade por padrão.
+- Controle humano antes de ações externas.
+- Uma única fonte de verdade por assunto.
+- Nenhuma política sem teste que a prove.
