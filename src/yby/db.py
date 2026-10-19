@@ -1,0 +1,148 @@
+"""Banco SQLite local do YBY SEED."""
+
+from __future__ import annotations
+
+import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
+
+from .config import Config
+
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS pedidos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    texto TEXT NOT NULL,
+    criado_em TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS eventos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pedido_id INTEGER REFERENCES pedidos(id),
+    tipo TEXT NOT NULL,
+    provedor TEXT,
+    modelo TEXT,
+    motivo TEXT,
+    custo_usd REAL NOT NULL DEFAULT 0,
+    payload TEXT NOT NULL DEFAULT '',
+    criado_em TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_eventos_criado_em
+    ON eventos (criado_em);
+
+CREATE TABLE IF NOT EXISTS memorias (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conteudo TEXT NOT NULL,
+    criado_em TEXT NOT NULL
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS memorias_busca USING fts5(
+    conteudo,
+    content='memorias',
+    content_rowid='id'
+);
+
+CREATE TRIGGER IF NOT EXISTS memorias_ai AFTER INSERT ON memorias BEGIN
+    INSERT INTO memorias_busca(rowid, conteudo)
+    VALUES (new.id, new.conteudo);
+END;
+
+CREATE TRIGGER IF NOT EXISTS memorias_ad AFTER DELETE ON memorias BEGIN
+    INSERT INTO memorias_busca(memorias_busca, rowid, conteudo)
+    VALUES ('delete', old.id, old.conteudo);
+END;
+
+CREATE TRIGGER IF NOT EXISTS memorias_au AFTER UPDATE ON memorias BEGIN
+    INSERT INTO memorias_busca(memorias_busca, rowid, conteudo)
+    VALUES ('delete', old.id, old.conteudo);
+    INSERT INTO memorias_busca(rowid, conteudo)
+    VALUES (new.id, new.conteudo);
+END;
+"""
+
+
+def inicio_do_dia_utc(criado_em: str | None = None) -> str:
+    """Retorna a data ISO do início do dia UTC."""
+
+    momento = (
+        datetime.fromisoformat(criado_em.replace("Z", "+00:00"))
+        if criado_em
+        else datetime.now(timezone.utc)
+    )
+    return momento.date().isoformat()
+
+
+class Banco:
+    """Conexão SQLite com esquema inicial do YBY SEED."""
+
+    def __init__(self, caminho: Path) -> None:
+        self.caminho = caminho
+        self.caminho.parent.mkdir(parents=True, exist_ok=True)
+        self.conexao = sqlite3.connect(self.caminho)
+        self.conexao.row_factory = sqlite3.Row
+        self.conexao.executescript(SCHEMA)
+        self.reindexar_memorias()
+        self.conexao.commit()
+
+    def reindexar_memorias(self) -> None:
+        """Reconstrói o índice FTS5 a partir da tabela `memorias`."""
+
+        self.conexao.execute(
+            "INSERT INTO memorias_busca(memorias_busca) VALUES('rebuild')"
+        )
+
+    def fechar(self) -> None:
+        self.conexao.close()
+
+    def criar_pedido(self, texto: str, criado_em: str) -> int:
+        cursor = self.conexao.execute(
+            "INSERT INTO pedidos (texto, criado_em) VALUES (?, ?)",
+            (texto, criado_em),
+        )
+        self.conexao.commit()
+        return int(cursor.lastrowid)
+
+    def criar_evento(
+        self,
+        pedido_id: int | None,
+        tipo: str,
+        provedor: str | None,
+        modelo: str | None,
+        motivo: str | None,
+        custo_usd: float,
+        payload: str,
+        criado_em: str,
+    ) -> int:
+        cursor = self.conexao.execute(
+            """
+            INSERT INTO eventos
+                (pedido_id, tipo, provedor, modelo, motivo, custo_usd, payload, criado_em)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (pedido_id, tipo, provedor, modelo, motivo, custo_usd, payload, criado_em),
+        )
+        self.conexao.commit()
+        return int(cursor.lastrowid)
+
+    def gasto_do_dia(self, criado_em: str | None = None) -> float:
+        """Soma custos de respostas geradas no mesmo dia UTC."""
+
+        dia = inicio_do_dia_utc(criado_em)
+        linha = self.conexao.execute(
+            """
+            SELECT COALESCE(SUM(custo_usd), 0) AS total
+            FROM eventos
+            WHERE tipo = 'resposta_gerada'
+              AND substr(criado_em, 1, 10) = ?
+            """,
+            (dia,),
+        ).fetchone()
+        return float(linha["total"])
+
+    def listar_eventos(self) -> list[sqlite3.Row]:
+        return list(
+            self.conexao.execute(
+                "SELECT * FROM eventos ORDER BY id DESC LIMIT 100"
+            )
+        )
