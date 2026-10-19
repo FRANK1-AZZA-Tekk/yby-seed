@@ -38,6 +38,23 @@ CREATE VIRTUAL TABLE IF NOT EXISTS memorias_busca USING fts5(
     content='memorias',
     content_rowid='id'
 );
+
+CREATE TRIGGER IF NOT EXISTS memorias_ai AFTER INSERT ON memorias BEGIN
+    INSERT INTO memorias_busca(rowid, conteudo)
+    VALUES (new.id, new.conteudo);
+END;
+
+CREATE TRIGGER IF NOT EXISTS memorias_ad AFTER DELETE ON memorias BEGIN
+    INSERT INTO memorias_busca(memorias_busca, rowid, conteudo)
+    VALUES ('delete', old.id, old.conteudo);
+END;
+
+CREATE TRIGGER IF NOT EXISTS memorias_au AFTER UPDATE ON memorias BEGIN
+    INSERT INTO memorias_busca(memorias_busca, rowid, conteudo)
+    VALUES ('delete', old.id, old.conteudo);
+    INSERT INTO memorias_busca(rowid, conteudo)
+    VALUES (new.id, new.conteudo);
+END;
 """
 
 
@@ -50,7 +67,18 @@ class Banco:
         self.conexao = sqlite3.connect(self.caminho)
         self.conexao.row_factory = sqlite3.Row
         self.conexao.executescript(SCHEMA)
+        self.reindexar_memorias()
         self.conexao.commit()
+
+    def reindexar_memorias(self) -> None:
+        """Reconstrói o índice FTS5 a partir da tabela `memorias`.
+
+        Repara bancos criados antes dos triggers de sincronização.
+        """
+
+        self.conexao.execute(
+            "INSERT INTO memorias_busca(memorias_busca) VALUES('rebuild')"
+        )
 
     def fechar(self) -> None:
         self.conexao.close()
