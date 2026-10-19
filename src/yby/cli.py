@@ -34,7 +34,7 @@ def ask(texto: tuple[str, ...]) -> None:
 
     banco = Banco(config.db_path)
     auditoria = Auditoria(banco)
-    roteador = Roteador(config)
+    roteador = Roteador(config, banco)
 
     pedido = Pedido(texto=pedido_texto)
     pedido.id = banco.criar_pedido(pedido.texto, pedido.criado_em)
@@ -50,6 +50,8 @@ def ask(texto: tuple[str, ...]) -> None:
 
     try:
         provedor = roteador.resolver_provedor()
+        # Na Camada 1, o custo previsto virá da estimativa de tokens antes da chamada.
+        roteador.validar_custo_previsto(0.0, pedido.criado_em)
         resposta = provedor.gerar(pedido.texto)
         roteador.validar_custo(resposta)
     except Exception as erro:

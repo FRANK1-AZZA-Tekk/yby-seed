@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import Config
@@ -26,6 +27,9 @@ CREATE TABLE IF NOT EXISTS eventos (
     payload TEXT NOT NULL DEFAULT '',
     criado_em TEXT NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_eventos_criado_em
+    ON eventos (criado_em);
 
 CREATE TABLE IF NOT EXISTS memorias (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,6 +62,17 @@ END;
 """
 
 
+def inicio_do_dia_utc(criado_em: str | None = None) -> str:
+    """Retorna a data ISO do início do dia UTC."""
+
+    momento = (
+        datetime.fromisoformat(criado_em.replace("Z", "+00:00"))
+        if criado_em
+        else datetime.now(timezone.utc)
+    )
+    return momento.date().isoformat()
+
+
 class Banco:
     """Conexão SQLite com esquema inicial do YBY SEED."""
 
@@ -71,10 +86,7 @@ class Banco:
         self.conexao.commit()
 
     def reindexar_memorias(self) -> None:
-        """Reconstrói o índice FTS5 a partir da tabela `memorias`.
-
-        Repara bancos criados antes dos triggers de sincronização.
-        """
+        """Reconstrói o índice FTS5 a partir da tabela `memorias`."""
 
         self.conexao.execute(
             "INSERT INTO memorias_busca(memorias_busca) VALUES('rebuild')"
@@ -112,6 +124,21 @@ class Banco:
         )
         self.conexao.commit()
         return int(cursor.lastrowid)
+
+    def gasto_do_dia(self, criado_em: str | None = None) -> float:
+        """Soma custos de respostas geradas no mesmo dia UTC."""
+
+        dia = inicio_do_dia_utc(criado_em)
+        linha = self.conexao.execute(
+            """
+            SELECT COALESCE(SUM(custo_usd), 0) AS total
+            FROM eventos
+            WHERE tipo = 'resposta_gerada'
+              AND substr(criado_em, 1, 10) = ?
+            """,
+            (dia,),
+        ).fetchone()
+        return float(linha["total"])
 
     def listar_eventos(self) -> list[sqlite3.Row]:
         return list(
