@@ -54,10 +54,25 @@ Bateria Dewalt 20V (com 1-2 extras para troca)
 - **Solar Power Manager (C):** backup futuro (fase 3), não substitui a Dewalt.
 - **Case modular:** projetar para aceitar power bank (MVP) e bateria Dewalt (fase 2) sem retrabalho.
 
-## 5. Próximos passos
+## 5. Cabeamento interno (espiral retrátil)
+
+Cabo espiral de mola 2 núcleos, telescópico (1-5m), avaliado para uso interno na maleta do CyberTupã.
+
+| Uso | AWG recomendado | Área (mm²) | Corrente segura (em maleta) |
+|---|---|---|---|
+| Alimentação ROCK 4D / hub | **18AWG** (mínimo) | 0.82 | ~5.6-7A |
+| Alimentação com margem extra | 17AWG | 1.04 | ~7-8A |
+| Sensores / I2C / GPIO / dados | 24AWG | 0.2 | 0.6-1.4A |
+
+**Regra:** 24AWG NÃO serve para alimentação do ROCK 4D (precisa de 3A mínimo) nem do hub — usar somente para sinais/sensores. Para energia, comprar a versão 18AWG (ou 17AWG) do mesmo cabo espiral.
+
+**Comprimento:** usar a menor extensão possível dentro da maleta (1-2m) para reduzir queda de tensão.
+
+## 6. Próximos passos
 
 - Adquirir power bank 20.000mAh com PD 5V/3A.
 - Adquirir conversor boost 5V→12V.
+- Adquirir cabo espiral 18AWG (energia) e 24AWG (sensores).
 - Montar e testar o circuito MVP em bancada.
 - Fase 2: migrar para Dewalt 20V + buck 5V/5A + proteções completas.
 - Fase 3: avaliar solar com Solar Power Manager (C).
