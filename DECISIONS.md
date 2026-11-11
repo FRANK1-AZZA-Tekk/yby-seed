@@ -42,6 +42,8 @@ Materiais de YBY, YBY Zero e outros projetos são revisados e unificados no YBY 
 
 Em 2026-11-11 o inventário ficou assim: o v1 programa-se neste repositório. YBY (wearable), yby-core (LangGraph), FRANK_ZER0 (TypeScript, Android, ESP32) e FRANK_ZERO (sem código) permanecem separados. Forks de terceiros não são copiados. O mapa está em `docs/REPOS.md`.
 
+**Clarificação (organização):** “consolidar” = inventário, docs e fronteiras claras — **não** copiar árvores de YBY / yby-core / FRANK para dentro do seed. PRs que absorvem esses produtos no `yby-seed` vão contra este escopo.
+
 ## D8 — Memória (2026-11-11)
 
 A memória da pessoa é um vault Obsidian em Markdown, com índice vetorial por cima. O vault sincroniza com o servidor de casa via Syncthing.
