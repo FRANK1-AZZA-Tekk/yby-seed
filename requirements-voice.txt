@@ -1,0 +1,11 @@
+# Dependências opcionais de voz (GTX 1650 / CPU).
+# Não entram em requirements.txt para o CI continuar leve.
+#
+# Uso:
+#   pip install -r requirements-voice.txt
+#   # Piper: binário no PATH + modelo .onnx em YBY_PIPER_MODEL
+#   # Ex.: https://github.com/rhasspy/piper/releases
+
+faster-whisper>=1.0.3
+sounddevice>=0.4.6
+numpy>=1.26.0

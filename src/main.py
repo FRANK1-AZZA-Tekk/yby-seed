@@ -4,11 +4,14 @@ YBY SEED - Ponto de Entrada Principal
 
 Uso:
     python yby.py ask "..."
+    python yby.py ask --voice
+    python yby.py listen
     python yby.py run "ls"
     python yby.py gate "rm arquivo"
 
 Comandos:
-    ask     - Responde em texto (sem shell)
+    ask     - Responde em texto (sem shell); --voice grava, pergunta e fala
+    listen  - Push-to-talk: grava até Enter → ask → TTS
     run     - Executa comando após a porta de segurança
     gate    - Só decide; não executa
     note    - Grava nota no vault
@@ -23,6 +26,8 @@ from src.actions.runner import DEFAULT_TIMEOUT, run_command
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.memory.vault import VaultError, vault_from_env
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
+from src.voice.config import voice_config_from_env
+from src.voice.session import VoiceError, listen_once
 
 # Configura logging
 logger.add("logs/yby_seed_{time}.log", rotation="1 day", retention="7 days")
@@ -92,13 +97,26 @@ def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
     is_flag=True,
     help="Força a nuvem, mesmo num pedido curto.",
 )
-@click.argument("pergunta", nargs=-1, required=True)
-def ask(heavy: bool, pergunta: tuple[str, ...]) -> None:
-    """Responde um pedido em texto. Sem voz, shell ou memória."""
+@click.option(
+    "--voice/--no-voice",
+    default=False,
+    help="Grava até Enter, pergunta ao motor e fala a resposta (Piper).",
+)
+@click.argument("pergunta", nargs=-1, required=False)
+def ask(heavy: bool, voice: bool, pergunta: tuple[str, ...]) -> None:
+    """Responde um pedido em texto. Com --voice, usa microfone e TTS local."""
+
+    if voice:
+        _voice_turn(heavy=heavy)
+        return
 
     texto = " ".join(pergunta).strip()
     if not texto:
-        click.echo('Informe um pedido. Exemplo: yby ask "explica uma lista"', err=True)
+        click.echo(
+            'Informe um pedido. Exemplo: yby ask "explica uma lista" '
+            "(ou yby ask --voice / yby listen)",
+            err=True,
+        )
         raise SystemExit(1)
 
     resposta = build_engine().reply(texto, explicit_heavy=heavy)
@@ -110,6 +128,18 @@ def ask(heavy: bool, pergunta: tuple[str, ...]) -> None:
     motivo = "; ".join(resposta.reasons)
     click.echo(f"modelo: {resposta.provider} {resposta.model} ({motivo})", err=True)
     click.echo(resposta.text)
+
+
+@cli.command("listen")
+@click.option(
+    "--heavy",
+    is_flag=True,
+    help="Força a nuvem, mesmo num pedido curto.",
+)
+def listen_cmd(heavy: bool) -> None:
+    """Push-to-talk: grava até Enter, transcreve, pergunta e fala a resposta."""
+
+    _voice_turn(heavy=heavy)
 
 
 @cli.command(
@@ -177,6 +207,42 @@ def build_engine() -> HybridEngine:
     """Ponto de troca nos testes. Em execução normal, lê o ambiente."""
 
     return engine_from_env()
+
+
+def _wait_enter(_prompt: str = "") -> str:
+    """Bloqueia até Enter no push-to-talk."""
+
+    return click.get_text_stream("stdin").readline()
+
+
+def _voice_turn(*, heavy: bool) -> None:
+    """Fluxo de voz compartilhado por `ask --voice` e `listen`."""
+
+    try:
+        turn = listen_once(
+            build_engine(),
+            voice_config_from_env(),
+            explicit_heavy=heavy,
+            input_fn=_wait_enter,
+            output_fn=lambda msg: click.echo(msg, err=True),
+        )
+    except VoiceError as exc:
+        click.echo(str(exc), err=True)
+        click.echo(
+            "Texto continua disponível: python yby.py ask \"sua pergunta\"",
+            err=True,
+        )
+        raise SystemExit(1) from exc
+
+    resposta = turn.reply
+    if resposta.notice:
+        click.echo(resposta.notice, err=True)
+    if resposta.provider == "none":
+        raise SystemExit(1)
+
+    motivo = "; ".join(resposta.reasons)
+    click.echo(f"modelo: {resposta.provider} {resposta.model} ({motivo})", err=True)
+    click.echo(resposta.text)
 
 
 if __name__ == "__main__":

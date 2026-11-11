@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Atalho do CLI: python yby.py ask \"...\" | run \"...\" | gate \"...\"."""
+"""Atalho do CLI: python yby.py ask \"...\" | listen | run \"...\" | gate \"...\"."""
 
 from src.main import cli
 
