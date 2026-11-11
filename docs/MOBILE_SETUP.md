@@ -3,6 +3,8 @@ Mobile Setup — Guia completo de setup (Android + HyperOS 3.0)
 
 # YBY SEED — Mobile Setup (Xiaomi 12, HyperOS 3.0)
 
+> Fora do v1. `src/mobile` saiu da árvore. Ver [docs/archive/FORA-DO-V1.md](archive/FORA-DO-V1.md). O texto abaixo é histórico.
+
 > **Status:** v1.1.0  
 > **Última atualização:** 2026-10-08  
 > **Dispositivo:** Xiaomi 12 (Android 15, HyperOS 3.0)

@@ -1,5 +1,7 @@
 # Futuro: Mobile (Android + Termux)
 
+> Fora do v1. Ver [docs/archive/FORA-DO-V1.md](../archive/FORA-DO-V1.md).
+
 > **Status:** Em planejamento (Fase 2)  
 > **Última atualização:** 2026-10-08  
 > **Dispositivo:** Xiaomi 12 (Android 15, HyperOS 3.0)

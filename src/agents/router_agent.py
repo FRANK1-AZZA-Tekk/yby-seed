@@ -45,7 +45,7 @@ Formato de saída (JSON):
     
     def __init__(self, ollama: OllamaClient):
         self.ollama = ollama
-        self.model = "llama3.2:3b-instruct-q4_K_M"
+        self.model = "qwen2.5-coder:3b"
         logger.info("🎯 Router Agent inicializado")
     
     def classify(self, user_command: str) -> Dict[str, Any]:

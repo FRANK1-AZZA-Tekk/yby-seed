@@ -29,7 +29,7 @@ class AutoCleanup:
     Auto-limpeza de logs e cache.
     """
     
-    def __init__(self, log_dir: str = "/var/log/yby", db_url: str = "postgresql://yby:yby_seed_password@localhost:5432/yby_seed"):
+    def __init__(self, log_dir: str = "/var/log/yby", db_url: str | None = None):
         """
         Inicializar cleanup.
         
@@ -38,7 +38,9 @@ class AutoCleanup:
             db_url: URL do PostgreSQL
         """
         self.log_dir = Path(log_dir)
-        self.db_url = db_url
+        if db_url is None:
+            db_url = os.getenv("YBY_DATABASE_URL", "")
+        self.db_url = db_url.strip()
     
     def cleanup_logs(self, max_age_days: int = 30):
         """
@@ -70,8 +72,11 @@ class AutoCleanup:
         """
         Compactar banco de dados (VACUUM).
         """
-        logger.info("🧹 Executando VACUUM no PostgreSQL...")
-        
+        logger.info("Executando VACUUM no PostgreSQL...")
+
+        if not self.db_url:
+            raise RuntimeError("defina YBY_DATABASE_URL (sem senha no código)")
+
         try:
             # Extrair credenciais da URL
             # postgresql://user:pass@host:port/db

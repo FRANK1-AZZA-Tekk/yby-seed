@@ -1,5 +1,7 @@
 # Matriz de Modelos de IA
 
+> Decisão D4 (2026-11-11): o único modelo local é `qwen2.5-coder:3b`. Menções a 7B abaixo são históricas e não cabem na GTX 1650.
+
 > **Status:** v1.1.0
 > **Última atualização:** 2026-10-08
 > **Hardware:** GTX 1650 (4GB VRAM) + 16GB RAM
@@ -73,9 +75,16 @@ def sanitize(text: str) -> str:
 
 ---
 
-## 🏆 Campeão: Olmo Hybrid 7B
+## Modelo local do v1: qwen2.5-coder:3b
 
-### **Por que é o melhor para YBY SEED:**
+```bash
+ollama pull qwen2.5-coder:3b
+export YBY_LOCAL_MODEL="qwen2.5-coder:3b"
+```
+
+## Histórico: campeão anterior (não usar nesta GPU)
+
+### **Por que chegou a ser comparado:**
 
 | Característica | Olmo Hybrid 7B | Llama 3.1 8B | Ganho |
 |----------------|----------------|--------------|-------|
@@ -88,11 +97,8 @@ def sanitize(text: str) -> str:
 ### **Como usar no Ollama:**
 
 ```bash
-# Baixar Olmo Hybrid 7B
-ollama pull olmo-hybrid:7b-q4_k_m
-
-# Configurar no YBY SEED
-export DEFAULT_MODEL="olmo-hybrid:7b-q4_k_m"
+# Histórico. Não puxar na GTX 1650.
+# ollama pull olmo-hybrid:7b-q4_k_m
 ```
 
 ---
@@ -106,18 +112,18 @@ def route_task(task: str, context_size: int) -> str:
     """
     # Tarefas simples + contexto curto → Modelo 3B (VRAM)
     if context_size < 4096 and task in ["classify", "retrieve", "summarize"]:
-        return "llama3.2:3b"
+        return "qwen2.5-coder:3b"
     
-    # Geração de código + contexto médio → Modelo 7B (offloading)
+    # Geração de código usa o mesmo modelo local
     if task in ["generate_code", "reasoning", "synthesize"]:
-        return "olmo-hybrid:7b"
+        return "qwen2.5-coder:3b"
     
     # Contexto muito longo (>8K) → Cloud fallback
     if context_size > 8192:
         return "openrouter/mistralai/mixtral-8x7b-instruct"
     
     # Fallback padrão
-    return "qwen2.5:7b"
+    return "qwen2.5-coder:3b"
 ```
 
 ---

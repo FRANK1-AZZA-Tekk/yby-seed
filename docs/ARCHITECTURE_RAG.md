@@ -1,5 +1,7 @@
 # Arquitetura RAG Otimizada para 4GB VRAM
 
+> Decisão D4 (2026-11-11): o único modelo local é `qwen2.5-coder:3b`. Menções a 7B abaixo são históricas.
+
 > **Status:** v1.1.0 (otimizado)
 > **Última atualização:** 2026-10-08
 > **Hardware alvo:** GTX 1650 (4GB VRAM) + 16GB RAM

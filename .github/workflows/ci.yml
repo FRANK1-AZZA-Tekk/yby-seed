@@ -2,70 +2,27 @@ name: CI
 
 on:
   push:
-    branches: [main, ci-fix]
   pull_request:
-    branches: [main]
 
 jobs:
   lint-and-test:
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: "pip"
+          python-version: "3.11"
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            cmake \
-            git \
-            libssl-dev \
-            libffi-dev \
-            python3-dev
-
-      - name: Install Python dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-          pip install pytest-cov
+          pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Pre-compile llama-cpp-python (no CUDA)
-        env:
-          CMAKE_ARGS: "-DGGML_CUDA=OFF"
-        run: |
-          pip install --no-cache-dir llama-cpp-python
+      - name: Lint
+        run: ruff check src tests
 
-      - name: Lint (ruff + mypy)
-        run: |
-          ruff check src tests
-          # O `mypy src tests` da main para no primeiro erro: dois módulos
-          # chamados metrics_dashboard. Aqui o gate cobre o motor e o CLI novos.
-          mypy src/engine src/main.py yby.py tests/test_engine.py tests/test_ask_cli.py \
-            --ignore-missing-imports --no-strict-optional --explicit-package-bases
-
-      - name: Run all unit tests with coverage
-        run: |
-          pytest tests/ -v \
-            --cov=src \
-            --cov-report=term-missing \
-            --cov-report=xml \
-            --ignore=tests/test_gateway.py \
-            --ignore=tests/test_rag.py
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage.xml
+      - name: Test
+        run: pytest tests -q

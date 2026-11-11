@@ -1,5 +1,7 @@
 # Futuro: Mobile + ESP32
 
+> Fora do v1. O código de `src/mobile` e `firmware/` saiu da árvore e permanece no histórico do git. Ver [docs/archive/FORA-DO-V1.md](../archive/FORA-DO-V1.md).
+
 > **Status:** Em planejamento (Fase 2 + Fase 3)  
 > **Última atualização:** 2026-10-08
 

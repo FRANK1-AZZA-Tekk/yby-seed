@@ -1,5 +1,7 @@
 # Arquitetura YBY SEED
 
+> Decisão D4 (2026-11-11): o único modelo local é `qwen2.5-coder:3b`. Menções a 7B abaixo são históricas.
+
 > **Status:** v1.0.0  
 > **Última atualização:** 2026-10-08  
 > **Commit de referência:** HEAD (main)

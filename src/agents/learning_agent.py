@@ -17,8 +17,7 @@ Otimizações:
 Licença: MIT
 """
 
-import psycopg2
-from pgvector.psycopg2 import register_vector
+import os
 from typing import Dict, Any, List
 import logging
 
@@ -31,21 +30,33 @@ class LearningAgent:
     Agente de aprendizado contínuo.
     """
     
-    def __init__(self, db_url: str = "postgresql://yby:yby_seed_password@localhost:5432/yby_seed"):
+    def __init__(self, db_url: str | None = None):
         """
         Inicializar agente.
-        
-        Args:
-            db_url: URL do PostgreSQL
+
+        A URL vem de YBY_DATABASE_URL. Sem URL, o agente não conecta.
         """
-        self.db_url = db_url
+        if db_url is None:
+            db_url = os.getenv("YBY_DATABASE_URL", "")
+        self.db_url = db_url.strip()
         self.conn = None
-        self._connect()
-    
+        if self.db_url:
+            self._connect()
+
+    def _ensure(self) -> None:
+        if self.conn is None:
+            self._connect()
+
     def _connect(self):
         """Conectar ao PostgreSQL"""
-        logger.info("🧠 Conectando PostgreSQL...")
-        
+        if not self.db_url:
+            raise RuntimeError("defina YBY_DATABASE_URL (sem senha no código)")
+
+        import psycopg2
+        from pgvector.psycopg2 import register_vector
+
+        logger.info("Conectando PostgreSQL...")
+
         self.conn = psycopg2.connect(self.db_url)
         register_vector(self.conn)
         
@@ -104,7 +115,8 @@ class LearningAgent:
             result: Resultado da execução
             feedback: Feedback do usuário (success, error, neutral)
         """
-        logger.info(f"🧠 Logando execução: {intent}")
+        self._ensure()
+        logger.info(f"Logando execução: {intent}")
         
         # Gerar embedding da execução
         embedding = self._generate_embedding(f"{intent} {slots} {code}")
@@ -127,7 +139,8 @@ class LearningAgent:
             execution_id: ID da execução
             feedback: Feedback (success, error, neutral)
         """
-        logger.info(f"🧠 Aprendendo com feedback: {feedback}")
+        self._ensure()
+        logger.info(f"Aprendendo com feedback: {feedback}")
         
         # Atualizar feedback
         with self.conn.cursor() as cur:
@@ -231,7 +244,8 @@ class LearningAgent:
         Returns:
             Lista de sugestões
         """
-        logger.info(f"🧠 Sugerindo melhorias (top {limit})...")
+        self._ensure()
+        logger.info(f"Sugerindo melhorias (top {limit})...")
         
         with self.conn.cursor() as cur:
             # Buscar execuções com erro

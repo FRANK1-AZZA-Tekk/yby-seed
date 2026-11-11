@@ -17,4 +17,4 @@
 
 - **MVP (fases 0–4):** src, tests, skills, scripts, docs — sem Docker.
 - **Pós-MVP (fases 5–8):** Qdrant, FastAPI, PostgreSQL, Redis, interface.
-- **Futuro (fase 9+):** Tailscale, Termux, firmware/ESP32.
+- **Futuro, fora do v1:** mobile e firmware. O código saiu da árvore.
