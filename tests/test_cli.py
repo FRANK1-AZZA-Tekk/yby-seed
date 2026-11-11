@@ -16,6 +16,7 @@ def test_status_descreve_estado_real():
     result = runner.invoke(cli, ["status"])
     assert result.exit_code == 0
     assert "Não implementado: run" in result.output
+    assert "brief" in result.output
     assert "Qdrant" in result.output
 
 

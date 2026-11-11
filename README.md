@@ -7,10 +7,10 @@ PC Hub local-first para automações e IA.
 
 ## Status
 
-Fase atual: **Fase 0 — Consolidação / recuperação**. Foco exclusivo no PC. Mobile e ESP32 ficam para fases futuras.
+Fase atual: **Fase 1 — Briefing revisável (MVP)**. Foco exclusivo no PC. Mobile e ESP32 ficam para fases futuras.
 
-**Implementado hoje:** `doctor`, `setup`, `test`, `status` (CLI honesta).  
-**Ainda não implementado:** hub completo (`run`), Node-RED, MQTT, briefing revisável (Fase 1).  
+**Implementado hoje:** `doctor`, `setup`, `test`, `status`, `brief`.  
+**Ainda não implementado:** hub completo (`run`), Node-RED, MQTT.  
 **Docker Compose:** apenas Qdrant (pós-MVP / Fase 5).
 
 ## O que é
@@ -25,10 +25,10 @@ YBY SEED é um hub central no PC que pretende:
 ## MVP (alvo)
 
 ```text
-CLI → RouterAgent → Ollama → resposta
+pedido PT → perguntas mínimas → briefing → revisão → export MD+JSON
 ```
 
-Esse fluxo ponta a ponta ainda está em construção. Use `doctor`/`test` para validar o estado real.
+Sem execução automática de código. Hub completo / skills ficam para fases seguintes.
 
 ## Início rápido
 
@@ -38,6 +38,25 @@ make doctor
 make test
 python src/main.py status
 ```
+
+## Briefing revisável
+
+Entrada primária:
+
+```bash
+# Interativo (pede pedido + perguntas; Ollama local)
+python src/main.py brief
+
+# Não-interativo (útil em scripts)
+python src/main.py brief \
+  --request "Quero backup diário dos documentos" \
+  --answer "~/Documentos" \
+  --answer "/mnt/backup" \
+  --approve
+```
+
+Exporta Markdown + JSON em `.yby/briefings/` (já no `.gitignore`).
+Nenhuma execução automática de código.
 
 ## Estrutura
 

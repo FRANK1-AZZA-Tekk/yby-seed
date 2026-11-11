@@ -1,7 +1,7 @@
 # YBY SEED - Makefile alinhado ao estado real do repositório
 # Uso: make [comando]
 
-.PHONY: help setup install-dev doctor test lint format run status stop clean
+.PHONY: help setup install-dev doctor test lint format run brief status stop clean
 
 PYTHON := python3
 VENV := .venv
@@ -17,6 +17,7 @@ help:
 	@echo "  make lint         - Ruff + mypy"
 	@echo "  make format       - Formata com ruff"
 	@echo "  make status       - Mostra o estado declarado do projeto"
+	@echo "  make brief        - Briefing revisável (exporta .yby/briefings/)"
 	@echo "  make run          - Delega ao CLI (ainda não implementado)"
 	@echo "  make stop         - Para containers do docker compose (se houver)"
 	@echo "  make clean        - Remove caches locais"
@@ -49,6 +50,9 @@ format:
 
 status:
 	@$(BIN)/python src/main.py status
+
+brief:
+	@$(BIN)/python src/main.py brief
 
 run:
 	@$(BIN)/python src/main.py run

@@ -164,21 +164,122 @@ def run(ctx: click.Context) -> None:
     """Núcleo interativo ainda não implementado no MVP."""
     click.echo(
         "Comando 'run' ainda não inicia o hub completo.\n"
-        "Estado real: use 'doctor' e 'test'. "
-        "O fluxo briefing/ask está no roadmap (Fase 1).\n"
+        "Estado real: use 'doctor', 'test' e 'brief'. "
+        "Hub completo / skills / MQTT ficam para fases seguintes.\n"
         "Docker Compose atual sobe apenas Qdrant (pós-MVP).",
         err=True,
     )
     ctx.exit(2)
 
 
+@cli.command("brief")
+@click.option("--request", "-r", default=None, help="Pedido inicial em português.")
+@click.option(
+    "--answer",
+    "-a",
+    multiple=True,
+    help="Resposta pré-coletada (repetível). Ativa modo não-interativo.",
+)
+@click.option(
+    "--mode",
+    type=click.Choice(["basic", "junior", "pro"], case_sensitive=False),
+    default="basic",
+    show_default=True,
+    help="Profundidade da entrevista.",
+)
+@click.option(
+    "--approve/--no-approve",
+    default=None,
+    help="Aprova ou rejeita sem prompt (útil em scripts/testes).",
+)
+@click.option(
+    "--output-dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Pasta de exportação (padrão: .yby/briefings/).",
+)
+@click.pass_context
+def brief(
+    ctx: click.Context,
+    request: str | None,
+    answer: tuple[str, ...],
+    mode: str,
+    approve: bool | None,
+    output_dir: Path | None,
+) -> None:
+    """Briefing revisável: pedido → perguntas → revisão → export MD+JSON.
+
+    Não executa código automaticamente.
+    """
+    from src.agents.briefing_pipeline import BriefingPipeline
+    from src.core.ollama_client import OllamaError
+
+    if answer and not request:
+        click.echo(
+            "ERRO: --answer exige --request (modo não-interativo).",
+            err=True,
+        )
+        ctx.exit(2)
+
+    pipeline = BriefingPipeline()
+    try:
+        if answer:
+            briefing = pipeline.create_from_answers(
+                request or "", list(answer), mode=mode.lower()
+            )
+            if approve is True:
+                briefing.approved = True
+            elif approve is False:
+                briefing.approved = False
+            else:
+                click.echo(briefing.model_dump_json(indent=2))
+                decision = click.prompt("Aprovar briefing? [s/N]", default="N")
+                briefing.approved = decision.strip().lower() in {
+                    "s",
+                    "sim",
+                    "y",
+                    "yes",
+                }
+        else:
+            briefing = pipeline.run_interactive(
+                mode=mode.lower(),
+                request=request,
+                approve=approve,
+            )
+
+        md_path, json_path = pipeline.export(
+            briefing,
+            output_dir,
+            project_root=PROJECT_ROOT,
+        )
+        click.echo(f"Exportado: {md_path}")
+        click.echo(f"Exportado: {json_path}")
+        click.echo("Nenhuma execução automática de código.")
+    except ValueError as exc:
+        click.echo(f"ERRO {exc}", err=True)
+        ctx.exit(2)
+    except OllamaError as exc:
+        click.echo(
+            f"ERRO Ollama indisponível ou falhou: {exc}\n"
+            "Dica: suba o Ollama local ou use mocks nos testes.",
+            err=True,
+        )
+        ctx.exit(1)
+    except Exception as exc:  # noqa: BLE001
+        click.echo(f"ERRO briefing: {exc}", err=True)
+        ctx.exit(1)
+    finally:
+        pipeline.close()
+
+
 @cli.command()
 def status() -> None:
     """Mostra o estado declarado do projeto sem iniciar serviços."""
-    click.echo("Fase atual: 0 — consolidação / recuperação")
-    click.echo("Implementado: doctor, setup, test, status")
+    click.echo("Fase atual: 1 — briefing revisável (MVP)")
+    click.echo("Implementado: doctor, setup, test, status, brief")
     click.echo("Não implementado: run (hub completo), Node-RED, MQTT")
     click.echo("docker-compose.yml: apenas Qdrant (Fase 5+)")
+    click.echo("Briefing: python src/main.py brief  →  .yby/briefings/")
 
 
 if __name__ == "__main__":

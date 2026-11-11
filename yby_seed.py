@@ -3,7 +3,11 @@
 
 Passo 2: loop de comandos + LiteLLM (OpenRouter → fallback Ollama).
 
-Uso:
+Briefing revisável (Passo 3 / Fase 1): use a CLI em src/main.py —
+
+    python src/main.py brief
+
+Uso deste entrypoint (chat livre):
     python yby_seed.py
     # digite um comando, Enter
     # sair: quit / exit / :q
