@@ -18,6 +18,7 @@ Licença: MIT
 """
 
 import logging
+import os
 from typing import Any
 
 logging.basicConfig(level=logging.INFO)
@@ -39,14 +40,20 @@ class LearningAgent:
     Agente de aprendizado contínuo.
     """
     
-    def __init__(self, db_url: str = "postgresql://yby:yby_seed_password@localhost:5432/yby_seed"):
+    def __init__(self, db_url: str | None = None):
         """
         Inicializar agente.
-        
+
         Args:
-            db_url: URL do PostgreSQL
+            db_url: URL do PostgreSQL (ou env DATABASE_URL / YBY_DATABASE_URL)
         """
-        self.db_url = db_url
+        resolved = db_url or os.getenv("DATABASE_URL") or os.getenv("YBY_DATABASE_URL")
+        if not resolved:
+            raise ValueError(
+                "LearningAgent requer DATABASE_URL ou YBY_DATABASE_URL "
+                "(sem senha hardcoded)."
+            )
+        self.db_url = resolved
         self.conn = None
         self._connect()
     

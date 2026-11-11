@@ -1,147 +1,272 @@
 #!/usr/bin/env python3
 """
-Cliente Ollama para inferência local de modelos
+Cliente Ollama para inferência local.
 
-Uso:
-    ollama = OllamaClient(host="localhost", port=11434)
-    response = ollama.generate("llama3.2:3b", "Olá!")
+Otimizações alinhadas a evidências públicas (docs Ollama + benchmarks 4GB):
+- timeout HTTP obrigatório (evita hang infinito)
+- keep_alive para evitar reload frio
+- num_ctx padrão 2048 (llama3.2:3b cabe 100% na GTX 1650 4GB;
+  4096 já força offload e perde ~39% de tok/s)
 """
 
-from typing import Any
+from __future__ import annotations
+
+import json
+import os
+from collections.abc import Iterator
+from typing import Any, Literal, overload
 
 import requests
 from loguru import logger
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+
+class OllamaError(RuntimeError):
+    """Falha explícita na API Ollama (não mascara como string vazia)."""
+
+
+# Defaults seguros para VRAM ~4GB com llama3.2:3b
+DEFAULT_NUM_CTX = int(os.getenv("YBY_OLLAMA_NUM_CTX", "2048"))
+DEFAULT_KEEP_ALIVE = os.getenv("YBY_OLLAMA_KEEP_ALIVE", "10m")
+DEFAULT_TIMEOUT = float(os.getenv("YBY_OLLAMA_TIMEOUT", "120"))
+DEFAULT_CONNECT_TIMEOUT = float(os.getenv("YBY_OLLAMA_CONNECT_TIMEOUT", "5"))
 
 
 class OllamaClient:
-    """Cliente HTTP para API Ollama"""
-    
-    def __init__(self, host: str = "localhost", port: int = 11434):
+    """Cliente HTTP para API Ollama com sessão reutilizável."""
+
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 11434,
+        timeout: float = DEFAULT_TIMEOUT,
+        connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
+        keep_alive: str | int = DEFAULT_KEEP_ALIVE,
+        num_ctx: int = DEFAULT_NUM_CTX,
+    ):
         self.base_url = f"http://{host}:{port}"
+        self.timeout = (connect_timeout, timeout)
+        self.keep_alive = keep_alive
+        self.num_ctx = num_ctx
+
         self.session = requests.Session()
-        logger.info(f"🦙 OllamaClient conectado em {self.base_url}")
-    
+        retries = Retry(
+            total=2,
+            backoff_factor=0.3,
+            status_forcelist=(502, 503, 504),
+            allowed_methods=frozenset({"GET", "POST"}),
+        )
+        adapter = HTTPAdapter(max_retries=retries, pool_connections=4, pool_maxsize=4)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+        logger.info(
+            f"🦙 OllamaClient em {self.base_url} "
+            f"(num_ctx={num_ctx}, keep_alive={keep_alive}, timeout={timeout}s)"
+        )
+
+    def _merge_options(self, options: dict[str, Any] | None) -> dict[str, Any]:
+        merged = {"num_ctx": self.num_ctx}
+        if options:
+            merged.update(options)
+        return merged
+
     def pull(self, model: str) -> bool:
-        """Baixa modelo Ollama"""
+        """Baixa modelo Ollama com timeout e verificação de status."""
         try:
             logger.info(f"📥 Baixando modelo: {model}")
             response = self.session.post(
                 f"{self.base_url}/api/pull",
                 json={"name": model},
-                stream=True
+                stream=True,
+                timeout=self.timeout,
             )
-            
-            for line in response.iter_lines():
-                if line:
-                    logger.debug(f"  {line.decode()}")
-            
+            response.raise_for_status()
+
+            success = False
+            for line in response.iter_lines(decode_unicode=True):
+                if not line:
+                    continue
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    logger.debug(f"  {line}")
+                    continue
+                status = payload.get("status", "")
+                logger.debug(f"  {status}")
+                if status == "success" or payload.get("completed"):
+                    success = True
+
+            if not success:
+                logger.error(f"❌ Pull incompleto: {model}")
+                return False
+
             logger.info(f"✅ Modelo {model} baixado")
             return True
-        
-        except Exception as e:
-            logger.error(f"❌ Erro ao baixar {model}: {e}")
+
+        except requests.RequestException as exc:
+            logger.error(f"❌ Erro ao baixar {model}: {exc}")
             return False
-    
+
+    @overload
+    def generate(
+        self,
+        model: str,
+        prompt: str,
+        system: str | None = None,
+        stream: Literal[False] = False,
+        options: dict[str, Any] | None = None,
+        keep_alive: str | int | None = None,
+    ) -> str: ...
+
+    @overload
+    def generate(
+        self,
+        model: str,
+        prompt: str,
+        system: str | None = None,
+        stream: Literal[True] = True,
+        options: dict[str, Any] | None = None,
+        keep_alive: str | int | None = None,
+    ) -> Iterator[str]: ...
+
     def generate(
         self,
         model: str,
         prompt: str,
         system: str | None = None,
         stream: bool = False,
-        options: dict[str, Any] | None = None
-    ) -> str:
-        """Gera resposta com modelo Ollama"""
-        
-        payload = {
+        options: dict[str, Any] | None = None,
+        keep_alive: str | int | None = None,
+    ) -> str | Iterator[str]:
+        """Gera resposta com modelo Ollama."""
+        payload: dict[str, Any] = {
             "model": model,
             "prompt": prompt,
-            "stream": stream
+            "stream": stream,
+            "keep_alive": keep_alive if keep_alive is not None else self.keep_alive,
+            "options": self._merge_options(options),
         }
-        
         if system:
             payload["system"] = system
-        
-        if options:
-            payload["options"] = options
-        
+
         try:
             response = self.session.post(
                 f"{self.base_url}/api/generate",
                 json=payload,
-                stream=stream
+                stream=stream,
+                timeout=self.timeout,
             )
-            
+            response.raise_for_status()
+
             if stream:
-                # Stream: retorna generator
-                def stream_generator():
-                    for line in response.iter_lines():
+
+                def stream_generator() -> Iterator[str]:
+                    for line in response.iter_lines(decode_unicode=True):
                         if line:
-                            yield line.decode()
-                
+                            yield line
+
                 return stream_generator()
-            
-            else:
-                # Não-stream: retorna texto completo
-                result = response.json()
-                return result.get("response", "")
-        
-        except Exception as e:
-            logger.error(f"❌ Erro ao gerar com {model}: {e}")
-            return ""
-    
+
+            result = response.json()
+            text = result.get("response", "")
+            if not text:
+                raise OllamaError(f"Resposta vazia do modelo {model}")
+            return text
+
+        except requests.RequestException as exc:
+            logger.error(f"❌ Erro ao gerar com {model}: {exc}")
+            raise OllamaError(f"Falha HTTP Ollama: {exc}") from exc
+
+    @overload
     def chat(
         self,
         model: str,
         messages: list,
-        stream: bool = False
-    ) -> str:
-        """Chat com histórico de mensagens"""
-        
-        payload = {
+        stream: Literal[False] = False,
+        options: dict[str, Any] | None = None,
+        keep_alive: str | int | None = None,
+    ) -> str: ...
+
+    @overload
+    def chat(
+        self,
+        model: str,
+        messages: list,
+        stream: Literal[True] = True,
+        options: dict[str, Any] | None = None,
+        keep_alive: str | int | None = None,
+    ) -> Iterator[str]: ...
+
+    def chat(
+        self,
+        model: str,
+        messages: list,
+        stream: bool = False,
+        options: dict[str, Any] | None = None,
+        keep_alive: str | int | None = None,
+    ) -> str | Iterator[str]:
+        """Chat com histórico de mensagens."""
+        payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
-            "stream": stream
+            "stream": stream,
+            "keep_alive": keep_alive if keep_alive is not None else self.keep_alive,
+            "options": self._merge_options(options),
         }
-        
+
         try:
             response = self.session.post(
                 f"{self.base_url}/api/chat",
                 json=payload,
-                stream=stream
+                stream=stream,
+                timeout=self.timeout,
             )
-            
+            response.raise_for_status()
+
             if stream:
-                def stream_generator():
-                    for line in response.iter_lines():
+
+                def stream_generator() -> Iterator[str]:
+                    for line in response.iter_lines(decode_unicode=True):
                         if line:
-                            yield line.decode()
-                
+                            yield line
+
                 return stream_generator()
-            
-            else:
-                result = response.json()
-                return result.get("message", {}).get("content", "")
-        
-        except Exception as e:
-            logger.error(f"❌ Erro no chat com {model}: {e}")
-            return ""
-    
-    def list_models(self) -> list:
-        """Lista modelos disponíveis"""
+
+            result = response.json()
+            text = result.get("message", {}).get("content", "")
+            if not text:
+                raise OllamaError(f"Chat vazio do modelo {model}")
+            return text
+
+        except requests.RequestException as exc:
+            logger.error(f"❌ Erro no chat com {model}: {exc}")
+            raise OllamaError(f"Falha HTTP Ollama chat: {exc}") from exc
+
+    def list_models(self) -> list[str]:
+        """Lista modelos disponíveis."""
         try:
-            response = self.session.get(f"{self.base_url}/api/tags")
+            response = self.session.get(
+                f"{self.base_url}/api/tags",
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
             result = response.json()
             return [m["name"] for m in result.get("models", [])]
-        
-        except Exception as e:
-            logger.error(f"❌ Erro ao listar modelos: {e}")
+        except requests.RequestException as exc:
+            logger.error(f"❌ Erro ao listar modelos: {exc}")
             return []
-    
+
     def is_healthy(self) -> bool:
-        """Verifica se Ollama está rodando"""
+        """Verifica se Ollama está rodando."""
         try:
-            response = self.session.get(f"{self.base_url}/api/tags", timeout=5)
+            response = self.session.get(
+                f"{self.base_url}/api/tags",
+                timeout=(self.timeout[0], min(5.0, self.timeout[1])),
+            )
             return response.status_code == 200
-        
-        except Exception:
+        except requests.RequestException:
             return False
+
+    def close(self) -> None:
+        self.session.close()

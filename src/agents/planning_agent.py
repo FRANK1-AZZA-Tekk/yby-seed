@@ -90,31 +90,28 @@ Formato PRD.md:
             "content": initial_request
         })
         
-        # Loop de entrevista
+        # Loop de entrevista — grava a pergunta real (não "Pergunta N").
+        current_question = first_question
         for i in range(max_questions):
-            # Resposta do usuário
             user_answer = input("👤 Sua resposta: ").strip()
-            
+
             conversation_history.append({
                 "role": "assistant",
-                "content": first_question if i == 0 else f"Pergunta {i}"
+                "content": current_question,
             })
-            
             conversation_history.append({
                 "role": "user",
-                "content": user_answer
+                "content": user_answer,
             })
-            
-            # Gera próxima pergunta ou finaliza
+
             if i < max_questions - 1:
                 next_question = self._generate_next_question(
                     conversation_history,
-                    mode
+                    mode,
                 )
-                
                 if next_question:
                     print(f"\n🤖 {next_question}\n")
-                    first_question = next_question
+                    current_question = next_question
                 else:
                     break
             else:

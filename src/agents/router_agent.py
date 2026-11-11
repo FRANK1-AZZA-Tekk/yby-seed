@@ -61,40 +61,89 @@ Comando do usuário: "{user_command}"
 Classifique a intenção e retorne APENAS o JSON:
 """
         
-        response = self.ollama.generate(
-            model=self.model,
-            prompt=prompt,
-            system=self.SYSTEM_PROMPT,
-            options={
-                "temperature": 0.1,
-                "num_predict": 256,
-                "top_p": 0.9
+        try:
+            response = self.ollama.generate(
+                model=self.model,
+                prompt=prompt,
+                system=self.SYSTEM_PROMPT,
+                options={
+                    "temperature": 0.1,
+                    "num_predict": 256,
+                    "top_p": 0.9,
+                    "num_ctx": 2048,
+                },
+            )
+        except Exception as exc:
+            logger.error(f"❌ Ollama indisponível no router: {exc}")
+            return {
+                "agent": "planning",
+                "intent": "ollama_unavailable",
+                "confidence": 0.0,
+                "requires_interview": False,
+                "error": str(exc),
             }
-        )
-        
-        # Parse JSON da resposta
-        import json
-        import re
-        
-        # Extrai JSON da resposta (pode ter texto antes/depois)
-        json_match = re.search(r'\{[^}]+\}', response, re.DOTALL)
-        
-        if json_match:
-            try:
-                result = json.loads(json_match.group())
-                logger.info(f"✅ Classificado: {result}")
-                return result
-            
-            except json.JSONDecodeError:
-                logger.warning("⚠️  JSON inválido, usando fallback")
-        
-        # Fallback
+
+        if not isinstance(response, str) or not response.strip():
+            logger.warning("⚠️  Resposta vazia do modelo, usando fallback")
+            return {
+                "agent": "planning",
+                "intent": "unknown",
+                "confidence": 0.0,
+                "requires_interview": True,
+                "error": "empty_model_response",
+            }
+
+        result = self._extract_json(response)
+        if result is not None:
+            logger.info(f"✅ Classificado: {result}")
+            return result
+
+        logger.warning("⚠️  JSON inválido, usando fallback")
         return {
             "agent": "planning",
             "intent": "unknown",
             "confidence": 0.5,
-            "requires_interview": True
+            "requires_interview": True,
         }
+
+    @staticmethod
+    def _extract_json(text: str) -> dict[str, Any] | None:
+        """Extrai o primeiro objeto JSON balanceando chaves (suporta aninhamento)."""
+        import json
+
+        start = text.find("{")
+        if start < 0:
+            return None
+
+        depth = 0
+        in_string = False
+        escape = False
+        for idx in range(start, len(text)):
+            ch = text[idx]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : idx + 1]
+                    try:
+                        parsed = json.loads(candidate)
+                    except json.JSONDecodeError:
+                        return None
+                    if isinstance(parsed, dict):
+                        return parsed
+                    return None
+        return None
     
     def should_use_voice_interview(self, intent: str) -> bool:
         """Decide se usa entrevista por voz (complexidade alta)"""

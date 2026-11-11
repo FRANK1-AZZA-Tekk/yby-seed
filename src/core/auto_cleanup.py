@@ -29,16 +29,21 @@ class AutoCleanup:
     Auto-limpeza de logs e cache.
     """
     
-    def __init__(self, log_dir: str = "/var/log/yby", db_url: str = "postgresql://yby:yby_seed_password@localhost:5432/yby_seed"):
+    def __init__(self, log_dir: str = "/var/log/yby", db_url: str | None = None):
         """
         Inicializar cleanup.
-        
+
         Args:
             log_dir: Diretório de logs
-            db_url: URL do PostgreSQL
+            db_url: URL do PostgreSQL (ou DATABASE_URL / YBY_DATABASE_URL)
         """
         self.log_dir = Path(log_dir)
-        self.db_url = db_url
+        self.db_url = (
+            db_url
+            or os.getenv("DATABASE_URL")
+            or os.getenv("YBY_DATABASE_URL")
+            or ""
+        )
     
     def cleanup_logs(self, max_age_days: int = 30):
         """

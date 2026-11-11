@@ -80,6 +80,18 @@ def doctor(ctx: click.Context) -> None:
     ollama = shutil.which("ollama")
     if ollama:
         click.echo(f"OK ollama no PATH ({ollama})")
+        try:
+            from src.core.ollama_client import OllamaClient
+
+            client = OllamaClient()
+            if client.is_healthy():
+                models = client.list_models()
+                click.echo(f"OK Ollama API ({len(models)} modelo(s))")
+            else:
+                click.echo("AVISO Ollama no PATH mas API não responde em :11434")
+            client.close()
+        except Exception as exc:  # noqa: BLE001
+            click.echo(f"AVISO falha ao consultar Ollama API: {exc}")
     else:
         click.echo("AVISO ollama não encontrado no PATH (opcional no MVP)")
 
