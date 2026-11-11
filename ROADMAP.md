@@ -4,14 +4,14 @@ Estado alinhado ao checklist em [docs/REPOS.md](docs/REPOS.md) e às decisões D
 
 | Fase | Descrição | Status |
 |---|---|---|
-| 0 | Consolidação: escopo PC Hub, docs, separação de repos | Em andamento (docs); código irmão **não** entra no seed |
-| 1 | Núcleo local (`yby.py` + Ollama + nuvem sob demanda) | Feito (`src/engine`) |
+| 0 | Consolidação: escopo PC Hub, docs, separação de repos | Feito |
+| 1 | Núcleo local (`yby.py` + Ollama + nuvem sob demanda) | Feito |
 | 1b | Porta + execução (`safety` / `actions`) + vault | Feito |
-| 1c | Voz local (Whisper + Piper) | Feito (#36) |
-| 2 | Qualidade contínua (Ruff + Pytest no CI) | Feito no essencial |
-| **P** | **Plataforma** — hub sempre ligado (D9): serviço, boot, sync Syncthing | Em andamento |
-| 3+ | Skills dry-run, agentes no caminho do `ask`, gateway exposto | Depois da plataforma estável |
-| Futuro | Mobile / ESP32 | Fora do v1 — código saiu da árvore |
+| 1c | Voz local (Whisper + Piper) | Feito |
+| 2 | Qualidade contínua (Ruff + Pytest no CI) | Feito |
+| **P** | **Plataforma** — hub sempre ligado (D9): serviço, boot, sync Syncthing | Em andamento (spec pronta; implementação pendente) |
+| 3+ | Skills dry-run, agentes no caminho do `ask`, gateway exposto | Depois |
+| Futuro | Mobile / ESP32 | Depois |
 
 ## Escopo
 
