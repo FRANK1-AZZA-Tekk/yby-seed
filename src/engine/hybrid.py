@@ -2,10 +2,25 @@
 
 from __future__ import annotations
 
+import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
+from src.engine.budget import CloudBudget, CODE_BLOCKED_BUDGET, CODE_BLOCKED_LOCAL_ONLY, CODE_BLOCKED_NO_TTY
 from src.engine.cache import ResponseCache
+from src.engine.cloud_usage_log import (
+    CloudUsageLog,
+    EVENT_BLOCKED_BUDGET,
+    EVENT_BLOCKED_LOCAL_ONLY,
+    EVENT_BLOCKED_NO_TTY,
+    EVENT_CANCELLED,
+    EVENT_COMPLETED,
+    EVENT_CONFIRMED,
+    EVENT_FAILED,
+    EVENT_REQUESTED,
+    utc_timestamp,
+)
 from src.engine.config import EngineConfig
 from src.engine.context import trim_context
 from src.engine.providers import (
@@ -50,12 +65,27 @@ class HybridEngine:
         *,
         cache: ResponseCache | None = None,
         cloud_chain: CascadingCloudProvider | None = None,
+        cloud_log: CloudUsageLog | None = None,
+        budget: CloudBudget | None = None,
+        confirm_fn: Callable[[str], bool] | None = None,
+        has_tty_fn: Callable[[], bool] | None = None,
     ) -> None:
         self.config = config
         self.ollama = ollama
         self.cloud = cloud
         self.cloud_chain = cloud_chain
         self.cache = cache or ResponseCache(ttl_seconds=config.cache_ttl_seconds)
+        self.cloud_log = cloud_log or CloudUsageLog.from_env()
+        self.budget = budget or CloudBudget.from_env()
+        if confirm_fn is None:
+            self.confirm_fn = lambda _msg: True
+            self.has_tty_fn = has_tty_fn or (lambda: True)
+        else:
+            self.confirm_fn = confirm_fn
+            self.has_tty_fn = has_tty_fn or (
+                lambda: sys.stdin.isatty() and sys.stdout.isatty()
+            )
+        self._cloud_session_confirmed = False
 
     def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
         decision = decide_route(
@@ -94,8 +124,22 @@ class HybridEngine:
                     "YBY_CLOUD_API_KEY não está definida, então não há fallback de nuvem."
                 ),
             )
+        blocked = self._cloud_gate_reply(
+            prompt,
+            decision,
+            purpose="ollama_fallback",
+            provider_label="openrouter",
+        )
+        if blocked is not None:
+            return EngineReply(
+                "",
+                "none",
+                "",
+                decision.reasons,
+                f"Ollama falhou ({local_error}). {blocked.notice}",
+            )
         try:
-            result = self._cloud_call(prompt)
+            result = self._cloud_call(prompt, purpose="ollama_fallback")
         except ProviderError as cloud_error:
             return EngineReply(
                 "",
@@ -120,8 +164,12 @@ class HybridEngine:
         if not self.cloud.has_credentials():
             return self._local_without_cloud_key(prompt, decision, why)
 
+        blocked = self._cloud_gate_reply(prompt, decision, purpose="route_cloud")
+        if blocked is not None:
+            return blocked
+
         try:
-            result = self._cloud_call(prompt)
+            result = self._cloud_call(prompt, purpose="route_cloud")
         except ProviderError as cloud_error:
             return self._local_after_cloud_failure(prompt, decision, cloud_error)
         return EngineReply(result.text, "cloud", result.model, decision.reasons, None)
@@ -180,29 +228,159 @@ class HybridEngine:
             ),
         )
 
-    def _cloud_call(self, prompt: str) -> CloudResult:
-        """Trunca contexto, consulta cache e chama a cadeia OpenRouter→Grok."""
+    def _cloud_gate_reply(
+        self,
+        prompt: str,
+        decision: RouteDecision,
+        *,
+        purpose: str,
+        provider_label: str = "openrouter",
+    ) -> EngineReply | None:
+        evaluation = self.budget.evaluate(
+            requires_confirmation=True,
+            has_tty=self.has_tty_fn(),
+        )
+        model = self.config.cloud_model
+        input_est = CloudUsageLog.estimate_tokens(prompt)
 
+        if not evaluation.allowed:
+            event = {
+                "timestamp": utc_timestamp(),
+                "provider": provider_label,
+                "model": model,
+                "purpose": purpose,
+                "input_tokens_estimate": input_est,
+                "output_tokens_estimate": 0,
+                "result": _blocked_event(evaluation.code),
+            }
+            self.cloud_log.append(event)
+            return EngineReply("", "none", "", decision.reasons, evaluation.reason)
+
+        cache_hit = self._cache_hit(prompt)
+        if cache_hit:
+            return None
+
+        self.cloud_log.append(
+            {
+                "timestamp": utc_timestamp(),
+                "provider": provider_label,
+                "model": model,
+                "purpose": purpose,
+                "input_tokens_estimate": input_est,
+                "output_tokens_estimate": 0,
+                "result": EVENT_REQUESTED,
+            }
+        )
+
+        needs_confirm = self.budget.require_confirm and not self._cloud_session_confirmed
+        if needs_confirm:
+            question = (
+                "Este pedido pode usar nuvem (tokens/custo). Confirmar? [s/n]"
+            )
+            if not self.confirm_fn(question):
+                self.cloud_log.append(
+                    {
+                        "timestamp": utc_timestamp(),
+                        "provider": provider_label,
+                        "model": model,
+                        "purpose": purpose,
+                        "input_tokens_estimate": input_est,
+                        "output_tokens_estimate": 0,
+                        "result": EVENT_CANCELLED,
+                    }
+                )
+                return EngineReply(
+                    "",
+                    "none",
+                    "",
+                    decision.reasons,
+                    "Uso de nuvem cancelado pelo usuário.",
+                )
+            self._cloud_session_confirmed = True
+            self.cloud_log.append(
+                {
+                    "timestamp": utc_timestamp(),
+                    "provider": provider_label,
+                    "model": model,
+                    "purpose": purpose,
+                    "input_tokens_estimate": input_est,
+                    "output_tokens_estimate": 0,
+                    "result": EVENT_CONFIRMED,
+                }
+            )
+        return None
+
+    def _cache_hit(self, prompt: str) -> bool:
+        trimmed = trim_context(prompt, self.config.cloud_max_chars)
+        key = self.cache.make_key(trimmed, model=self.config.cloud_model, system=SYSTEM_PROMPT)
+        return self.cache.get(key) is not None
+
+    def _cloud_call(self, prompt: str, *, purpose: str) -> CloudResult:
         trimmed = trim_context(prompt, self.config.cloud_max_chars)
         cache_model = self.config.cloud_model
         key = self.cache.make_key(trimmed, model=cache_model, system=SYSTEM_PROMPT)
         cached = self.cache.get(key)
+        input_est = CloudUsageLog.estimate_tokens(trimmed)
+        provider_label = "openrouter"
+
         if cached is not None:
             return CloudResult(cached, cache_model, "cache")
 
-        if self.cloud_chain is not None:
-            result = self.cloud_chain.complete_with_meta(trimmed, system=SYSTEM_PROMPT)
-        else:
-            text = self.cloud.complete(
-                trimmed, model=self.config.cloud_model, system=SYSTEM_PROMPT
+        try:
+            if self.cloud_chain is not None:
+                result = self.cloud_chain.complete_with_meta(trimmed, system=SYSTEM_PROMPT)
+            else:
+                text = self.cloud.complete(
+                    trimmed, model=self.config.cloud_model, system=SYSTEM_PROMPT
+                )
+                result = CloudResult(text, self.config.cloud_model, "cloud")
+        except ProviderError as exc:
+            self.cloud_log.append(
+                {
+                    "timestamp": utc_timestamp(),
+                    "provider": provider_label,
+                    "model": cache_model,
+                    "purpose": purpose,
+                    "input_tokens_estimate": input_est,
+                    "output_tokens_estimate": 0,
+                    "result": EVENT_FAILED,
+                }
             )
-            result = CloudResult(text, self.config.cloud_model, "cloud")
+            raise exc
 
+        output_est = CloudUsageLog.estimate_tokens(result.text)
+        self.cloud_log.append(
+            {
+                "timestamp": utc_timestamp(),
+                "provider": result.via,
+                "model": result.model,
+                "purpose": purpose,
+                "input_tokens_estimate": input_est,
+                "output_tokens_estimate": output_est,
+                "result": EVENT_COMPLETED,
+            }
+        )
         self.cache.set(key, result.text)
         return result
 
 
-def engine_from_env() -> HybridEngine:
+def _blocked_event(code: str) -> str:
+    if code == CODE_BLOCKED_LOCAL_ONLY:
+        return EVENT_BLOCKED_LOCAL_ONLY
+    if code == CODE_BLOCKED_BUDGET:
+        return EVENT_BLOCKED_BUDGET
+    if code == CODE_BLOCKED_NO_TTY:
+        return EVENT_BLOCKED_NO_TTY
+    return EVENT_BLOCKED_BUDGET
+
+
+def engine_from_env(
+    *,
+    confirm_fn: Callable[[str], bool] | None = None,
+    has_tty_fn: Callable[[], bool] | None = None,
+    cloud_log: CloudUsageLog | None = None,
+    budget: CloudBudget | None = None,
+) -> HybridEngine:
     """Monta o motor com os clientes HTTP reais e a configuração do ambiente."""
 
     config = EngineConfig.from_env()
@@ -230,4 +408,8 @@ def engine_from_env() -> HybridEngine:
         cloud=chain,
         cloud_chain=chain,
         cache=ResponseCache(ttl_seconds=config.cache_ttl_seconds),
+        cloud_log=cloud_log,
+        budget=budget,
+        confirm_fn=confirm_fn,
+        has_tty_fn=has_tty_fn,
     )
