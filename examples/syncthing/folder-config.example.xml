@@ -1,0 +1,25 @@
+<!--
+  Esqueleto de pasta Syncthing para o vault YBY.
+  Não é um config.xml completo — cole/adapte na UI ou no seu config local.
+  Sem device IDs, certificados ou paths reais de produção.
+-->
+<folder id="yby-vault" label="YBY Vault" path="/home/USER/Vaults/yby" type="sendreceive" rescanIntervalS="60" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+  <filesystemType>basic</filesystemType>
+  <device id="PLACEHOLDER-DEVICE-ID-HUB" introducedBy=""></device>
+  <device id="PLACEHOLDER-DEVICE-ID-NOTEBOOK" introducedBy=""></device>
+  <minDiskFree unit="%">1</minDiskFree>
+  <versioning></versioning>
+  <copiers>0</copiers>
+  <pullerMaxPendingKiB>0</pullerMaxPendingKiB>
+  <hashers>0</hashers>
+  <order>random</order>
+  <ignoreDelete>false</ignoreDelete>
+  <scanProgressIntervalS>0</scanProgressIntervalS>
+  <pullerPauseS>0</pullerPauseS>
+  <maxConflicts>-1</maxConflicts>
+  <disableSparseFiles>false</disableSparseFiles>
+  <disableTempIndexes>false</disableTempIndexes>
+  <paused>false</paused>
+  <weakHashThresholdPct>25</weakHashThresholdPct>
+  <markerName>.stfolder</markerName>
+</folder>

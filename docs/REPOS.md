@@ -16,13 +16,13 @@ Guia prático de comandos e pastas: [DEV.md](DEV.md).
 | Memória (vault) | `src/memory` | feito |
 | Guarda AST | `src/security/ast_guard.py` | feito |
 | Voz (STT/TTS) | `src/voice` | feito (#36) |
-| **Plataforma** | servidor de casa sempre ligado (D9) | **próximo** — deploy/serviço no hub, não merge de outros repos |
+| **Plataforma** | `src/platform`, `scripts/install-hub-service.sh` (D9) | **em andamento** — hub systemd, Syncthing (docs), OpenRouter→Grok, cache; não merge de outros repos |
 | Agentes / RAG / gateway | `src/agents`, `src/rag`, `src/gateway`, … | no disco; **fora** do caminho do `ask` |
 
 Caminho ativo hoje:
 
 ```text
-yby.py → engine | safety → actions | memory | voice | security/ast_guard
+yby.py → engine | safety → actions | memory | voice | platform | security/ast_guard
 ```
 
 ## Neste repositório
@@ -34,6 +34,7 @@ yby.py → engine | safety → actions | memory | voice | security/ast_guard
 | `src/actions` | executa shell só depois da porta permitir |
 | `src/memory` | notas Markdown do vault |
 | `src/voice` | STT/TTS opcional (`listen` / `ask --voice`) |
+| `src/platform` | hub keepalive (serviço systemd) |
 | `src/security/ast_guard.py` | bloqueia código gerado perigoso |
 | `tests/` | suíte que o CI roda |
 | `config/safety-allowlist.txt` | allowlist da porta |

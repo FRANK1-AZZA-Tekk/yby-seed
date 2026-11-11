@@ -1,7 +1,8 @@
-"""Clientes HTTP do Ollama e de um endpoint compatível com a API da OpenAI."""
+"""Clientes HTTP do Ollama e de endpoints compatíveis com a API da OpenAI."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 import requests
@@ -130,6 +131,79 @@ class CloudProvider:
         if not text.strip():
             raise ProviderError(f"Nuvem ({model}) devolveu uma resposta vazia.")
         return text
+
+
+@dataclass(frozen=True)
+class CloudResult:
+    """Resposta de nuvem com o modelo que de fato respondeu."""
+
+    text: str
+    model: str
+    via: str
+
+
+class CascadingCloudProvider:
+    """OpenRouter (ou outro primário) e, se falhar, Grok (fallback)."""
+
+    def __init__(
+        self,
+        primary: CloudProvider,
+        *,
+        primary_model: str,
+        primary_label: str = "openrouter",
+        fallback: CloudProvider | None = None,
+        fallback_model: str = "",
+        fallback_label: str = "grok",
+    ) -> None:
+        self.primary = primary
+        self.primary_model = primary_model
+        self.primary_label = primary_label
+        self.fallback = fallback
+        self.fallback_model = fallback_model
+        self.fallback_label = fallback_label
+
+    def has_credentials(self) -> bool:
+        if self.primary.has_credentials():
+            return True
+        return bool(self.fallback and self.fallback.has_credentials())
+
+    def complete(self, prompt: str, *, model: str, system: str) -> str:
+        """Protocolo CloudClient: tenta primário e depois fallback."""
+
+        return self.complete_with_meta(prompt, system=system).text
+
+    def complete_with_meta(self, prompt: str, *, system: str) -> CloudResult:
+        """Tenta o destino primário; em falha, o fallback (Grok)."""
+
+        primary_error: ProviderError | None = None
+        if self.primary.has_credentials():
+            try:
+                text = self.primary.complete(
+                    prompt, model=self.primary_model, system=system
+                )
+                return CloudResult(text, self.primary_model, self.primary_label)
+            except ProviderError as exc:
+                primary_error = exc
+        elif self.fallback is None or not self.fallback.has_credentials():
+            raise ProviderError("YBY_CLOUD_API_KEY não está definida.")
+
+        if self.fallback is None or not self.fallback.has_credentials():
+            assert primary_error is not None
+            raise primary_error
+
+        try:
+            text = self.fallback.complete(
+                prompt, model=self.fallback_model, system=system
+            )
+        except ProviderError as fallback_error:
+            if primary_error is not None:
+                raise ProviderError(
+                    f"{self.primary_label} falhou ({primary_error}); "
+                    f"{self.fallback_label} falhou ({fallback_error})"
+                ) from fallback_error
+            raise fallback_error
+
+        return CloudResult(text, self.fallback_model, self.fallback_label)
 
 
 def _json_object(response: requests.Response, who: str) -> dict[str, Any]:

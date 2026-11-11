@@ -12,13 +12,15 @@ A plataforma desse PC Hub está em D9: servidor doméstico sempre ligado.
 
 Inventário real de repositórios e arquitetura por domínios antes de qualquer código novo.
 
-## D3 — Local-first, nuvem sob demanda (2026-11-11)
+## D3 — Local-first, nuvem sob demanda (2026-11-11; nota OpenRouter 2026-11-11)
 
 Ollama local primeiro. A nuvem entra quando a heurística de complexidade ou tamanho dispara, ou quando a pessoa pede (`--heavy`, frases como "pensa mais").
 
-O provedor de nuvem é compatível com a API da OpenAI e configurável por URL, modelo e chave. O padrão é **Grok (xAI)**. **OpenRouter** continua disponível como configuração alternativa, não como destino automático.
+O provedor de nuvem é compatível com a API da OpenAI e configurável por URL, modelo e chave. Destino de nuvem padrão: **OpenRouter com modelo free** (`openrouter/free`). Se OpenRouter falhar ou não houver chave, fallback para **Grok (xAI)**. Chaves só no `.env` do servidor.
 
-Substitui a redação de D3 anterior: "Ollama local primeiro; OpenRouter apenas como fallback."
+Nota do dono (aprovado): OpenRouter free é o alvo de nuvem padrão; Grok é o fallback.
+
+Substitui a redação intermediária em que Grok era o destino automático e OpenRouter só configuração alternativa. Também substitui a redação antiga "Ollama local primeiro; OpenRouter apenas como fallback."
 
 ## D4 — Modelo local (2026-11-11)
 
@@ -53,6 +55,8 @@ A memória da pessoa é um vault Obsidian em Markdown, com índice vetorial por 
 ## D9 — Plataforma (2026-11-11)
 
 O YBY SEED roda num servidor doméstico sempre ligado. Esse servidor é o PC Hub.
+
+Operação: unit systemd de usuário (`scripts/yby-hub.service` + `scripts/install-hub-service.sh`) mantém um keepalive fino (`python -m src.platform.hub` / `yby hub`) que só checa o Ollama — **não** sobe o gateway MQTT. Vault via Syncthing (`examples/syncthing/`, `docs/syncthing/`). Cache de respostas e limite de contexto antes da nuvem. Detalhe: [docs/PLATFORM.md](docs/PLATFORM.md).
 
 ## D10 — Segurança de comandos (2026-11-11)
 

@@ -6,6 +6,7 @@
 |---|---|
 | [REPOS.md](REPOS.md) | Onde programar; checklist de camadas; repos separados |
 | [DEV.md](DEV.md) | Setup, CLI, env, testes, pastas |
+| [PLATFORM.md](PLATFORM.md) | Hub systemd, Syncthing, nuvem OpenRouter→Grok |
 | [MEMORY.md](MEMORY.md) | Vault Obsidian |
 | [../DECISIONS.md](../DECISIONS.md) | D1–D11 (vigentes) |
 | [../ARCHITECTURE.md](../ARCHITECTURE.md) | Visão curta do PC Hub |

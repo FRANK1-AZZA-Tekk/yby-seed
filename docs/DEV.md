@@ -26,17 +26,23 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 | `python yby.py recall "consulta"` | busca no vault |
 | `python yby.py listen` | push-to-talk: Whisper → ask → Piper |
 | `python yby.py ask --voice "..."` | mesmo fluxo com prompt opcional |
+| `python yby.py hub` | keepalive do hub (Ollama); `--once` para uma checagem |
 
 Voz: `pip install -r requirements-voice.txt`, binário Piper no PATH e `YBY_PIPER_MODEL`. Sem isso, `ask` em texto segue; a voz avisa com mensagem clara.
+
+Hub no boot: `bash scripts/install-hub-service.sh --enable`. Detalhe: [PLATFORM.md](PLATFORM.md).
 
 ## Variáveis úteis (`.env`)
 
 | Prefixo / chave | Uso |
 |---|---|
-| `YBY_OLLAMA_*`, `YBY_LOCAL_MODEL` | Ollama do `ask` |
-| `YBY_CLOUD_*` ou `XAI_API_KEY` | nuvem (padrão Grok); sem chave = só local |
+| `YBY_OLLAMA_*`, `YBY_LOCAL_MODEL` | Ollama do `ask` / hub |
+| `YBY_CLOUD_*` / `OPENROUTER_API_KEY` | nuvem primária (OpenRouter free por padrão) |
+| `YBY_GROK_*` / `XAI_API_KEY` | fallback Grok se OpenRouter falhar/sem chave |
+| `YBY_CACHE_*`, `YBY_CLOUD_CONTEXT_MAX_CHARS` | cache TTL e limite de contexto na nuvem |
 | `YBY_HEAVY_*` | limiares / frases que sobem para nuvem |
 | `YBY_VAULT_PATH` | pasta do vault Obsidian |
+| `YBY_HUB_*` | intervalo/timeout do keepalive |
 | `GATEWAY_TOKEN`, `FASTAPI_HOST` | gateway HTTP (fora do caminho do `ask`) |
 | `YBY_DATABASE_URL` | Postgres opcional (agentes legados) |
 
@@ -46,7 +52,8 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 
 | Objetivo | Pastas |
 |---|---|
-| Resposta / provedores / roteamento | `src/engine/` |
+| Resposta / provedores / roteamento / cache | `src/engine/` |
+| Hub keepalive | `src/platform/`, `scripts/install-hub-service.sh` |
 | Allowlist e decisão de comando | `src/safety/`, `config/safety-allowlist.txt` |
 | Execução após a porta | `src/actions/` |
 | Notas / recall | `src/memory/` |
