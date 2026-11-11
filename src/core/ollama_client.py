@@ -5,15 +5,16 @@ Cliente Ollama para inferência local.
 Otimizações alinhadas a evidências públicas (docs Ollama + benchmarks 4GB):
 - timeout HTTP obrigatório (evita hang infinito)
 - keep_alive para evitar reload frio
-- num_ctx padrão 2048 (llama3.2:3b cabe 100% na GTX 1650 4GB;
-  4096 já força offload e perde ~39% de tok/s)
+- num_ctx padrão 2048 (llama3.2:3b cabe 100% na GTX 1650 4GB)
+- format=json / schema para saídas estruturadas
+- embeddings via /api/embeddings (sem vetores fictícios)
 """
 
 from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from typing import Any, Literal, overload
 
 import requests
@@ -26,11 +27,11 @@ class OllamaError(RuntimeError):
     """Falha explícita na API Ollama (não mascara como string vazia)."""
 
 
-# Defaults seguros para VRAM ~4GB com llama3.2:3b
 DEFAULT_NUM_CTX = int(os.getenv("YBY_OLLAMA_NUM_CTX", "2048"))
 DEFAULT_KEEP_ALIVE = os.getenv("YBY_OLLAMA_KEEP_ALIVE", "10m")
 DEFAULT_TIMEOUT = float(os.getenv("YBY_OLLAMA_TIMEOUT", "120"))
 DEFAULT_CONNECT_TIMEOUT = float(os.getenv("YBY_OLLAMA_CONNECT_TIMEOUT", "5"))
+DEFAULT_EMBED_MODEL = os.getenv("YBY_EMBED_MODEL", "all-minilm")
 
 
 class OllamaClient:
@@ -44,11 +45,13 @@ class OllamaClient:
         connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
         keep_alive: str | int = DEFAULT_KEEP_ALIVE,
         num_ctx: int = DEFAULT_NUM_CTX,
+        embed_model: str = DEFAULT_EMBED_MODEL,
     ):
         self.base_url = f"http://{host}:{port}"
         self.timeout = (connect_timeout, timeout)
         self.keep_alive = keep_alive
         self.num_ctx = num_ctx
+        self.embed_model = embed_model
 
         self.session = requests.Session()
         retries = Retry(
@@ -117,6 +120,7 @@ class OllamaClient:
         stream: Literal[False] = False,
         options: dict[str, Any] | None = None,
         keep_alive: str | int | None = None,
+        format: str | dict[str, Any] | None = None,
     ) -> str: ...
 
     @overload
@@ -128,6 +132,7 @@ class OllamaClient:
         stream: Literal[True] = True,
         options: dict[str, Any] | None = None,
         keep_alive: str | int | None = None,
+        format: str | dict[str, Any] | None = None,
     ) -> Iterator[str]: ...
 
     def generate(
@@ -138,6 +143,7 @@ class OllamaClient:
         stream: bool = False,
         options: dict[str, Any] | None = None,
         keep_alive: str | int | None = None,
+        format: str | dict[str, Any] | None = None,
     ) -> str | Iterator[str]:
         """Gera resposta com modelo Ollama."""
         payload: dict[str, Any] = {
@@ -149,6 +155,8 @@ class OllamaClient:
         }
         if system:
             payload["system"] = system
+        if format is not None:
+            payload["format"] = format
 
         try:
             response = self.session.post(
@@ -186,6 +194,7 @@ class OllamaClient:
         stream: Literal[False] = False,
         options: dict[str, Any] | None = None,
         keep_alive: str | int | None = None,
+        format: str | dict[str, Any] | None = None,
     ) -> str: ...
 
     @overload
@@ -196,6 +205,7 @@ class OllamaClient:
         stream: Literal[True] = True,
         options: dict[str, Any] | None = None,
         keep_alive: str | int | None = None,
+        format: str | dict[str, Any] | None = None,
     ) -> Iterator[str]: ...
 
     def chat(
@@ -205,6 +215,7 @@ class OllamaClient:
         stream: bool = False,
         options: dict[str, Any] | None = None,
         keep_alive: str | int | None = None,
+        format: str | dict[str, Any] | None = None,
     ) -> str | Iterator[str]:
         """Chat com histórico de mensagens."""
         payload: dict[str, Any] = {
@@ -214,6 +225,8 @@ class OllamaClient:
             "keep_alive": keep_alive if keep_alive is not None else self.keep_alive,
             "options": self._merge_options(options),
         }
+        if format is not None:
+            payload["format"] = format
 
         try:
             response = self.session.post(
@@ -242,6 +255,44 @@ class OllamaClient:
         except requests.RequestException as exc:
             logger.error(f"❌ Erro no chat com {model}: {exc}")
             raise OllamaError(f"Falha HTTP Ollama chat: {exc}") from exc
+
+    def embed(
+        self,
+        texts: str | Sequence[str],
+        model: str | None = None,
+    ) -> list[list[float]]:
+        """Gera embeddings reais via /api/embeddings (nunca vetores fictícios)."""
+        embed_model = model or self.embed_model
+        inputs = [texts] if isinstance(texts, str) else list(texts)
+        if not inputs:
+            raise OllamaError("embed() requer ao menos um texto")
+
+        vectors: list[list[float]] = []
+        for text in inputs:
+            try:
+                response = self.session.post(
+                    f"{self.base_url}/api/embeddings",
+                    json={"model": embed_model, "prompt": text},
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                payload = response.json()
+                embedding = payload.get("embedding")
+                if not isinstance(embedding, list) or not embedding:
+                    raise OllamaError(
+                        f"Embedding vazio do modelo {embed_model}. "
+                        f"Verifique se o modelo está instalado (ollama pull {embed_model})."
+                    )
+                if all(v == 0 for v in embedding):
+                    raise OllamaError(
+                        f"Embedding zerado rejeitado ({embed_model}) — possível stub."
+                    )
+                vectors.append([float(v) for v in embedding])
+            except requests.RequestException as exc:
+                logger.error(f"❌ Erro ao embedder com {embed_model}: {exc}")
+                raise OllamaError(f"Falha HTTP Ollama embeddings: {exc}") from exc
+
+        return vectors
 
     def list_models(self) -> list[str]:
         """Lista modelos disponíveis."""

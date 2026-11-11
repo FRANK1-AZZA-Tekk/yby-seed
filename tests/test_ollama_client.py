@@ -41,3 +41,39 @@ def test_generate_merges_num_ctx():
         assert payload["keep_alive"] == "10m"
         assert "timeout" in post.call_args.kwargs
     client.close()
+
+
+def test_generate_passes_format_json():
+    client = OllamaClient()
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {"response": '{"a":1}'}
+    with patch.object(client.session, "post", return_value=mock_resp) as post:
+        client.generate("llama3.2:3b", "oi", format="json")
+        assert post.call_args.kwargs["json"]["format"] == "json"
+    client.close()
+
+
+def test_embed_rejects_empty_and_zero_vector():
+    client = OllamaClient()
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {"embedding": [0.0, 0.0]}
+    with (
+        patch.object(client.session, "post", return_value=mock_resp),
+        pytest.raises(OllamaError, match="zerado|vazio|Embedding"),
+    ):
+        client.embed("texto")
+    client.close()
+
+
+def test_embed_ok():
+    client = OllamaClient()
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.return_value = {"embedding": [0.1, 0.2, 0.3]}
+    with patch.object(client.session, "post", return_value=mock_resp) as post:
+        vectors = client.embed("texto")
+        assert vectors == [[0.1, 0.2, 0.3]]
+        assert post.call_args.kwargs["json"]["model"] == client.embed_model
+    client.close()

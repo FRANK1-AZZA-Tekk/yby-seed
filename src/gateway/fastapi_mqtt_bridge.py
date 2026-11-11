@@ -282,11 +282,12 @@ def extract_features(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def generate_embedding(features: dict[str, Any]) -> list[float]:
-    """
-    Gerar embedding de features (modelo local via Ollama).
-    
-    Retorna: vetor de 384 dimensões (all-MiniLM-L6-v2)
-    """
-    # TODO: Implementar com Ollama embeddings
-    # Por enquanto, retornar vetor dummy
-    return [0.0] * 384
+    """Gerar embedding real via Ollama a partir das features serializadas."""
+    from src.core.ollama_client import OllamaClient
+
+    text = str(features)
+    client = OllamaClient()
+    try:
+        return client.embed(text)[0]
+    finally:
+        client.close()

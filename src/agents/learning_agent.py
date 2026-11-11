@@ -313,18 +313,15 @@ class LearningAgent:
         }
     
     def _generate_embedding(self, text: str) -> list[float]:
-        """
-        Gerar embedding (modelo local via Ollama).
-        
-        Args:
-            text: Texto para embedar
-        
-        Returns:
-            Vetor de 384 dimensões
-        """
-        # TODO: Implementar com Ollama embeddings
-        # Por enquanto, retornar vetor dummy
-        return [0.0] * 384
+        """Gerar embedding real via Ollama (sem vetor fictício)."""
+        from src.core.ollama_client import OllamaClient
+
+        client = OllamaClient()
+        try:
+            vectors = client.embed(text)
+            return vectors[0]
+        finally:
+            client.close()
     
     def close(self):
         """Fechar conexão"""
