@@ -175,7 +175,11 @@ class CloudResult:
 
 
 class CascadingCloudProvider:
-    """OpenRouter (ou outro primário) e, se falhar, Grok (fallback)."""
+    """Nuvem primária (ex.: OpenRouter). Sem failover automático para Grok (D12).
+
+    Fallback alternativo fica no construtor até a issue #42 (confirmação explícita);
+    não é chamado em `complete_with_meta`.
+    """
 
     def __init__(
         self,
@@ -195,47 +199,31 @@ class CascadingCloudProvider:
         self.fallback_label = fallback_label
 
     def has_credentials(self) -> bool:
-        if self.primary.has_credentials():
-            return True
-        return bool(self.fallback and self.fallback.has_credentials())
+        return self.primary.has_credentials()
 
     def complete(self, prompt: str, *, model: str, system: str) -> str:
-        """Protocolo CloudClient: tenta primário e depois fallback."""
+        """Protocolo CloudClient: apenas o provedor primário."""
 
         return self.complete_with_meta(prompt, system=system).text
 
     def complete_with_meta(self, prompt: str, *, system: str) -> CloudResult:
-        """Tenta o destino primário; em falha, o fallback (Grok)."""
+        """Chama só o destino primário; falha não dispara Grok (confirmação futura #42)."""
 
-        primary_error: ProviderError | None = None
-        if self.primary.has_credentials():
-            try:
-                text = self.primary.complete(
-                    prompt, model=self.primary_model, system=system
-                )
-                return CloudResult(text, self.primary_model, self.primary_label)
-            except ProviderError as exc:
-                primary_error = exc
-        elif self.fallback is None or not self.fallback.has_credentials():
-            raise ProviderError("YBY_CLOUD_API_KEY não está definida.")
-
-        if self.fallback is None or not self.fallback.has_credentials():
-            assert primary_error is not None
-            raise primary_error
-
-        try:
-            text = self.fallback.complete(
-                prompt, model=self.fallback_model, system=system
+        if not self.primary.has_credentials():
+            raise ProviderError(
+                "YBY_CLOUD_API_KEY não está definida. "
+                "Fallback de nuvem exige autorização explícita (issue #42)."
             )
-        except ProviderError as fallback_error:
-            if primary_error is not None:
-                raise ProviderError(
-                    f"{self.primary_label} falhou ({primary_error}); "
-                    f"{self.fallback_label} falhou ({fallback_error})"
-                ) from fallback_error
-            raise fallback_error
-
-        return CloudResult(text, self.fallback_model, self.fallback_label)
+        try:
+            text = self.primary.complete(
+                prompt, model=self.primary_model, system=system
+            )
+        except ProviderError as exc:
+            raise ProviderError(
+                f"{self.primary_label} falhou ({exc}). "
+                "Nuvem alternativa não é chamada automaticamente (D12)."
+            ) from exc
+        return CloudResult(text, self.primary_model, self.primary_label)
 
 
 def _json_object(response: requests.Response, who: str) -> dict[str, Any]:

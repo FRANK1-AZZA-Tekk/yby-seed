@@ -435,7 +435,7 @@ def test_cloud_provider_usa_bearer_e_nao_chama_sem_chave() -> None:
     assert body["model"] == "openrouter/free"
 
 
-def test_cascading_openrouter_para_grok() -> None:
+def test_cascading_openrouter_falha_sem_fallback_automatico() -> None:
     primary = CloudProvider(
         "https://openrouter.ai/api/v1",
         api_key="or",
@@ -456,10 +456,9 @@ def test_cascading_openrouter_para_grok() -> None:
         fallback=fallback,
         fallback_model="grok-4.7",
     )
-    result = chain.complete_with_meta("oi", system="sys")
-    assert result.text == "via-grok"
-    assert result.model == "grok-4.7"
-    assert result.via == "grok"
+    with pytest.raises(ProviderError, match="não é chamada automaticamente"):
+        chain.complete_with_meta("oi", system="sys")
+    assert fallback._session.posts == []
 
 
 def test_cascading_usa_openrouter_quando_ok() -> None:
@@ -489,7 +488,7 @@ def test_cascading_usa_openrouter_quando_ok() -> None:
     assert fallback._session.posts == []  # type: ignore[attr-defined]
 
 
-def test_cascading_sem_openrouter_vai_pro_grok() -> None:
+def test_cascading_sem_openrouter_nao_usa_grok_automaticamente() -> None:
     primary = CloudProvider("https://openrouter.ai/api/v1", api_key="", timeout=3)
     fallback = CloudProvider(
         "https://api.x.ai/v1",
@@ -505,17 +504,15 @@ def test_cascading_sem_openrouter_vai_pro_grok() -> None:
         fallback=fallback,
         fallback_model="grok-4.7",
     )
-    assert chain.has_credentials() is True
-    result = chain.complete_with_meta("oi", system="sys")
-    assert result.text == "via-grok"
-    assert result.via == "grok"
+    assert chain.has_credentials() is False
+    with pytest.raises(ProviderError, match="YBY_CLOUD_API_KEY"):
+        chain.complete_with_meta("oi", system="sys")
 
 
-def test_motor_com_cadeia_openrouter_para_grok() -> None:
+def test_motor_com_openrouter_falho_nao_cai_no_grok() -> None:
     ollama = FakeOllama()
     primary = FakeCloud(api_key="or", error=ProviderError("HTTP 429"))
     fallback = FakeCloud(text="via-grok", api_key="xai")
-    # CascadingCloudProvider espera CloudProvider; usamos Fake via chain no hybrid
     chain = CascadingCloudProvider(
         primary,  # type: ignore[arg-type]
         primary_model="openrouter/free",
@@ -529,6 +526,8 @@ def test_motor_com_cadeia_openrouter_para_grok() -> None:
         cloud_chain=chain,
         cache=ResponseCache(ttl_seconds=0),
     ).reply("pensa mais")
-    assert reply.provider == "cloud"
-    assert reply.text == "via-grok"
-    assert reply.model == "grok-4.7"
+    assert reply.provider == "local"
+    assert reply.text == "resposta-local"
+    assert reply.notice is not None
+    assert "não é chamada automaticamente" in reply.notice
+    assert fallback.calls == []
