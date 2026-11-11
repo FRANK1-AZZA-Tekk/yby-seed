@@ -54,4 +54,4 @@ O YBY SEED roda num servidor doméstico sempre ligado. Esse servidor é o PC Hub
 
 A allowlist cobre comandos somente leitura (`ls`, `cat`, `df`, estado do sistema e equivalentes), comandos `git` e scripts dentro da pasta do YBY. Qualquer outro comando pede sim ou não no terminal. Padrões destrutivos óbvios são recusados.
 
-A implementação é o PR de segurança, separado deste. O `ask` ainda não executa shell.
+O módulo `src/safety` classifica o comando em run, ask ou refuse e faz a pergunta no terminal. Ele não executa o comando. O `ask` também não executa shell.
