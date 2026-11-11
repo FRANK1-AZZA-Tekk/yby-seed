@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "echo 'YBY SEED is a Python CLI (no web frontend) — skip Vercel build' && exit 0"
+}
