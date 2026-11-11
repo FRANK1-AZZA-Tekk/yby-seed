@@ -10,10 +10,9 @@ Pacote Python do YBY SEED (`pythonpath = ["."]` no `pyproject.toml`). Entrada CL
 | `safety/` | allowlist + decisão (não executa) |
 | `actions/` | subprocess após a porta |
 | `memory/` | vault Markdown |
+| `voice/` | STT/TTS opcional (`listen` / `ask --voice`) |
 | `security/ast_guard.py` | guarda de código gerado |
 | `main.py` | Click CLI |
-
-Voz (`voice/`) entra quando o PR #36 for mergeado.
 
 ## Presente no disco, fora do `ask`
 
