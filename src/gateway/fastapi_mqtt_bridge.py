@@ -18,16 +18,16 @@ Backpressure:
 Licença: MIT
 """
 
-from fastapi import FastAPI, WebSocket, HTTPException
-from asyncio import Queue
-from typing import List, Dict, Any
 import asyncio
-import json
-from datetime import datetime
 import logging
+from asyncio import Queue
+from datetime import datetime
+from typing import Any
 
-from .lancedb_client import LanceDBClient
+from fastapi import FastAPI, HTTPException, WebSocket
+
 from .config import settings
+from .lancedb_client import LanceDBClient
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ db_client = LanceDBClient(
 )
 
 # WebSocket clients (para dashboard em tempo real)
-websocket_clients: List[WebSocket] = []
+websocket_clients: list[WebSocket] = []
 
 
 @app.on_event("startup")
@@ -76,7 +76,7 @@ async def shutdown_event():
 
 
 @app.post("/telemetry")
-async def receive_telemetry(data: Dict[str, Any]):
+async def receive_telemetry(data: dict[str, Any]):
     """
     Endpoint HTTP para telemetria (fallback se MQTT falhar).
     
@@ -208,7 +208,7 @@ async def start_worker():
                     data = await asyncio.wait_for(mqtt_queue.get(), timeout=1.0)
                     batch.append(data)
             
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Timeout: processar batch parcial
                 pass
             
@@ -228,7 +228,7 @@ async def start_worker():
     asyncio.create_task(worker())
 
 
-def process_batch(batch: List[Dict[str, Any]]):
+def process_batch(batch: list[dict[str, Any]]):
     """
     Processar batch de telemetria (CPU-bound, roda em thread pool).
     
@@ -258,7 +258,7 @@ def process_batch(batch: List[Dict[str, Any]]):
             logger.error(f"❌ Erro ao processar mensagem: {e}")
 
 
-def extract_features(data: Dict[str, Any]) -> Dict[str, Any]:
+def extract_features(data: dict[str, Any]) -> dict[str, Any]:
     """
     Extrair features relevantes da telemetria para RAG.
     
@@ -281,7 +281,7 @@ def extract_features(data: Dict[str, Any]) -> Dict[str, Any]:
     return features
 
 
-def generate_embedding(features: Dict[str, Any]) -> List[float]:
+def generate_embedding(features: dict[str, Any]) -> list[float]:
     """
     Gerar embedding de features (modelo local via Ollama).
     

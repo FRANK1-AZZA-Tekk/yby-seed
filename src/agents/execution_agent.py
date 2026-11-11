@@ -7,8 +7,9 @@ Uso:
     code = executor.generate(prd_text)
 """
 
-from typing import Optional, List
+
 from loguru import logger
+
 from src.core.ollama_client import OllamaClient
 
 
@@ -54,17 +55,21 @@ if __name__ == "__main__":
     def generate(
         self,
         prd: str,
-        context: Optional[str] = None
+        context: str | None = None
     ) -> str:
         """Gera código Python baseado no PRD"""
         
         logger.info("📝 Gerando código Python...")
-        
+
+        contexto_extra = ""
+        if context:
+            contexto_extra = f"Contexto adicional:\n{context}"
+
         prompt = f"""
 PRD:
 {prd}
 
-{f'Contexto adicional:\n{context}' if context else ''}
+{contexto_extra}
 
 Gere o código Python completo e funcional.
 Inclua TODOS os imports necessários.
@@ -94,7 +99,7 @@ Inclua TODOS os imports necessários.
     def generate_with_rag(
         self,
         prd: str,
-        rag_chunks: List[str]
+        rag_chunks: list[str]
     ) -> str:
         """Gera código com contexto RAG"""
         

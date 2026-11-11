@@ -17,11 +17,12 @@ Tópicos MQTT:
 Licença: MIT
 """
 
-import paho.mqtt.client as mqtt
 import json
 import logging
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any
+
+import paho.mqtt.client as mqtt
 
 from .termux_api import termux_api
 
@@ -149,7 +150,7 @@ class MobileGateway:
         except Exception as e:
             logger.error(f"❌ Erro ao processar comando: {e}")
     
-    def publish_telemetry(self, telemetry: Dict[str, Any]):
+    def publish_telemetry(self, telemetry: dict[str, Any]):
         """
         Publicar telemetria.
         

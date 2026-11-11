@@ -15,8 +15,7 @@ Licença: MIT
 """
 
 import logging
-from typing import Dict, Any, List
-from datetime import datetime, timedelta
+from typing import Any
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,9 +28,9 @@ class AutoImprovement:
     
     def __init__(self):
         # Métricas históricas
-        self.metrics_history: List[Dict[str, Any]] = []
+        self.metrics_history: list[dict[str, Any]] = []
     
-    def analyze_bottlenecks(self, current_metrics: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def analyze_bottlenecks(self, current_metrics: dict[str, Any]) -> list[dict[str, Any]]:
         """
         Analisar gargalos.
         
@@ -80,7 +79,7 @@ class AutoImprovement:
         logger.info(f"✅ {len(bottlenecks)} gargalos identificados")
         return bottlenecks
     
-    def suggest_optimizations(self, bottlenecks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def suggest_optimizations(self, bottlenecks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Sugerir otimizações.
         
@@ -130,7 +129,7 @@ class AutoImprovement:
         logger.info(f"✅ {len(optimizations)} otimizações sugeridas")
         return optimizations
     
-    def apply_optimization(self, optimization: Dict[str, Any], dry_run: bool = True):
+    def apply_optimization(self, optimization: dict[str, Any], dry_run: bool = True):
         """
         Aplicar otimização.
         
@@ -178,7 +177,7 @@ class AutoImprovement:
             # Aguardar próximo ciclo
             time.sleep(interval_hours * 3600)
     
-    def _get_current_metrics(self) -> Dict[str, Any]:
+    def _get_current_metrics(self) -> dict[str, Any]:
         """
         Obter métricas atuais.
         

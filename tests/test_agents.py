@@ -3,8 +3,8 @@
 Foco: testar lógica de decisão dos agentes sem depender de Ollama, PostgreSQL ou MQTT.
 """
 
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 # Importar agentes (ajustar imports conforme estrutura real)
 # from src.agents.router_agent import RouterAgent

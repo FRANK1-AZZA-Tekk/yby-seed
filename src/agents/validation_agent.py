@@ -8,8 +8,7 @@ Uso:
 """
 
 import ast
-import re
-from typing import Tuple, List, Dict, Any
+
 from loguru import logger
 
 
@@ -28,16 +27,10 @@ class ValidationAgent:
         "shutil.rmtree"
     ]
     
-    REQUIRED_SECTIONS = [
-        "import",
-        "def",
-        "if __name__"
-    ]
-    
     def __init__(self):
         logger.info("🛡️  Validation Agent inicializado")
     
-    def validate(self, code: str) -> Tuple[bool, List[str]]:
+    def validate(self, code: str) -> tuple[bool, list[str]]:
         """Valida código Python"""
         
         errors = []
@@ -66,7 +59,7 @@ class ValidationAgent:
         
         return is_valid, errors
     
-    def _validate_syntax(self, code: str) -> Tuple[bool, List[str]]:
+    def _validate_syntax(self, code: str) -> tuple[bool, list[str]]:
         """Valida sintaxe Python"""
         
         errors = []
@@ -79,7 +72,7 @@ class ValidationAgent:
         
         return len(errors) == 0, errors
     
-    def _validate_security(self, code: str) -> Tuple[bool, List[str]]:
+    def _validate_security(self, code: str) -> tuple[bool, list[str]]:
         """Valida segurança (padrões perigosos)"""
         
         errors = []
@@ -90,18 +83,56 @@ class ValidationAgent:
         
         return len(errors) == 0, errors
     
-    def _validate_structure(self, code: str) -> Tuple[bool, List[str]]:
-        """Valida estrutura mínima"""
-        
-        errors = []
-        
-        for section in self.REQUIRED_SECTIONS:
-            if section not in code:
-                errors.append(f"⚠️  Seção ausente: {section}")
-        
+    def _validate_structure(self, code: str) -> tuple[bool, list[str]]:
+        """Valida estrutura mínima via AST (não por substring).
+
+        A checagem por texto falhava quando trechos como
+        ``print("sem if __name__")`` satisfaziam o requisito por coincidência.
+        """
+        errors: list[str] = []
+
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            # Sintaxe inválida já é reportada em _validate_syntax.
+            return True, errors
+
+        has_import = any(
+            isinstance(node, (ast.Import, ast.ImportFrom)) for node in tree.body
+        )
+        has_def = any(
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            for node in tree.body
+        )
+        has_main_guard = False
+
+        for node in tree.body:
+            if not isinstance(node, ast.If):
+                continue
+            test = node.test
+            if (
+                isinstance(test, ast.Compare)
+                and isinstance(test.left, ast.Name)
+                and test.left.id == "__name__"
+                and len(test.ops) == 1
+                and isinstance(test.ops[0], ast.Eq)
+                and len(test.comparators) == 1
+                and isinstance(test.comparators[0], ast.Constant)
+                and test.comparators[0].value == "__main__"
+            ):
+                has_main_guard = True
+                break
+
+        if not has_import:
+            errors.append("⚠️  Seção ausente: import")
+        if not has_def:
+            errors.append("⚠️  Seção ausente: def")
+        if not has_main_guard:
+            errors.append("⚠️  Seção ausente: if __name__")
+
         return len(errors) == 0, errors
     
-    def suggest_fixes(self, code: str, errors: List[str]) -> str:
+    def suggest_fixes(self, code: str, errors: list[str]) -> str:
         """Sugere correções para erros"""
         
         if not errors:

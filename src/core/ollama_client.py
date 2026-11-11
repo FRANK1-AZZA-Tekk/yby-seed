@@ -7,8 +7,9 @@ Uso:
     response = ollama.generate("llama3.2:3b", "Olá!")
 """
 
+from typing import Any
+
 import requests
-from typing import Optional, Dict, Any
 from loguru import logger
 
 
@@ -45,9 +46,9 @@ class OllamaClient:
         self,
         model: str,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         stream: bool = False,
-        options: Optional[Dict[str, Any]] = None
+        options: dict[str, Any] | None = None
     ) -> str:
         """Gera resposta com modelo Ollama"""
         

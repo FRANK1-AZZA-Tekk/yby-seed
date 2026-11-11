@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-
 from src.agents.planning_agent import PlanningAgent
 
 

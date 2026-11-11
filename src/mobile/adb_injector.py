@@ -19,9 +19,9 @@ Comandos ADB:
 Licença: MIT
 """
 
-import subprocess
 import logging
-from typing import Dict, Any, List
+import subprocess
+from typing import Any
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -165,7 +165,7 @@ class ADBInjector:
                 logger.error(f"❌ Erro ao executar: {cmd}\n{e.stderr}")
                 raise
     
-    def verify(self) -> Dict[str, bool]:
+    def verify(self) -> dict[str, bool]:
         """
         Verificar se otimizações estão ativas.
         
@@ -230,7 +230,7 @@ class ADBInjector:
         except Exception:
             return False
     
-    def get_device_info(self) -> Dict[str, Any]:
+    def get_device_info(self) -> dict[str, Any]:
         """
         Obter informações do dispositivo.
         

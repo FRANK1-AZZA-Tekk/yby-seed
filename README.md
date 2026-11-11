@@ -7,33 +7,36 @@ PC Hub local-first para automações e IA.
 
 ## Status
 
-Fase atual: **Fase 0 — Consolidação**. Foco exclusivo no PC (Ubuntu 26.04 LTS). Mobile e ESP32 ficam para fases futuras.
+Fase atual: **Fase 0 — Consolidação / recuperação**. Foco exclusivo no PC. Mobile e ESP32 ficam para fases futuras.
+
+**Implementado hoje:** `doctor`, `setup`, `test`, `status` (CLI honesta).  
+**Ainda não implementado:** hub completo (`run`), Node-RED, MQTT, briefing revisável (Fase 1).  
+**Docker Compose:** apenas Qdrant (pós-MVP / Fase 5).
 
 ## O que é
 
-YBY SEED é um hub central no PC que:
+YBY SEED é um hub central no PC que pretende:
 
-- Conversa localmente via Ollama.
-- Executa automações seguras.
-- Organiza e busca documentos.
-- Usa nuvem apenas como fallback.
+- Conversar localmente via Ollama.
+- Executar automações seguras (dry-run primeiro).
+- Organizar e buscar documentos.
+- Usar nuvem apenas como fallback.
 
-## MVP
-
-O MVP funciona sem Docker:
+## MVP (alvo)
 
 ```text
-yby.py → RouterAgent → Ollama → resposta
+CLI → RouterAgent → Ollama → resposta
 ```
+
+Esse fluxo ponta a ponta ainda está em construção. Use `doctor`/`test` para validar o estado real.
 
 ## Início rápido
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-ollama pull llama3.2:3b
-python src/main.py
+make setup
+make doctor
+make test
+python src/main.py status
 ```
 
 ## Estrutura

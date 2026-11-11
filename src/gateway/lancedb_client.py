@@ -18,12 +18,10 @@ Otimizações:
 Licença: Apache 2.0
 """
 
-import lancedb
-from datetime import datetime
-from typing import List, Dict, Any, Optional
 import logging
+from typing import Any
 
-from .config import settings
+import lancedb
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -95,7 +93,7 @@ class LanceDBClient:
         else:
             self.vectors_table = self.db.open_table("vectors")
     
-    async def insert_metrics(self, data: Dict[str, Any]):
+    async def insert_metrics(self, data: dict[str, Any]):
         """
         Inserir métricas brutas.
         
@@ -127,7 +125,7 @@ class LanceDBClient:
             logger.error(f"❌ Erro ao inserir métricas: {e}")
             raise
     
-    async def insert_vector(self, data: Dict[str, Any]):
+    async def insert_vector(self, data: dict[str, Any]):
         """
         Inserir embedding vetorial.
         
@@ -158,7 +156,7 @@ class LanceDBClient:
             logger.error(f"❌ Erro ao inserir vetor: {e}")
             raise
     
-    async def insert(self, data: Dict[str, Any]):
+    async def insert(self, data: dict[str, Any]):
         """
         Inserir métricas + vetor (transacional).
         
@@ -186,7 +184,7 @@ class LanceDBClient:
             "metadata": "{\"metrics\": " + str(data["metrics"]) + "}"
         })
     
-    async def get_metrics(self, device_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+    async def get_metrics(self, device_id: str, limit: int = 100) -> list[dict[str, Any]]:
         """
         Recuperar últimas N métricas de um dispositivo.
         
@@ -214,7 +212,7 @@ class LanceDBClient:
             logger.error(f"❌ Erro ao recuperar métricas: {e}")
             raise
     
-    async def search(self, query_vector: List[float], top_k: int = 5) -> List[Dict[str, Any]]:
+    async def search(self, query_vector: list[float], top_k: int = 5) -> list[dict[str, Any]]:
         """
         Buscar vetores similares (RAG).
         

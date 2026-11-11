@@ -14,10 +14,9 @@ Otimizações:
 Licença: MIT
 """
 
-import os
-import shutil
-import subprocess
 import logging
+import os
+import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 

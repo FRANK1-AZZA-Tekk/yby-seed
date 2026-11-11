@@ -10,8 +10,8 @@ Uso:
 """
 
 import re
-from typing import Dict, Any, List, Optional
-from pathlib import Path
+from typing import Any
+
 from loguru import logger
 
 
@@ -109,12 +109,12 @@ class OpenRouterSanitizer:
         
         return text
     
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Retorna estatísticas de sanitização"""
         
         return self.stats.copy()
     
-    def validate_before_send(self, text: str) -> Dict[str, Any]:
+    def validate_before_send(self, text: str) -> dict[str, Any]:
         """Valida texto antes de enviar para OpenRouter"""
         
         # Verifica se ainda há dados sensíveis

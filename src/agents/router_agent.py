@@ -8,8 +8,10 @@ Uso:
     # Output: {"agent": "planning", "intent": "backup_automation"}
 """
 
-from typing import Dict, Any
+from typing import Any
+
 from loguru import logger
+
 from src.core.ollama_client import OllamaClient
 
 
@@ -48,7 +50,7 @@ Formato de saída (JSON):
         self.model = "llama3.2:3b-instruct-q4_K_M"
         logger.info("🎯 Router Agent inicializado")
     
-    def classify(self, user_command: str) -> Dict[str, Any]:
+    def classify(self, user_command: str) -> dict[str, Any]:
         """Classifica intenção do usuário"""
         
         logger.info(f"🔍 Classificando: {user_command[:50]}...")

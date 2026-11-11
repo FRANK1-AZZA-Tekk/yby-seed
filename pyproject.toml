@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yby-seed"
+version = "0.1.0"
+description = "PC Hub local-first para automações e IA"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "unit: teste unitário sem dependências externas",
+    "integration: teste de integração que requer serviços",
+    "skip: marcador legado de skip",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "PIE"]
+ignore = [
+    "E501",   # linhas longas: fora do escopo desta recuperação
+    "B008",   # defaults em argumentos de Click
+    "B904",   # raise-from: dívida técnica do gateway pós-MVP
+    "SIM102", # if aninhados intencionais (segurança/governança)
+    "SIM103",
+    "SIM108",
+    "SIM110",
+    "SIM118",
+    "UP036",  # guard de versão Python no CLI
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+"examples/*" = ["F401", "E402"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+no_strict_optional = true
+explicit_package_bases = true
+mypy_path = "."
+exclude = [
+    "firmware/",
+    "grafana/",
+    "litellm/",
+    "process-manager/",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "src.mobile.*",
+    "src.gateway.*",
+    "src.rag.*",
+    "src.monitoring.*",
+    "src.evaluation.*",
+    "src.agents.learning_agent",
+]
+ignore_errors = true

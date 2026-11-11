@@ -11,11 +11,11 @@ Uso:
 """
 
 import json
-from datetime import datetime, timedelta
-from typing import Dict, Any, List
-from pathlib import Path
-from loguru import logger
 import sqlite3
+from datetime import datetime, timedelta
+from typing import Any
+
+from loguru import logger
 
 
 class MetricsDashboard:
@@ -180,7 +180,7 @@ class MetricsDashboard:
         
         return result[0] if result[0] else 0.0
     
-    def generate_report(self, days: int = 7) -> Dict[str, Any]:
+    def generate_report(self, days: int = 7) -> dict[str, Any]:
         """Gera relatório de métricas"""
         
         logger.info(f"📊 Gerando relatório de métricas (últimos {days} dias)...")
@@ -220,7 +220,7 @@ class MetricsDashboard:
         
         return report
     
-    def _save_daily_report(self, report: Dict[str, Any]):
+    def _save_daily_report(self, report: dict[str, Any]):
         """Salva relatório diário no DB"""
         
         conn = sqlite3.connect(self.db_path)

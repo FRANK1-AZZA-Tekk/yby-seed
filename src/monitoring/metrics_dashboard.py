@@ -19,9 +19,10 @@ Métricas Exportadas:
 Licença: MIT
 """
 
-from prometheus_client import start_http_server, Gauge, Counter, Histogram
 import logging
-from typing import Dict, Any
+from typing import Any
+
+from prometheus_client import Counter, Gauge, Histogram, start_http_server
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -123,7 +124,7 @@ class MetricsDashboard:
         ERRORS_TOTAL.inc(count)
         logger.warning(f"📊 Errors: {count}")
     
-    def get_all_metrics(self) -> Dict[str, Any]:
+    def get_all_metrics(self) -> dict[str, Any]:
         """
         Obter todas as métricas.
         
@@ -146,8 +147,8 @@ metrics_dashboard = MetricsDashboard()
 
 
 if __name__ == "__main__":
-    import time
     import random
+    import time
     
     # Simular métricas
     while True:

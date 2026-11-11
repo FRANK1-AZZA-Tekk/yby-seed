@@ -17,7 +17,6 @@ Otimizações:
 Licença: MIT
 """
 
-from typing import Dict, Any, List
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -31,7 +30,7 @@ class BayesianTeaching:
     
     def __init__(self):
         # Crenças iniciais (priors)
-        self.beliefs: Dict[str, float] = {
+        self.beliefs: dict[str, float] = {
             "backup_automation_success": 0.5,  # Incerteza inicial
             "notification_success": 0.5,
             "api_integration_success": 0.5
@@ -73,7 +72,7 @@ class BayesianTeaching:
         
         return posterior
     
-    def get_best_strategy(self, belief_keys: List[str]) -> str:
+    def get_best_strategy(self, belief_keys: list[str]) -> str:
         """
         Obter melhor estratégia baseado nas crenças.
         
@@ -131,7 +130,7 @@ class BayesianTeaching:
             self.beliefs = {k: 0.5 for k in self.beliefs}
             logger.info("🔄 Todas as crenças resetadas")
     
-    def get_all_beliefs(self) -> Dict[str, float]:
+    def get_all_beliefs(self) -> dict[str, float]:
         """
         Obter todas as crenças.
         

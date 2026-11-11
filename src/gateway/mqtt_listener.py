@@ -19,10 +19,11 @@ Licença: MIT
 """
 
 import asyncio
-import paho.mqtt.client as mqtt
 import logging
 from datetime import datetime
 from typing import Queue
+
+import paho.mqtt.client as mqtt
 
 from .config import settings
 

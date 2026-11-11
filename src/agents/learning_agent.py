@@ -17,16 +17,21 @@ Otimizações:
 Licença: MIT
 """
 
-import psycopg2
-from psycopg2.extras import execute_values
-import pgvector
-from pgvector.psycopg2 import register_vector
-from typing import Dict, Any, List
 import logging
-from datetime import datetime, timedelta
+from typing import Any
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+try:
+    import pgvector  # noqa: F401
+    import psycopg2
+    from pgvector.psycopg2 import register_vector
+    from psycopg2.extras import execute_values
+except ImportError:  # PostgreSQL/pgvector são Fase 7 — opcionais no MVP
+    psycopg2 = None  # type: ignore[assignment]
+    execute_values = None  # type: ignore[assignment]
+    register_vector = None  # type: ignore[assignment]
 
 
 class LearningAgent:
@@ -47,6 +52,12 @@ class LearningAgent:
     
     def _connect(self):
         """Conectar ao PostgreSQL"""
+        if psycopg2 is None or register_vector is None:
+            raise ImportError(
+                "LearningAgent requer psycopg2 e pgvector (Fase 7). "
+                "Instale as dependências ou ignore este agente no MVP."
+            )
+
         logger.info("🧠 Conectando PostgreSQL...")
         
         self.conn = psycopg2.connect(self.db_url)
@@ -96,7 +107,7 @@ class LearningAgent:
             
             self.conn.commit()
     
-    def log_execution(self, intent: str, slots: Dict, code: str, result: Dict, feedback: str = None):
+    def log_execution(self, intent: str, slots: dict, code: str, result: dict, feedback: str = None):
         """
         Logar execução.
         
@@ -224,7 +235,7 @@ class LearningAgent:
             
             self.conn.commit()
     
-    def suggest_improvements(self, limit: int = 5) -> List[Dict[str, Any]]:
+    def suggest_improvements(self, limit: int = 5) -> list[dict[str, Any]]:
         """
         Sugerir melhorias baseado em erros.
         
@@ -258,7 +269,7 @@ class LearningAgent:
             logger.info(f"✅ {len(suggestions)} sugestões geradas")
             return suggestions
     
-    def _generate_suggestion(self, intent: str, slots: Dict, code: str, result: Dict) -> Dict[str, Any]:
+    def _generate_suggestion(self, intent: str, slots: dict, code: str, result: dict) -> dict[str, Any]:
         """
         Gerar sugestão de melhoria.
         
@@ -294,7 +305,7 @@ class LearningAgent:
             "priority": "high" if "timeout" in error_message.lower() else "medium"
         }
     
-    def _generate_embedding(self, text: str) -> List[float]:
+    def _generate_embedding(self, text: str) -> list[float]:
         """
         Gerar embedding (modelo local via Ollama).
         
@@ -315,11 +326,9 @@ class LearningAgent:
             logger.info("🛑 PostgreSQL desconectado")
 
 
-# Instância global
-learning_agent = LearningAgent()
-
-
 if __name__ == "__main__":
+    learning_agent = LearningAgent()
+
     # Logar execução
     learning_agent.log_execution(
         intent="backup_automation",

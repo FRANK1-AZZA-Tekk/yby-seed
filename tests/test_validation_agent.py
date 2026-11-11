@@ -1,7 +1,6 @@
 """Testes unitários funcionais para o ValidationAgent."""
 
 import pytest
-
 from src.agents.validation_agent import ValidationAgent
 
 

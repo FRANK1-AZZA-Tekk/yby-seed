@@ -19,13 +19,13 @@ Benchmark GTX 1650 (4GB VRAM):
 Licença: Apache 2.0
 """
 
-from typing import List, Dict, Any
 import logging
+from typing import Any
 
+from ..core.kv_cache_config import kv_cache_config
+from ..gateway.lancedb_client import LanceDBClient
 from .ast_chunker import ast_chunker
 from .context_pruner import context_pruner
-from ..gateway.lancedb_client import LanceDBClient
-from ..core.kv_cache_config import kv_cache_config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ class RAGOptimizer:
         # Configurar KV cache
         kv_cache_config.validate()
     
-    async def index_document(self, doc_text: str, doc_id: str, metadata: Dict[str, Any]):
+    async def index_document(self, doc_text: str, doc_id: str, metadata: dict[str, Any]):
         """
         Indexar documento (chunking + embeddings).
         
@@ -87,7 +87,7 @@ class RAGOptimizer:
         
         logger.info(f"✅ {len(chunks)} chunks indexados")
     
-    async def search(self, query: str, top_k: int = 10, max_context_tokens: int = 2000) -> List[str]:
+    async def search(self, query: str, top_k: int = 10, max_context_tokens: int = 2000) -> list[str]:
         """
         Buscar documentos relevantes (RAG).
         
@@ -122,7 +122,7 @@ class RAGOptimizer:
         logger.info(f"✅ {len(pruned_chunks)} chunks relevantes")
         return pruned_chunks
     
-    async def _generate_embedding(self, text: str) -> List[float]:
+    async def _generate_embedding(self, text: str) -> list[float]:
         """
         Gerar embedding via Ollama (modelo local).
         
@@ -136,7 +136,7 @@ class RAGOptimizer:
         # Por enquanto, retornar vetor dummy
         return [0.0] * 384
     
-    async def rag_query(self, query: str, max_context_tokens: int = 2000) -> Dict[str, Any]:
+    async def rag_query(self, query: str, max_context_tokens: int = 2000) -> dict[str, Any]:
         """
         Query RAG completa (retrieval + generation).
         

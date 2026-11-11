@@ -17,8 +17,9 @@ Modelo:
 Licença: MIT
 """
 
-from typing import Dict, Any, List
 import logging
+from typing import Any
+
 from litellm import completion  # LiteLLM wrapper
 
 logging.basicConfig(level=logging.INFO)
@@ -39,7 +40,7 @@ class InterviewAgent:
         """
         self.model = model
     
-    async def interview(self, user_input: str, mode: str = "basic") -> Dict[str, Any]:
+    async def interview(self, user_input: str, mode: str = "basic") -> dict[str, Any]:
         """
         Realizar entrevista.
         
@@ -64,7 +65,7 @@ class InterviewAgent:
         else:
             raise ValueError(f"Modo inválido: {mode}")
     
-    async def _interview_basic(self, user_input: str) -> Dict[str, Any]:
+    async def _interview_basic(self, user_input: str) -> dict[str, Any]:
         """
         Modo Basic: resposta direta, sem entrevista.
         
@@ -112,7 +113,7 @@ Retorne APENAS JSON:
         logger.info(f"✅ Modo Basic: {result}")
         return result
     
-    async def _interview_junior(self, user_input: str) -> Dict[str, Any]:
+    async def _interview_junior(self, user_input: str) -> dict[str, Any]:
         """
         Modo Junior: entrevista progressiva (5-15 min).
         
@@ -145,7 +146,7 @@ Retorne APENAS JSON:
             "resumo": "Entrevista em andamento..."
         }
     
-    async def _interview_pro(self, user_input: str) -> Dict[str, Any]:
+    async def _interview_pro(self, user_input: str) -> dict[str, Any]:
         """
         Modo Pro: entrevista exaustiva (15-30 min) + PRD completo.
         
@@ -174,7 +175,7 @@ Retorne APENAS JSON:
             "prd": prd
         }
     
-    def _generate_clarification_questions(self, intent: str) -> List[str]:
+    def _generate_clarification_questions(self, intent: str) -> list[str]:
         """
         Gerar perguntas de clarificação para a intenção.
         

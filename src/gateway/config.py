@@ -9,8 +9,8 @@ Responsabilidade:
 Licença: MIT
 """
 
+
 from pydantic import BaseSettings, Field
-from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = Field(default="INFO", description="Nível de log")
     
     # === Segurança ===
-    API_KEY: Optional[str] = Field(default=None, description="Chave de API (opcional)")
+    API_KEY: str | None = Field(default=None, description="Chave de API (opcional)")
     
     class Config:
         env_file = ".env"

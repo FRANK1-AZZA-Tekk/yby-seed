@@ -9,13 +9,14 @@ Uso:
     result = sandbox.execute(code, timeout=5, memory_limit_mb=128)
 """
 
-import subprocess
-import tempfile
 import os
 import resource
 import signal
-from typing import Dict, Any, Tuple, Optional
+import subprocess
+import tempfile
 from pathlib import Path
+from typing import Any
+
 from loguru import logger
 
 
@@ -58,8 +59,8 @@ class SandboxExecutor:
     def execute(
         self,
         code: str,
-        input_data: Optional[str] = None
-    ) -> Dict[str, Any]:
+        input_data: str | None = None
+    ) -> dict[str, Any]:
         """Executa código em sandbox"""
         
         logger.info("🔒 Executando código em sandbox...")
@@ -152,7 +153,7 @@ class SandboxExecutor:
                     "exit_code": -3
                 }
     
-    def _apply_limits(self, limits: Dict[str, int]):
+    def _apply_limits(self, limits: dict[str, int]):
         """Aplica limites de recursos ao processo"""
         
         # Limita CPU
@@ -174,7 +175,7 @@ class SandboxExecutor:
         # Bloqueia sinais perigosos
         signal.signal(signal.SIGPIPE, signal.SIG_IGN)
     
-    def _validate_ast(self, code: str) -> Tuple[bool, list]:
+    def _validate_ast(self, code: str) -> tuple[bool, list]:
         """Valida código com AST (análise estática)"""
         
         import ast
@@ -217,8 +218,8 @@ class SandboxExecutor:
         self,
         code: str,
         max_retries: int = 3,
-        input_data: Optional[str] = None
-    ) -> Dict[str, Any]:
+        input_data: str | None = None
+    ) -> dict[str, Any]:
         """Executa código com retry automático"""
         
         for attempt in range(max_retries):

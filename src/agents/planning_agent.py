@@ -7,8 +7,8 @@ Uso:
     prd = planner.interview("Quero backup de PDFs")
 """
 
-from typing import List, Dict, Any, Optional
 from loguru import logger
+
 from src.core.ollama_client import OllamaClient
 
 
@@ -147,9 +147,9 @@ Seja claro e direto (máx 20 palavras).
     
     def _generate_next_question(
         self,
-        conversation: List[Dict],
+        conversation: list[dict],
         mode: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """Gera próxima pergunta baseada no histórico"""
         
         # Converte histórico para texto
@@ -181,7 +181,7 @@ Seja claro e direto (máx 20 palavras).
     
     def _generate_prd(
         self,
-        conversation: List[Dict],
+        conversation: list[dict],
         initial_request: str
     ) -> str:
         """Gera PRD baseado na entrevista"""

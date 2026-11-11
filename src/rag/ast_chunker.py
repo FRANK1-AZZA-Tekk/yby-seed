@@ -18,10 +18,11 @@ Benchmark:
 Licença: MIT
 """
 
-from tree_sitter import Parser, Language
-import tree_sitter_python as tspython
-from typing import List, Dict, Any
 import logging
+from typing import Any
+
+import tree_sitter_python as tspython
+from tree_sitter import Parser
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ class ASTChunker:
             # TODO: Carregar outras linguagens
             logger.warning(f"⚠️  Linguagem não suportada: {language}")
     
-    def chunk(self, code: str, max_tokens: int = 512) -> List[Dict[str, Any]]:
+    def chunk(self, code: str, max_tokens: int = 512) -> list[dict[str, Any]]:
         """
         Fatiar código em chunks sintáticos.
         
@@ -94,7 +95,7 @@ class ASTChunker:
         logger.info(f"✅ {len(chunks)} chunks gerados")
         return chunks
     
-    def _subdivide_chunk(self, code: str, max_tokens: int) -> List[Dict[str, Any]]:
+    def _subdivide_chunk(self, code: str, max_tokens: int) -> list[dict[str, Any]]:
         """
         Subdividir chunk grande em chunks menores.
         
@@ -127,7 +128,7 @@ class ASTChunker:
         
         return sub_chunks
     
-    def chunk_file(self, file_path: str, max_tokens: int = 512) -> List[Dict[str, Any]]:
+    def chunk_file(self, file_path: str, max_tokens: int = 512) -> list[dict[str, Any]]:
         """
         Fatiar arquivo de código.
         
@@ -140,7 +141,7 @@ class ASTChunker:
         """
         logger.info(f"📄 Fatiando arquivo: {file_path}")
         
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             code = f.read()
         
         chunks = self.chunk(code, max_tokens)
@@ -151,7 +152,7 @@ class ASTChunker:
         
         return chunks
     
-    def chunk_directory(self, dir_path: str, pattern: str = "*.py", max_tokens: int = 512) -> List[Dict[str, Any]]:
+    def chunk_directory(self, dir_path: str, pattern: str = "*.py", max_tokens: int = 512) -> list[dict[str, Any]]:
         """
         Fatiar diretório de código.
         
@@ -163,7 +164,6 @@ class ASTChunker:
         Returns:
             Lista de chunks
         """
-        from pathlib import Path
         import glob
         
         logger.info(f"📁 Fatiando diretório: {dir_path}")
