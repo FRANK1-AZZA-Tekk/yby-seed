@@ -9,20 +9,20 @@ Guia prático de comandos e pastas: [DEV.md](DEV.md).
 | Camada | Pasta / entrada | Estado |
 |---|---|---|
 | CLI | `yby.py` → `src/main.py` | feito |
-| Motor `ask` | `src/engine` | feito (#30/#31) |
-| Porta de segurança | `src/safety` | feito (#33) |
+| Motor `ask` | `src/engine` | feito (#30) |
+| Porta de segurança | `src/safety` | feito (#31) |
+| Auditoria / AST / vault | `src/security`, `src/memory`, … | feito (#33) |
 | Execução | `src/actions` | feito (#34) |
 | Memória (vault) | `src/memory` | feito |
 | Guarda AST | `src/security/ast_guard.py` | feito |
-| Voz (STT/TTS) | `src/voice` (PR) | aberto — [PR #36](https://github.com/FRANK1-AZZA-Tekk/yby-seed/pull/36) |
+| Voz (STT/TTS) | `src/voice` | feito (#36) |
 | **Plataforma** | servidor de casa sempre ligado (D9) | **próximo** — deploy/serviço no hub, não merge de outros repos |
 | Agentes / RAG / gateway | `src/agents`, `src/rag`, `src/gateway`, … | no disco; **fora** do caminho do `ask` |
 
 Caminho ativo hoje:
 
 ```text
-yby.py → engine | safety → actions | memory | security/ast_guard
-         (+ voice quando #36 entrar)
+yby.py → engine | safety → actions | memory | voice | security/ast_guard
 ```
 
 ## Neste repositório
@@ -33,6 +33,7 @@ yby.py → engine | safety → actions | memory | security/ast_guard
 | `src/safety` | decide run, ask ou refuse; não executa |
 | `src/actions` | executa shell só depois da porta permitir |
 | `src/memory` | notas Markdown do vault |
+| `src/voice` | STT/TTS opcional (`listen` / `ask --voice`) |
 | `src/security/ast_guard.py` | bloqueia código gerado perigoso |
 | `tests/` | suíte que o CI roda |
 | `config/safety-allowlist.txt` | allowlist da porta |

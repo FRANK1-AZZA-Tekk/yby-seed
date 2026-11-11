@@ -17,6 +17,7 @@ YBY SEED é o exocórtex pessoal nesse servidor:
 - Sobe para a nuvem só em pedido pesado ou explícito. O padrão é Grok (xAI), num endpoint compatível com a API da OpenAI. OpenRouter fica como configuração alternativa.
 - A memória é um vault Obsidian em Markdown, com índice local. `python yby.py note` grava e `python yby.py recall` busca. O Syncthing sincroniza a pasta com o servidor de casa. O `ask` ainda não grava nota sozinho.
 - Comandos de terminal seguem a allowlist em `config/safety-allowlist.txt` (leitura, git, scripts em `scripts/` e `examples/`). O resto pede sim ou não. `python yby.py run "..."` passa pela porta e, se permitido, executa com timeout. `python yby.py gate "..."` só decide; não executa.
+- Voz opcional: `python yby.py listen` (ou `ask --voice`) grava até Enter, transcreve com faster-whisper e fala a resposta com Piper. Deps em `requirements-voice.txt`.
 - O único modelo local é `qwen2.5-coder:3b`.
 - O gateway HTTP, se for usado, escuta em `127.0.0.1` e exige `GATEWAY_TOKEN`.
 - Código gerado passa pela guarda AST em `src/security/ast_guard.py`.
@@ -40,7 +41,9 @@ ollama pull qwen2.5-coder:3b
 python yby.py ask "explica uma lista em Python"
 ```
 
-`ask` responde em texto. Não executa shell, não grava memória e não usa voz. O modelo local padrão é `qwen2.5-coder:3b`. Pedidos longos, com várias perguntas, ou com frases como "pensa mais", vão para a nuvem (Grok, endpoint compatível com a API da OpenAI). `--heavy` força esse caminho. As regras e os limites estão em `src/engine/routing.py` e nas variáveis `YBY_*` de `.env.example`.
+`ask` responde em texto. Não executa shell e não grava memória. O modelo local padrão é `qwen2.5-coder:3b`. Pedidos longos, com várias perguntas, ou com frases como "pensa mais", vão para a nuvem (Grok, endpoint compatível com a API da OpenAI). `--heavy` força esse caminho. As regras e os limites estão em `src/engine/routing.py` e nas variáveis `YBY_*` de `.env.example`.
+
+Voz (opcional): `pip install -r requirements-voice.txt`, instale o binário Piper, defina `YBY_PIPER_MODEL`, e rode `python yby.py listen`. STT padrão: Whisper `base` em CPU. Sem essas deps, `ask` em texto segue normal.
 
 Sem `YBY_CLOUD_API_KEY` (ou `XAI_API_KEY`), a nuvem não é chamada: o comando avisa e, se o Ollama estiver no ar, responde no modelo local.
 
@@ -49,9 +52,17 @@ Sem `YBY_CLOUD_API_KEY` (ou `XAI_API_KEY`), a nuvem não é chamada: o comando a
 O v1 mora neste repositório. Mapa e checklist de camadas: [docs/REPOS.md](docs/REPOS.md). Como rodar e testar: [docs/DEV.md](docs/DEV.md).
 
 ```text
-feito:   yby.py → engine | safety → actions | memory | security/ast_guard
-aberto:  voice (PR #36)
+feito:   engine | safety → actions | memory | voice | security/ast_guard
 próximo: Plataforma (servidor de casa / D9) — sem merge de YBY/yby-core/FRANK
+
+yby.py            → comando
+src/engine        → ask
+src/voice         → STT/TTS opcional (listen / ask --voice)
+src/safety        → allowlist, decide (não executa)
+src/actions       → executa após a porta
+src/memory        → vault de notas
+src/security      → guarda AST
+tests/            → pytest
 ```
 
 Agentes, RAG e gateway ficam em `src/`, fora desse caminho ([src/README.md](src/README.md)).

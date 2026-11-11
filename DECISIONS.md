@@ -62,6 +62,12 @@ O módulo `src/safety` classifica o comando em run, ask ou refuse e faz a pergun
 
 A camada `src/actions` é quem executa: só chama o subprocesso depois de `run`, ou de `ask` com sim. `refuse` nunca chega ao shell. O CLI é `python yby.py run "..."`. `gate` continua só decidindo.
 
+## D11 — Voz local (2026-11-11)
+
+STT com **faster-whisper** (padrão `base` em CPU/`int8`; `small` via `YBY_WHISPER_MODEL`). TTS com **Piper** (binário + `.onnx` em `YBY_PIPER_MODEL`). Cabe no servidor de casa (GTX 1650 4 GB / CPU).
+
+CLI: `python yby.py listen` ou `python yby.py ask --voice` — grava até Enter, transcreve, chama o HybridEngine e fala a resposta. Dependências em `requirements-voice.txt` (opcionais). Sem elas, o texto (`yby ask "..."`) continua funcionando e a voz avisa com mensagem clara.
+
 ## Auditoria de 2026-11-11
 
 - O GovernanceAgent usa uma guarda AST (`src/security/ast_guard.py`), a mesma do sandbox. As regexes antigas não bloqueavam nada.

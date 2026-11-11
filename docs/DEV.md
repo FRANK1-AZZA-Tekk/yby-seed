@@ -24,8 +24,10 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 | `python yby.py gate "..."` | só decide (run/ask/refuse); não executa |
 | `python yby.py note "título" texto da nota...` | grava no vault |
 | `python yby.py recall "consulta"` | busca no vault |
+| `python yby.py listen` | push-to-talk: Whisper → ask → Piper |
+| `python yby.py ask --voice "..."` | mesmo fluxo com prompt opcional |
 
-Voz (`listen` / `ask --voice`) entra com o [PR #36](https://github.com/FRANK1-AZZA-Tekk/yby-seed/pull/36). Depois do merge: `pip install -r requirements-voice.txt`, binário Piper + `YBY_PIPER_MODEL`.
+Voz: `pip install -r requirements-voice.txt`, binário Piper no PATH e `YBY_PIPER_MODEL`. Sem isso, `ask` em texto segue; a voz avisa com mensagem clara.
 
 ## Variáveis úteis (`.env`)
 
