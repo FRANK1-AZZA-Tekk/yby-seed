@@ -44,22 +44,26 @@ python yby.py ask "explica uma lista em Python"
 
 Sem `YBY_CLOUD_API_KEY` (ou `XAI_API_KEY`), a nuvem não é chamada: o comando avisa e, se o Ollama estiver no ar, responde no modelo local.
 
-## Estrutura
+## Onde programar
+
+O v1 mora neste repositório. O mapa dos outros repositórios está em [docs/REPOS.md](docs/REPOS.md).
 
 ```text
-src/       → núcleo YBY
-skills/    → automações
-tests/     → testes
-scripts/   → utilitários
-docs/      → planos e decisões
-examples/  → exemplos (pós-MVP)
-grafana/   → observabilidade (pós-MVP)
+yby.py            → comando
+src/engine        → ask
+src/safety        → allowlist, sem executar
+src/memory        → vault de notas
+src/security      → guarda AST
+tests/            → pytest
 ```
+
+Agentes, RAG e gateway ainda estão em `src/`, fora desse caminho.
 
 Mobile e firmware saíram do v1. Ver [docs/archive/FORA-DO-V1.md](docs/archive/FORA-DO-V1.md).
 
 ## Documentação
 
+- [Onde programar](docs/REPOS.md)
 - [Memória](docs/MEMORY.md)
 - [Arquitetura](ARCHITECTURE.md)
 - [Roadmap](ROADMAP.md)
