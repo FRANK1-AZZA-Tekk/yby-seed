@@ -27,3 +27,15 @@ Toda skill começa em dry-run e só executa após confirmação do usuário.
 ## D7 — Consolidação de repositórios
 
 Materiais de YBY, YBY Zero e outros projetos são revisados e unificados no YBY SEED quando fizer sentido técnico.
+
+## D8 — Framework em camadas (Camada A)
+
+Núcleo fino em `src/app/` + camadas empilháveis A–D. Entrypoint canônico: `yby_seed.py` (fachada; sem args = REPL, com args = CLI Click). Scaffold largo (mobile/firmware/grafana/gateway) fica congelado fora do MVP.
+
+## D9 — Defaults de produto (até override explícito)
+
+- LLM: OpenRouter se houver chave; senão Ollama local.
+- Interface: só terminal.
+- Skills: dry-run + confirmação humana (sem exec automática).
+- Memória: adiada (`YBY_MEMORY_BACKEND=none`) até briefing/skills estabilizarem.
+- UX em português; identificadores de código em inglês.

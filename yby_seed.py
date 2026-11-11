@@ -1,63 +1,40 @@
 #!/usr/bin/env python3
-"""YBY SEED — terminal local-first (Function Over Form).
+"""YBY SEED — fachada canônica (Camada A).
 
-Passo 2: loop de comandos + LiteLLM (OpenRouter → fallback Ollama).
+Sem argumentos → REPL do framework (chat + /brief /status /layers).
+Com argumentos → delega à CLI Click em src/main.py
 
-Briefing revisável (Passo 3 / Fase 1): use a CLI em src/main.py —
-
-    python src/main.py brief
-
-Uso deste entrypoint (chat livre):
     python yby_seed.py
-    # digite um comando, Enter
-    # sair: quit / exit / :q
+    python yby_seed.py brief -r "Quero backup" -a "~/Docs" --approve
+    python yby_seed.py doctor
 """
 
 from __future__ import annotations
 
 import sys
 
-from modules.llm_brain import ask_llm, load_llm_config
 
+def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
 
-def _print_banner(provider: str, model: str) -> None:
-    print("YBY SEED — Function Over Form")
-    print(f"Provedor: {provider} | Modelo: {model}")
-    print("Comandos: texto livre | sair: quit / exit / :q")
-    print("-" * 40)
-
-
-def main() -> int:
-    try:
-        config = load_llm_config()
-    except Exception as exc:  # noqa: BLE001
-        print(f"Erro ao carregar configuração: {exc}", file=sys.stderr)
-        return 1
-
-    _print_banner(config.provider, config.model)
-
-    while True:
-        try:
-            user_text = input("> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return 0
-
-        if not user_text:
-            continue
-        if user_text.lower() in {"quit", "exit", ":q", "sair"}:
-            return 0
+    if args:
+        # Delega à CLI Click (doctor, setup, test, brief, status, run, …)
+        from src.main import cli
 
         try:
-            answer = ask_llm(user_text, config)
-        except Exception as exc:  # noqa: BLE001
-            print(f"Erro: {exc}", file=sys.stderr)
-            continue
+            cli.main(args=args, prog_name="yby_seed")
+        except SystemExit as exc:
+            code = exc.code
+            if code is None:
+                return 0
+            if isinstance(code, int):
+                return code
+            return 1
+        return 0
 
-        print(answer)
-        print()
+    from src.app import create_app
 
-    return 0
+    return create_app().repl()
 
 
 if __name__ == "__main__":

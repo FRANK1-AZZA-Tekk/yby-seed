@@ -18,7 +18,7 @@ help:
 	@echo "  make format       - Formata com ruff"
 	@echo "  make status       - Mostra o estado declarado do projeto"
 	@echo "  make brief        - Briefing revisável (exporta .yby/briefings/)"
-	@echo "  make run          - Delega ao CLI (ainda não implementado)"
+	@echo "  make run          - REPL do framework (Camada A)"
 	@echo "  make stop         - Para containers do docker compose (se houver)"
 	@echo "  make clean        - Remove caches locais"
 	@echo ""

@@ -161,15 +161,11 @@ def test(ctx: click.Context) -> None:
 @cli.command()
 @click.pass_context
 def run(ctx: click.Context) -> None:
-    """Núcleo interativo ainda não implementado no MVP."""
-    click.echo(
-        "Comando 'run' ainda não inicia o hub completo.\n"
-        "Estado real: use 'doctor', 'test' e 'brief'. "
-        "Hub completo / skills / MQTT ficam para fases seguintes.\n"
-        "Docker Compose atual sobe apenas Qdrant (pós-MVP).",
-        err=True,
-    )
-    ctx.exit(2)
+    """Inicia o kernel do app (REPL: chat + /brief /status /layers)."""
+    from src.app import create_app
+
+    code = create_app(PROJECT_ROOT).repl()
+    ctx.exit(code)
 
 
 @cli.command("brief")
@@ -274,12 +270,16 @@ def brief(
 
 @cli.command()
 def status() -> None:
-    """Mostra o estado declarado do projeto sem iniciar serviços."""
-    click.echo("Fase atual: 1 — briefing revisável (MVP)")
-    click.echo("Implementado: doctor, setup, test, status, brief")
-    click.echo("Não implementado: run (hub completo), Node-RED, MQTT")
-    click.echo("docker-compose.yml: apenas Qdrant (Fase 5+)")
-    click.echo("Briefing: python src/main.py brief  →  .yby/briefings/")
+    """Mostra o estado declarado do framework sem iniciar serviços."""
+    from src.app import create_app
+
+    app = create_app(PROJECT_ROOT)
+    app.dispatch(["status"])
+    click.echo("---")
+    click.echo(app.layers.format_table())
+    click.echo("Entrypoint: python yby_seed.py  |  python src/main.py run")
+    click.echo("Briefing:   python yby_seed.py brief  →  .yby/briefings/")
+    click.echo("Não implementado: skills exec, Node-RED, MQTT, API/UI")
 
 
 if __name__ == "__main__":

@@ -15,13 +15,14 @@ def test_status_descreve_estado_real():
     runner = CliRunner()
     result = runner.invoke(cli, ["status"])
     assert result.exit_code == 0
-    assert "Não implementado: run" in result.output
-    assert "brief" in result.output
-    assert "Qdrant" in result.output
+    assert "Skills mode: dry_run" in result.output
+    assert "Forma do produto" in result.output
+    assert "brief" in result.output.lower()
+    assert "Não implementado: skills exec" in result.output
 
 
-def test_run_nao_mente_sucesso():
+def test_run_inicia_repl_e_encerra_com_quit():
     runner = CliRunner()
-    result = runner.invoke(cli, ["run"])
-    assert result.exit_code == 2
-    assert "ainda não inicia" in result.output
+    result = runner.invoke(cli, ["run"], input="quit\n")
+    assert result.exit_code == 0
+    assert "Function Over Form" in result.output
