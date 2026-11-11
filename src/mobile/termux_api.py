@@ -23,7 +23,7 @@ Licença: MIT
 import subprocess
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

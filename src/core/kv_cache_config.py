@@ -20,7 +20,7 @@ Licença: MIT
 
 import subprocess
 import logging
-from typing import Dict, Any
+from typing import Dict
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)

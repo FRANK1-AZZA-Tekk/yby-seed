@@ -1,0 +1,12 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+# O default do Ruff 0.17 inclui UP, SIM e E501 e marca centenas de achados
+# anteriores a este PR. O CI aplica pyflakes e erros de sintaxe (E9) para o
+# job chegar aos testes. O código novo também fica limpo em E, F e I.
+select = ["E9", "F"]
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"

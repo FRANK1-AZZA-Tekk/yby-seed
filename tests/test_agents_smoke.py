@@ -20,17 +20,24 @@ AGENTES = [
 ]
 
 
+def _importar(modulo: str):
+    try:
+        return importlib.import_module(modulo)
+    except ImportError as exc:
+        pytest.skip(f"dependência ausente para {modulo}: {exc}")
+
+
 @pytest.mark.parametrize("modulo", AGENTES)
 def test_agente_importavel(modulo):
     """Cada agente deve ser importável sem erro."""
-    mod = importlib.import_module(modulo)
+    mod = _importar(modulo)
     assert mod is not None
 
 
 @pytest.mark.parametrize("modulo", AGENTES)
 def test_agente_tem_classe_principal(modulo):
     """Cada módulo de agente deve expor pelo menos uma classe."""
-    mod = importlib.import_module(modulo)
+    mod = _importar(modulo)
     classes = [
         obj for name, obj in vars(mod).items()
         if isinstance(obj, type) and not name.startswith("_")

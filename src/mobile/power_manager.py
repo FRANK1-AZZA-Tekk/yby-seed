@@ -20,7 +20,6 @@ Licença: MIT
 """
 
 import subprocess
-import json
 import logging
 from typing import Dict, Any
 

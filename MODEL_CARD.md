@@ -81,7 +81,7 @@ Monitoramento via MQTT + TUI
 | Operação | Latência Média | Hardware |
 |---|---|---|
 | NL2Code (local, Ollama) | 3-5s | GTX 1650, 4GB VRAM |
-| NL2Code (fallback, Groq) | 0.5-1s | API externa |
+| NL2Code (fallback, Grok) | conforme o provedor | API externa (padrão: Grok, xAI) |
 | MQTT end-to-end | <200ms | Wi-Fi local |
 | OTA (wearable) | 30-60s | Wi-Fi, 400KB firmware |
 
@@ -107,7 +107,7 @@ Monitoramento via MQTT + TUI
 
 - **Sandbox não é perfeita:** Linter estático bloqueia 96% dos padrões perigosos, mas não previne todos os ataques
 - **Sem isolamento de rede:** Scripts podem abrir sockets se não bloqueados no linter
-- **Dependência de API:** Fallback para Groq/OpenRouter requer internet e chave de API
+- **Dependência de API:** Fallback para Grok (padrão) ou OpenRouter (alternativa) requer internet e chave de API
 
 ### Éticas
 
@@ -140,7 +140,7 @@ Monitoramento via MQTT + TUI
 ### Privacy Considerations
 
 - **Dados locais:** Tudo roda localmente (Ollama, Mosquitto, Node-RED)
-- **Fallback opcional:** Groq/OpenRouter só se usuário configurar chave de API
+- **Fallback opcional:** Grok (padrão) ou OpenRouter (alternativa) só se a pessoa configurar a chave de API
 - **Dados de saúde:** BPM, passos, temperatura são sensíveis - criptografar em produção
 - **Tailscale:** Recomenda-se WireGuard para comunicação nó móvel ↔ servidor
 

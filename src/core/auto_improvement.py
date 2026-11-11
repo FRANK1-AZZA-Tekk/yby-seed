@@ -16,7 +16,6 @@ Licença: MIT
 
 import logging
 from typing import Dict, Any, List
-from datetime import datetime, timedelta
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

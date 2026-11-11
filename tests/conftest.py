@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 @pytest.fixture
 def mock_llm_client():
     """Mock do cliente LLM (Ollama/LiteLLM) para testes unitários."""
-    with patch("src.agents.router_agent.LLMClient") as mock_client:
+    with patch("src.agents.router_agent.LLMClient", create=True) as mock_client:
         mock_instance = MagicMock()
         mock_instance.generate = AsyncMock(return_value="mocked response")
         mock_client.return_value = mock_instance

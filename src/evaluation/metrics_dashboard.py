@@ -12,8 +12,7 @@ Uso:
 
 import json
 from datetime import datetime, timedelta
-from typing import Dict, Any, List
-from pathlib import Path
+from typing import Dict, Any
 from loguru import logger
 import sqlite3
 

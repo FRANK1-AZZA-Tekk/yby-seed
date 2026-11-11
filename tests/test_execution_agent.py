@@ -35,6 +35,16 @@ CODIGO_PURO = '''def main():
 '''
 
 
+def test_modelo_padrao_e_configuravel(ollama_mock, monkeypatch):
+    """O agente não guarda um nome de modelo fixo."""
+    agent = ExecutionAgent(ollama=ollama_mock)
+    assert agent.model == "qwen2.5-coder:3b"
+
+    monkeypatch.setenv("YBY_LOCAL_MODEL", "modelo-teste")
+    configurado = ExecutionAgent(ollama=ollama_mock)
+    assert configurado.model == "modelo-teste"
+
+
 def test_extrai_codigo_de_markdown(executor, ollama_mock):
     """Deve extrair código de bloco ```python."""
     ollama_mock.generate.return_value = CODIGO_MARKDOWN
