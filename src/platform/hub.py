@@ -12,7 +12,9 @@ import logging
 import os
 import sys
 import time
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import requests
 from dotenv import load_dotenv
@@ -22,6 +24,43 @@ DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
 DEFAULT_TIMEOUT_SECONDS = 5.0
 
 logger = logging.getLogger("yby.hub")
+
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def is_loopback_ollama_url(base_url: str) -> bool:
+    """True se o host for loopback (D9 / fase P: sem Ollama remoto)."""
+
+    host = (urlparse(base_url).hostname or "").casefold()
+    if not host:
+        return False
+    if host in _LOOPBACK_HOSTS or host.startswith("127."):
+        return True
+    return host == "::1"
+
+
+def default_hub_log_path() -> Path:
+    custom = os.environ.get("YBY_HUB_LOG", "").strip()
+    if custom:
+        return Path(custom).expanduser()
+    return Path.home() / ".local" / "state" / "yby-seed" / "hub.log"
+
+
+def setup_logging(*, log_path: Path | None = None) -> None:
+    """stderr + arquivo local (sem nuvem, sem porta)."""
+
+    path = log_path or default_hub_log_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.setLevel(logging.INFO)
+    for handler in (
+        logging.StreamHandler(sys.stderr),
+        logging.FileHandler(path, encoding="utf-8"),
+    ):
+        handler.setFormatter(fmt)
+        root.addHandler(handler)
 
 
 def check_ollama(base_url: str, *, timeout: float, session: Any | None = None) -> str:
@@ -44,14 +83,22 @@ def run_loop(
     interval: float,
     timeout: float,
     max_ticks: int | None = None,
+    session: Any | None = None,
 ) -> int:
     """Loop de saúde. `max_ticks` limita iterações (útil em testes)."""
+
+    if not is_loopback_ollama_url(base_url):
+        logger.error("URL Ollama fora do loopback: %s", base_url)
+        return 2
 
     tick = 0
     logger.info("YBY hub ativo; Ollama=%s; intervalo=%ss", base_url, interval)
     while max_ticks is None or tick < max_ticks:
-        status = check_ollama(base_url, timeout=timeout)
-        logger.info("ollama=%s", status)
+        status = check_ollama(base_url, timeout=timeout, session=session)
+        if status == "ok":
+            logger.info("ollama=%s", status)
+        else:
+            logger.warning("ollama falhou: %s", status)
         tick += 1
         if max_ticks is not None and tick >= max_ticks:
             break
@@ -75,12 +122,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    setup_logging()
 
     base_url = os.environ.get("YBY_OLLAMA_BASE_URL", "").strip() or DEFAULT_OLLAMA_BASE_URL
+    if not is_loopback_ollama_url(base_url):
+        logger.error("YBY_OLLAMA_BASE_URL precisa ser loopback: %s", base_url)
+        return 2
+
     timeout = float(os.environ.get("YBY_HUB_TIMEOUT", DEFAULT_TIMEOUT_SECONDS))
     max_ticks = 1 if args.once else None
     return run_loop(
