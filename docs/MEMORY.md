@@ -7,3 +7,8 @@ A memória do YBY é uma pasta de notas Markdown, no formato de um vault Obsidia
 - `python yby.py recall "consulta"` busca no índice local (`.yby/index.json`).
 - O Syncthing sincroniza a pasta com o servidor de casa. O YBY só lê e grava arquivos; não implementa o Syncthing.
 - Exemplos sem segredos: [syncthing/vault-folder.example.yaml](syncthing/vault-folder.example.yaml) e [examples/syncthing/](../examples/syncthing/).
+
+## Registro de decisões de execução
+
+- D12 define economia de execução: local primeiro, nuvem apenas sob demanda e limites mensais de Cursor e OpenRouter.
+- D13 registra que voz em nuvem via Grok/xAI é opcional e futura; a voz local continua sendo o padrão.
