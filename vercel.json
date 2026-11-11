@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "echo 'YBY SEED is a local-first Python CLI. src/main.py is not a FastAPI app, so skip the Vercel build.' && exit 0"
+}
