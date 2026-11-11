@@ -164,7 +164,7 @@ class SkillsLayer:
         if skill is None:
             raise KeyError(skill_name)
 
-        steps = (
+        steps: tuple[str, ...] = (
             f"1. Carregar metadados de {skill.directory / 'SKILL.md'}",
             f"2. Pedido do usuário: {request or '(nenhum)'}",
             "3. Gerar plano / código (ainda não implementado)",
