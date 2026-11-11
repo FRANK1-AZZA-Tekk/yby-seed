@@ -53,9 +53,9 @@ class LayerRegistry:
             LayerInfo(
                 layer=Layer.SKILLS,
                 name="Skills dry-run",
-                status=LayerStatus.PLANNED,
-                summary="Automações só em dry-run + confirmação humana",
-                entry="(ainda não)",
+                status=LayerStatus.PARTIAL,
+                summary="Discovery + dry-run preview; sem execução de código",
+                entry="/skills | /skill <nome> | python yby_seed.py skills",
             ),
             LayerInfo(
                 layer=Layer.MEMORY,

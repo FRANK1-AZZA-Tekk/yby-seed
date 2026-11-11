@@ -11,13 +11,18 @@ Usuário
   ↓
 yby_seed.py  (fachada)
   ├─ sem args  → src.app.App.repl()   (chat + /comandos)
-  └─ com args  → src.main.cli (Click) (doctor/setup/test/brief/run/…)
+  └─ com args  → src.main.cli (Click) (doctor/setup/test/brief/skills/run/…)
        ↓
-src/app/kernel.py  (despacho)
-  ├─ /brief  → BriefingPipeline (Camada B)
-  ├─ /chat   → modules.llm_brain (LiteLLM)
-  ├─ /status → settings + LayerRegistry
-  └─ /layers → A–D
+src/app/kernel.py  (despacho + register_command)
+  ├─ /brief   → BriefingPipeline (Camada B)
+  ├─ /skills  → SkillsLayer discovery (Camada C)
+  ├─ /skill   → dry-run preview (sem execução)
+  ├─ /chat    → modules.llm_brain (LiteLLM)
+  ├─ /status  → settings + LayerRegistry
+  └─ /layers  → A–D
+       ↓
+src/app/pipeline.py  (LayerPlugin protocol)
+  └─ SkillsLayer → SkillManager (skills/*/SKILL.md)
 ```
 
 ## Camadas
@@ -26,13 +31,15 @@ src/app/kernel.py  (despacho)
 |---|---|---|
 | A | Forma (kernel + entrypoint) | ready |
 | B | Briefing revisável | ready |
-| C | Skills dry-run | planned |
+| C | Skills dry-run | partial (discovery + preview) |
 | D | Memória local | planned |
 
 ## Componentes do núcleo
 
 ```text
 RouterAgent → Planner → Validation → Executor → Skill (dry-run)
+                         ↑
+              Camada C esqueleto hoje: discovery + preview; Executor ainda não
 ```
 
 ## Serviços opcionais (congelados no MVP)

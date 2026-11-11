@@ -7,10 +7,10 @@ PC Hub local-first para automações e IA.
 
 ## Status
 
-Fase atual: **Camada A (framework) + Camada B (briefing)**. Foco exclusivo no PC. Mobile e ESP32 ficam para fases futuras.
+Fase atual: **Camada A–B ready + Camada C partial (skills dry-run)**. Foco exclusivo no PC. Mobile e ESP32 ficam para fases futuras.
 
-**Implementado hoje:** framework `src/app/`, `yby_seed.py` (fachada), `run` (REPL), `doctor`, `setup`, `test`, `status`, `brief`.  
-**Ainda não implementado:** skills em execução, Node-RED, MQTT, API/UI.  
+**Implementado hoje:** framework `src/app/` (kernel + plugins), `yby_seed.py` (fachada), `run` (REPL), `doctor`, `setup`, `test`, `status`, `brief`, `skills` (lista / dry-run).  
+**Ainda não implementado:** execução de skills, Node-RED, MQTT, API/UI.  
 **Docker Compose:** apenas Qdrant (pós-MVP / Fase 5).
 
 ## O que é
@@ -59,16 +59,23 @@ python src/main.py brief \
 Exporta Markdown + JSON em `.yby/briefings/` (já no `.gitignore`).
 Nenhuma execução automática de código.
 
-## Framework (Camada A)
+## Framework (Camada A + plugins)
 
 ```text
-src/app/config.py   → AppSettings (env)
-src/app/layers.py   → registro A–D
-src/app/kernel.py   → App + REPL + despacho
-yby_seed.py         → fachada (REPL ou CLI)
+src/app/config.py       → AppSettings (env)
+src/app/layers.py       → registro A–D
+src/app/kernel.py       → App + REPL + despacho + register_command
+src/app/pipeline.py     → LayerPlugin / CommandPipeline
+src/app/skills_layer.py → Camada C (discovery + dry-run)
+yby_seed.py             → fachada (REPL ou CLI)
 ```
 
-No REPL: `/help` `/status` `/layers` `/brief` | texto livre = chat | `quit`.
+No REPL: `/help` `/status` `/layers` `/brief` `/skills` `/skill <nome>` | texto livre = chat | `quit`.
+
+```bash
+python yby_seed.py skills              # lista skills/
+python yby_seed.py skills backup-automation "backup dos PDFs"  # dry-run
+```
 
 ## Estrutura
 

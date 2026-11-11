@@ -39,3 +39,7 @@ Núcleo fino em `src/app/` + camadas empilháveis A–D. Entrypoint canônico: `
 - Skills: dry-run + confirmação humana (sem exec automática).
 - Memória: adiada (`YBY_MEMORY_BACKEND=none`) até briefing/skills estabilizarem.
 - UX em português; identificadores de código em inglês.
+
+## D10 — Plugins de camada + Camada C esqueleto
+
+Handlers de camada registram-se via `LayerPlugin` / `CommandPipeline` (`src/app/pipeline.py`), sem hardcoding eterno no kernel. Camada C entrega só discovery (`/skills`) e dry-run preview (`/skill`); qualquer pedido de execução (`run` / `--run`) é recusado de forma honesta até existir executor + confirmação humana real.

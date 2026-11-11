@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """YBY SEED — fachada canônica (Camada A).
 
-Sem argumentos → REPL do framework (chat + /brief /status /layers).
+Sem argumentos → REPL do framework (chat + /brief /skills /status /layers).
 Com argumentos → delega à CLI Click em src/main.py
 
     python yby_seed.py
     python yby_seed.py brief -r "Quero backup" -a "~/Docs" --approve
+    python yby_seed.py skills
     python yby_seed.py doctor
 """
 

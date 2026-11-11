@@ -161,11 +161,41 @@ def test(ctx: click.Context) -> None:
 @cli.command()
 @click.pass_context
 def run(ctx: click.Context) -> None:
-    """Inicia o kernel do app (REPL: chat + /brief /status /layers)."""
+    """Inicia o kernel do app (REPL: chat + /brief /skills /status /layers)."""
     from src.app import create_app
 
     code = create_app(PROJECT_ROOT).repl()
     ctx.exit(code)
+
+
+@cli.command("skills")
+@click.argument("skill_name", required=False, default=None)
+@click.argument("request", nargs=-1)
+@click.option(
+    "--run/--no-run",
+    default=False,
+    help="Pedido de execução (sempre recusado neste esqueleto).",
+)
+@click.pass_context
+def skills_cmd(
+    ctx: click.Context,
+    skill_name: str | None,
+    request: tuple[str, ...],
+    run: bool,
+) -> None:
+    """Lista skills ou dry-run preview (Camada C — sem execução)."""
+    from src.app import create_app
+
+    app = create_app(PROJECT_ROOT)
+    if run:
+        argv = ["skill", "run", skill_name or "?"]
+    elif skill_name:
+        argv = ["skill", skill_name, *request]
+    else:
+        argv = ["skills"]
+    code = app.dispatch(argv)
+    if code != 0:
+        ctx.exit(code)
 
 
 @cli.command("brief")
@@ -279,6 +309,7 @@ def status() -> None:
     click.echo(app.layers.format_table())
     click.echo("Entrypoint: python yby_seed.py  |  python src/main.py run")
     click.echo("Briefing:   python yby_seed.py brief  →  .yby/briefings/")
+    click.echo("Skills:     python yby_seed.py skills  |  /skills /skill <nome>")
     click.echo("Não implementado: skills exec, Node-RED, MQTT, API/UI")
 
 

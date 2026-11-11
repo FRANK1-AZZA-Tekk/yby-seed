@@ -35,6 +35,15 @@ class App:
             "chat": _cmd_chat,
             "ask": _cmd_chat,
         }
+        # Plugins de camada (C+) — registro sem hardcoding eterno no núcleo
+        from src.app.pipeline import default_pipeline
+
+        self._pipeline = default_pipeline()
+        self._pipeline.install(self)
+
+    def register_command(self, name: str, handler: CommandHandler) -> None:
+        """Registra ou substitui um comando slash (usado por LayerPlugin)."""
+        self._commands[name.lower().lstrip("/")] = handler
 
     def dispatch(self, argv: list[str]) -> int:
         """Despacha um comando do framework. Retorna código de saída."""
@@ -88,7 +97,8 @@ class App:
         self.stdout.write("YBY SEED — Function Over Form\n")
         self.stdout.write(f"Provedor: {provider} | Modelo: {model}\n")
         self.stdout.write(
-            "Comandos: /help /status /layers /brief | texto livre = chat | sair: quit\n"
+            "Comandos: /help /status /layers /brief /skills | "
+            "texto livre = chat | sair: quit\n"
         )
         self.stdout.write("-" * 40 + "\n")
 
@@ -120,10 +130,12 @@ def _cmd_help(app: App, _args: list[str]) -> int:
         "  /status            estado do hub e settings\n"
         "  /layers            camadas A–D e status\n"
         "  /brief [pedido]    briefing revisável (Camada B)\n"
+        "  /skills            lista skills descobertas (Camada C)\n"
+        "  /skill <nome> […]  dry-run preview (sem execução)\n"
         "  /chat <texto>      chat LiteLLM (OpenRouter→Ollama)\n"
         "  quit / exit / :q   sair\n"
         "Texto sem / vai para o chat.\n"
-        "Skills (Camada C) ainda não executam código — só dry-run futuro.\n"
+        "Skills: dry-run + confirmação humana — sem auto-run.\n"
     )
     return 0
 
@@ -131,6 +143,7 @@ def _cmd_help(app: App, _args: list[str]) -> int:
 def _cmd_status(app: App, _args: list[str]) -> int:
     s = app.settings
     ready = [i.layer.value for i in app.layers.all() if i.status.value == "ready"]
+    partial = [i.layer.value for i in app.layers.all() if i.status.value == "partial"]
     app.stdout.write("YBY SEED — status do framework\n")
     app.stdout.write(f"Root: {s.project_root}\n")
     app.stdout.write(f"Data: {s.data_dir}\n")
@@ -140,6 +153,7 @@ def _cmd_status(app: App, _args: list[str]) -> int:
     app.stdout.write(f"Skills mode: {s.skills_mode}\n")
     app.stdout.write(f"Memory: {s.memory_backend}\n")
     app.stdout.write(f"Camadas ready: {', '.join(ready) or '(nenhuma)'}\n")
+    app.stdout.write(f"Camadas partial: {', '.join(partial) or '(nenhuma)'}\n")
     app.stdout.write("Não implementado: skills exec, MQTT, API, UI\n")
     return 0
 

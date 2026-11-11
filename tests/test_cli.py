@@ -26,3 +26,13 @@ def test_run_inicia_repl_e_encerra_com_quit():
     result = runner.invoke(cli, ["run"], input="quit\n")
     assert result.exit_code == 0
     assert "Function Over Form" in result.output
+
+
+def test_skills_lista_e_recusa_run():
+    runner = CliRunner()
+    listed = runner.invoke(cli, ["skills"])
+    assert listed.exit_code == 0
+    assert "backup-automation" in listed.output
+    refused = runner.invoke(cli, ["skills", "backup-automation", "--run"])
+    assert refused.exit_code == 2
+    assert "recusada" in refused.output.lower() or "ERRO" in refused.output
