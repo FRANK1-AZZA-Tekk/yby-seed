@@ -11,9 +11,10 @@ Comandos:
     setup   - Configura ambiente
 """
 
-import sys
 import click
 from loguru import logger
+
+from src.engine.hybrid import HybridEngine, engine_from_env
 
 # Configura logging
 logger.add("logs/yby_seed_{time}.log", rotation="1 day", retention="7 days")
@@ -63,6 +64,38 @@ def setup():
     # 4. Configura Docker
     
     logger.info("✅ Ambiente configurado!")
+
+
+@cli.command()
+@click.option(
+    "--heavy",
+    is_flag=True,
+    help="Força a nuvem, mesmo num pedido curto.",
+)
+@click.argument("pergunta", nargs=-1, required=True)
+def ask(heavy: bool, pergunta: tuple[str, ...]) -> None:
+    """Responde um pedido em texto. Sem voz, shell ou memória."""
+
+    texto = " ".join(pergunta).strip()
+    if not texto:
+        click.echo('Informe um pedido. Exemplo: yby ask "explica uma lista"', err=True)
+        raise SystemExit(1)
+
+    resposta = build_engine().reply(texto, explicit_heavy=heavy)
+    if resposta.notice:
+        click.echo(resposta.notice, err=True)
+    if resposta.provider == "none":
+        raise SystemExit(1)
+
+    motivo = "; ".join(resposta.reasons)
+    click.echo(f"modelo: {resposta.provider} {resposta.model} ({motivo})", err=True)
+    click.echo(resposta.text)
+
+
+def build_engine() -> HybridEngine:
+    """Ponto de troca nos testes. Em execução normal, lê o ambiente."""
+
+    return engine_from_env()
 
 
 if __name__ == "__main__":

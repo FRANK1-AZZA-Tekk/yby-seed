@@ -19,11 +19,9 @@ Licença: Apache 2.0
 """
 
 import lancedb
-from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import logging
 
-from .config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

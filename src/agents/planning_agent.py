@@ -7,7 +7,7 @@ Uso:
     prd = planner.interview("Quero backup de PDFs")
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from loguru import logger
 from src.core.ollama_client import OllamaClient
 

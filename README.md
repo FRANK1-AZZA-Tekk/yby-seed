@@ -32,9 +32,13 @@ yby.py → RouterAgent → Ollama → resposta
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-ollama pull llama3.2:3b
-python src/main.py
+ollama pull qwen2.5-coder:3b
+python yby.py ask "explica uma lista em Python"
 ```
+
+`ask` responde em texto. Não executa shell, não grava memória e não usa voz. O modelo local padrão é `qwen2.5-coder:3b`. Pedidos longos, com várias perguntas, ou com frases como "pensa mais", vão para a nuvem (Grok, endpoint compatível com a API da OpenAI). `--heavy` força esse caminho. As regras e os limites estão em `src/engine/routing.py` e nas variáveis `YBY_*` de `.env.example`.
+
+Sem `YBY_CLOUD_API_KEY` (ou `XAI_API_KEY`), a nuvem não é chamada: o comando avisa e, se o Ollama estiver no ar, responde no modelo local.
 
 ## Estrutura
 

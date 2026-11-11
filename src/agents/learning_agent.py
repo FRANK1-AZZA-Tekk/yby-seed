@@ -18,12 +18,9 @@ Licença: MIT
 """
 
 import psycopg2
-from psycopg2.extras import execute_values
-import pgvector
 from pgvector.psycopg2 import register_vector
 from typing import Dict, Any, List
 import logging
-from datetime import datetime, timedelta
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

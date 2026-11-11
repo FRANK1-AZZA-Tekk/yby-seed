@@ -17,7 +17,7 @@ Otimizações:
 Licença: MIT
 """
 
-from typing import Dict, Any, List
+from typing import Dict, List
 import logging
 
 logging.basicConfig(level=logging.INFO)

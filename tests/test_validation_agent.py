@@ -40,7 +40,7 @@ CODIGO_SEM_ESTRUTURA = '''
 import os
 
 def main():
-    print("sem if __name__")
+    print("sem entrypoint")
 '''
 
 

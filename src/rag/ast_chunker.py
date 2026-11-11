@@ -18,7 +18,7 @@ Benchmark:
 Licença: MIT
 """
 
-from tree_sitter import Parser, Language
+from tree_sitter import Parser
 import tree_sitter_python as tspython
 from typing import List, Dict, Any
 import logging
@@ -163,7 +163,6 @@ class ASTChunker:
         Returns:
             Lista de chunks
         """
-        from pathlib import Path
         import glob
         
         logger.info(f"📁 Fatiando diretório: {dir_path}")

@@ -7,13 +7,17 @@ Uso:
     code = executor.generate(prd_text)
 """
 
-from typing import Optional, List
+import os
+from typing import List, Optional
+
 from loguru import logger
+
 from src.core.ollama_client import OllamaClient
+from src.engine.config import DEFAULT_LOCAL_MODEL
 
 
 class ExecutionAgent:
-    """Agente de execução baseado em Qwen2.5-Coder 7B"""
+    """Agente de execução. O modelo sai de YBY_LOCAL_MODEL."""
     
     SYSTEM_PROMPT = """
 Você é um Execution Agent que gera código Python baseado em PRDs.
@@ -46,9 +50,10 @@ if __name__ == "__main__":
 ```
 """
     
-    def __init__(self, ollama: OllamaClient):
+    def __init__(self, ollama: OllamaClient, model: str | None = None):
         self.ollama = ollama
-        self.model = "qwen2.5-coder:7b-instruct-q4_K_M"
+        configured = os.getenv("YBY_LOCAL_MODEL", DEFAULT_LOCAL_MODEL).strip()
+        self.model = model or configured or DEFAULT_LOCAL_MODEL
         logger.info("⚙️  Execution Agent inicializado")
     
     def generate(
@@ -60,11 +65,12 @@ if __name__ == "__main__":
         
         logger.info("📝 Gerando código Python...")
         
+        extra = f"Contexto adicional:\n{context}" if context else ""
         prompt = f"""
 PRD:
 {prd}
 
-{f'Contexto adicional:\n{context}' if context else ''}
+{extra}
 
 Gere o código Python completo e funcional.
 Inclua TODOS os imports necessários.

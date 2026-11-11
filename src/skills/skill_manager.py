@@ -252,7 +252,7 @@ class SkillManager:
         
         print(f"\n🧪 Testando skill: {name}")
         print(f"📝 Comando: {test_command}")
-        print(f"\n📊 Metadados:")
+        print("\n📊 Metadados:")
         print(f"  Nome: {skill.metadata.name}")
         print(f"  Descrição: {skill.metadata.description}")
         print(f"  Compatibilidade: {skill.metadata.compatibility}")
@@ -261,7 +261,7 @@ class SkillManager:
         print(f"\n🎯 Should activate: {skill.should_activate(test_command)}")
         print(f"📈 Match score: {self._calculate_match_score(skill, test_command)}")
         
-        print(f"\n📚 Instruções:")
+        print("\n📚 Instruções:")
         print(skill.get_instructions()[:500] + "...")
     
     def generate_report(self) -> Dict[str, Any]:
@@ -304,4 +304,4 @@ if __name__ == "__main__":
         if skill:
             print(f"  ✅ Skill: {skill.metadata.name}")
         else:
-            print(f"  ❌ Nenhuma skill encontrada")
+            print("  ❌ Nenhuma skill encontrada")
