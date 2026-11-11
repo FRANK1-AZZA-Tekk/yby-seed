@@ -74,3 +74,41 @@ CLI: `python yby.py listen` ou `python yby.py ask --voice` — grava até Enter,
 - O workflow da Strix foi removido: o instalador retornava 404 e não havia chave.
 - O CI é `ruff` e `pytest` em push e pull request.
 - `src/mobile` e `firmware/` saíram da árvore. O histórico do git guarda os arquivos. Ver `docs/archive/FORA-DO-V1.md`.
+
+## D12 — Economia de execução (2026-11-11)
+
+Prioridade: reduzir custo de tokens e créditos, sem reduzir a qualidade mínima necessária.
+
+Tetos operacionais:
+- Cursor Premium: R$ 100 por mês.
+- OpenRouter: R$ 50 por mês.
+
+Regras:
+- O caminho padrão é local: Ollama, `qwen2.5-coder:3b`, testes e ferramentas locais.
+- Nuvem só entra quando a tarefa exigir capacidade indisponível localmente ou quando o usuário autorizar explicitamente.
+- OpenRouter é alternativa manual/configurável, não fallback automático.
+- Grok/xAI pode ser o destino de nuvem configurado; OpenRouter permanece opcional.
+- Cursor executa tarefas com escopo fechado: arquivos-alvo, critério de aceite, diff mínimo e testes.
+- Evitar exploração ampla do repositório, refatoração não solicitada, documentação nova sem aprovação e subagentes paralelos.
+- Modelos locais de 7B ou maiores não entram no v1, salvo decisão explícita do dono.
+- Antes de usar nuvem, o sistema deve informar o motivo e, quando possível, o custo estimado.
+- Toda execução de nuvem deve registrar modelo, finalidade, tokens estimados e resultado no log local.
+
+Interpretação:
+- “máximo: local apenas” proíbe chamadas de nuvem.
+- “pode usar OpenRouter se travar” permite nuvem apenas após falha local documentada.
+- Sem instrução explícita, usar o caminho local primeiro.
+
+## D13 — Voz em nuvem opcional (futura)
+
+A voz local permanece como padrão, conforme D11: faster-whisper + Piper.
+
+A integração Grok Voice/xAI é opcional e futura. Ela não substitui D11 e não entra no v1.
+
+Quando for avaliada, ela deve:
+- exigir autorização explícita do usuário;
+- nunca enviar áudio sem confirmação;
+- operar apenas como rota alternativa;
+- registrar sessões, tokens e custo;
+- manter o modo local funcional sem internet;
+- entrar somente após a fase P — PC Hub sempre ligado — estiver estável.
