@@ -58,6 +58,8 @@ A allowlist cobre comandos somente leitura (`ls`, `cat`, `df`, estado do sistema
 
 O módulo `src/safety` classifica o comando em run, ask ou refuse e faz a pergunta no terminal. Ele não executa o comando. O `ask` também não executa shell.
 
+A camada `src/actions` é quem executa: só chama o subprocesso depois de `run`, ou de `ask` com sim. `refuse` nunca chega ao shell. O CLI é `python yby.py run "..."`. `gate` continua só decidindo.
+
 ## Auditoria de 2026-11-11
 
 - O GovernanceAgent usa uma guarda AST (`src/security/ast_guard.py`), a mesma do sandbox. As regexes antigas não bloqueavam nada.
