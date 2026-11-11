@@ -205,3 +205,23 @@ def test_cli_run_recusa_termina_com_erro(monkeypatch) -> None:
     monkeypatch.setattr("src.main.run_command", fake_run_command)
     result = CliRunner().invoke(cli, ["run", "rm", "-rf", "/"])
     assert result.exit_code == 1
+
+
+def test_cli_gate_somente_decide_sem_prompt() -> None:
+    result = CliRunner().invoke(cli, ["gate", "rm", "arquivo.txt"])
+    assert result.exit_code == 0
+    assert result.output.strip() == "ask: fora da allowlist"
+    assert "s/n" not in result.output
+    assert "Executar" not in result.output
+
+
+def test_cli_gate_recusa_sai_com_erro() -> None:
+    result = CliRunner().invoke(cli, ["gate", "rm", "-rf", "/"])
+    assert result.exit_code == 1
+    assert "refuse:" in result.output
+
+
+def test_cli_gate_run_sai_com_sucesso() -> None:
+    result = CliRunner().invoke(cli, ["gate", "ls"])
+    assert result.exit_code == 0
+    assert result.output.strip().startswith("run:")
