@@ -1,0 +1,56 @@
+# Allowlist do YBY SEED. Linhas em branco e comentários (#) são ignorados.
+# [read]   comando somente leitura: roda direto
+# [git]    binário git: roda direto, salvo se cair em [refuse]
+# [scripts] pastas do projeto cujos scripts rodam direto
+# [refuse] trecho que bloqueia o comando, mesmo se estiver na allowlist
+
+[read]
+ls
+cat
+head
+tail
+df
+du
+free
+uptime
+whoami
+pwd
+uname
+date
+id
+ps
+w
+who
+hostname
+stat
+wc
+ss
+
+[git]
+git
+
+[scripts]
+scripts
+examples
+
+[refuse]
+rm -rf /
+rm -rf /*
+rm -rf ~
+rm -rf ~/*
+rm --recursive --force /
+mkfs
+dd if=
+shutdown
+reboot
+poweroff
+halt
+chmod -R 777 /
+chmod -R 777 /*
+chown -R /
+git push --force
+git push -f
+git reset --hard
+git clean -fd
+git clean -xfd
+:(){:|:&};:

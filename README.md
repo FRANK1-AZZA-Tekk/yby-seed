@@ -16,7 +16,7 @@ YBY SEED é o exocórtex pessoal nesse servidor:
 - Conversa primeiro no Ollama, modelo `qwen2.5-coder:3b`.
 - Sobe para a nuvem só em pedido pesado ou explícito. O padrão é Grok (xAI), num endpoint compatível com a API da OpenAI. OpenRouter fica como configuração alternativa.
 - A memória decidida é um vault Obsidian em Markdown, com índice vetorial, sincronizado por Syncthing. O `ask` ainda não grava nota.
-- Comandos de terminal seguem a allowlist (leitura, git, scripts da pasta do YBY); o resto pede sim ou não. Essa porta entra no PR de segurança. O `ask` ainda não executa shell.
+- Comandos de terminal seguem a allowlist em `config/safety-allowlist.txt` (leitura, git, scripts em `scripts/` e `examples/`). O resto pede sim ou não. `python yby.py gate "..."` só decide; não executa.
 
 ## MVP
 

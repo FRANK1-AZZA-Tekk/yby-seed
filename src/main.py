@@ -15,6 +15,7 @@ import click
 from loguru import logger
 
 from src.engine.hybrid import HybridEngine, engine_from_env
+from src.safety.policy import confirm, decide, default_policy_path, load_policy
 
 # Configura logging
 logger.add("logs/yby_seed_{time}.log", rotation="1 day", retention="7 days")
@@ -90,6 +91,31 @@ def ask(heavy: bool, pergunta: tuple[str, ...]) -> None:
     motivo = "; ".join(resposta.reasons)
     click.echo(f"modelo: {resposta.provider} {resposta.model} ({motivo})", err=True)
     click.echo(resposta.text)
+
+
+@cli.command()
+@click.argument("comando", nargs=-1, required=True)
+def gate(comando: tuple[str, ...]) -> None:
+    """Decide se um comando rodaria, pediria confirmação ou seria recusado.
+
+    Não executa o comando.
+    """
+
+    texto = " ".join(comando).strip()
+    policy = load_policy(default_policy_path())
+    project_root = default_policy_path().parents[1]
+    decision = decide(texto, policy=policy, project_root=project_root)
+    click.echo(f"{decision.action}: {decision.reason}")
+    if decision.action != "ask":
+        raise SystemExit(0 if decision.action == "run" else 1)
+
+    approved = confirm(
+        texto,
+        decision,
+        input_fn=lambda: click.prompt("s/n", prompt_suffix=" "),
+        output_fn=click.echo,
+    )
+    raise SystemExit(0 if approved else 1)
 
 
 def build_engine() -> HybridEngine:
