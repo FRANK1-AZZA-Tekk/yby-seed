@@ -1,0 +1,17 @@
+[Unit]
+Description=YBY SEED hub keepalive (Ollama health loop)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__YBY_ROOT__
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-__YBY_ROOT__/.env
+ExecStart=__YBY_PYTHON__ -m src.platform.hub
+Restart=on-failure
+RestartSec=10
+# Keepalive only — not the MQTT/FastAPI gateway.
+
+[Install]
+WantedBy=default.target

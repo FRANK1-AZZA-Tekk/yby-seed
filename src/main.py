@@ -12,6 +12,7 @@ Uso:
 Comandos:
     ask     - Responde em texto (sem shell); --voice grava, pergunta e fala
     listen  - Push-to-talk: grava até Enter → ask → TTS
+    hub     - Keepalive do PC Hub (saúde do Ollama)
     run     - Executa comando após a porta de segurança
     gate    - Só decide; não executa
     note    - Grava nota no vault
@@ -25,6 +26,7 @@ from loguru import logger
 from src.actions.runner import DEFAULT_TIMEOUT, run_command
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.memory.vault import VaultError, vault_from_env
+from src.platform.hub import main as hub_main
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
 from src.voice.config import voice_config_from_env
 from src.voice.session import VoiceError, listen_once
@@ -140,6 +142,29 @@ def listen_cmd(heavy: bool) -> None:
     """Push-to-talk: grava até Enter, transcreve, pergunta e fala a resposta."""
 
     _voice_turn(heavy=heavy)
+
+
+@cli.command("hub")
+@click.option(
+    "--once",
+    is_flag=True,
+    help="Uma checagem do Ollama e sai (sem loop).",
+)
+@click.option(
+    "--interval",
+    default=None,
+    type=float,
+    help="Segundos entre checagens (padrão: YBY_HUB_INTERVAL ou 60).",
+)
+def hub_cmd(once: bool, interval: float | None) -> None:
+    """Keepalive do hub: pinga o Ollama em loop (serviço systemd)."""
+
+    argv: list[str] = []
+    if once:
+        argv.append("--once")
+    if interval is not None:
+        argv.extend(["--interval", str(interval)])
+    raise SystemExit(hub_main(argv))
 
 
 @cli.command(

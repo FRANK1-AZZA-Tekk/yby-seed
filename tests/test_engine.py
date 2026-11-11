@@ -5,9 +5,22 @@ from __future__ import annotations
 import pytest
 import requests
 
-from src.engine.config import DEFAULT_LOCAL_MODEL, EngineConfig, EngineConfigError
+from src.engine.cache import ResponseCache
+from src.engine.config import (
+    DEFAULT_CLOUD_BASE_URL,
+    DEFAULT_CLOUD_MODEL,
+    DEFAULT_LOCAL_MODEL,
+    EngineConfig,
+    EngineConfigError,
+)
 from src.engine.hybrid import HybridEngine
-from src.engine.providers import CloudProvider, OllamaProvider, ProviderError, ProviderUnreachable
+from src.engine.providers import (
+    CascadingCloudProvider,
+    CloudProvider,
+    OllamaProvider,
+    ProviderError,
+    ProviderUnreachable,
+)
 from src.engine.routing import DEFAULT_HEAVY_PHRASES, decide_route
 
 
@@ -15,15 +28,20 @@ def _config(
     *,
     ollama_base_url: str = "http://ollama.test",
     local_model: str = "qwen2.5-coder:3b",
-    cloud_base_url: str = "https://api.x.ai/v1",
-    cloud_model: str = "grok-4.7",
+    cloud_base_url: str = "https://openrouter.ai/api/v1",
+    cloud_model: str = "openrouter/free",
     cloud_api_key: str = "test-key",
+    cloud_fallback_base_url: str = "https://api.x.ai/v1",
+    cloud_fallback_model: str = "grok-4.7",
+    cloud_fallback_api_key: str = "",
     heavy_min_chars: int = 1200,
     heavy_min_lines: int = 25,
     heavy_min_questions: int = 3,
     heavy_phrases: tuple[str, ...] = DEFAULT_HEAVY_PHRASES,
     ollama_timeout: float = 5.0,
     cloud_timeout: float = 5.0,
+    cache_ttl_seconds: float = 0.0,
+    cloud_max_chars: int = 12000,
 ) -> EngineConfig:
     return EngineConfig(
         ollama_base_url=ollama_base_url,
@@ -31,12 +49,17 @@ def _config(
         cloud_base_url=cloud_base_url,
         cloud_model=cloud_model,
         cloud_api_key=cloud_api_key,
+        cloud_fallback_base_url=cloud_fallback_base_url,
+        cloud_fallback_model=cloud_fallback_model,
+        cloud_fallback_api_key=cloud_fallback_api_key,
         heavy_min_chars=heavy_min_chars,
         heavy_min_lines=heavy_min_lines,
         heavy_min_questions=heavy_min_questions,
         heavy_phrases=heavy_phrases,
         ollama_timeout=ollama_timeout,
         cloud_timeout=cloud_timeout,
+        cache_ttl_seconds=cache_ttl_seconds,
+        cloud_max_chars=cloud_max_chars,
     )
 
 
@@ -167,9 +190,12 @@ def test_limiares_configuraveis() -> None:
 def test_modelo_local_padrao_e_o_vencedor_do_benchmark() -> None:
     config = EngineConfig.from_env({})
     assert config.local_model == DEFAULT_LOCAL_MODEL == "qwen2.5-coder:3b"
-    assert config.cloud_base_url == "https://api.x.ai/v1"
-    assert config.cloud_model == "grok-4.7"
+    assert config.cloud_base_url == DEFAULT_CLOUD_BASE_URL == "https://openrouter.ai/api/v1"
+    assert config.cloud_model == DEFAULT_CLOUD_MODEL == "openrouter/free"
     assert config.cloud_api_key == ""
+    assert config.cloud_fallback_base_url == "https://api.x.ai/v1"
+    assert config.cloud_fallback_model == "grok-4.7"
+    assert config.cloud_fallback_api_key == ""
 
 
 def test_from_env_le_chave_e_limiares() -> None:
@@ -177,28 +203,40 @@ def test_from_env_le_chave_e_limiares() -> None:
         {
             "YBY_LOCAL_MODEL": "outro:3b",
             "YBY_CLOUD_API_KEY": "chave-yby",
+            "OPENROUTER_API_KEY": "chave-or",
             "XAI_API_KEY": "chave-xai",
             "YBY_HEAVY_MIN_CHARS": "10",
             "YBY_HEAVY_MIN_LINES": "2",
             "YBY_HEAVY_MIN_QUESTIONS": "1",
-            "YBY_CLOUD_MODEL": "grok-teste",
+            "YBY_CLOUD_MODEL": "meu/free",
             "YBY_CLOUD_BASE_URL": "https://example.test/v1",
             "YBY_OLLAMA_BASE_URL": "http://10.0.0.2:11434",
+            "YBY_CACHE_TTL_SECONDS": "90",
+            "YBY_CLOUD_CONTEXT_MAX_CHARS": "500",
         }
     )
     assert config.local_model == "outro:3b"
     assert config.cloud_api_key == "chave-yby"
-    assert config.cloud_model == "grok-teste"
+    assert config.cloud_model == "meu/free"
     assert config.cloud_base_url == "https://example.test/v1"
+    assert config.cloud_fallback_api_key == "chave-xai"
     assert config.ollama_base_url == "http://10.0.0.2:11434"
     assert config.heavy_min_chars == 10
     assert config.heavy_min_lines == 2
     assert config.heavy_min_questions == 1
+    assert config.cache_ttl_seconds == 90
+    assert config.cloud_max_chars == 500
 
 
-def test_from_env_aceita_xai_api_key_quando_a_nossa_esta_vazia() -> None:
-    config = EngineConfig.from_env({"XAI_API_KEY": "chave-xai"})
-    assert config.cloud_api_key == "chave-xai"
+def test_from_env_aceita_openrouter_e_xai_como_aliases() -> None:
+    config = EngineConfig.from_env(
+        {
+            "OPENROUTER_API_KEY": "chave-or",
+            "XAI_API_KEY": "chave-xai",
+        }
+    )
+    assert config.cloud_api_key == "chave-or"
+    assert config.cloud_fallback_api_key == "chave-xai"
 
 
 def test_from_env_rejeita_limiar_invalido() -> None:
@@ -209,7 +247,9 @@ def test_from_env_rejeita_limiar_invalido() -> None:
 def test_resposta_curta_usa_ollama_e_nao_chama_nuvem() -> None:
     ollama = FakeOllama()
     cloud = FakeCloud()
-    reply = HybridEngine(_config(), ollama, cloud).reply("explica uma lista")
+    reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0)).reply(
+        "explica uma lista"
+    )
 
     assert reply.provider == "local"
     assert reply.model == "qwen2.5-coder:3b"
@@ -222,20 +262,22 @@ def test_resposta_curta_usa_ollama_e_nao_chama_nuvem() -> None:
 def test_ollama_fora_cai_na_nuvem() -> None:
     ollama = FakeOllama(error=ProviderUnreachable("conexão recusada"))
     cloud = FakeCloud()
-    reply = HybridEngine(_config(), ollama, cloud).reply("oi")
+    reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0)).reply("oi")
 
     assert reply.provider == "cloud"
-    assert reply.model == "grok-4.7"
+    assert reply.model == "openrouter/free"
     assert reply.text == "resposta-nuvem"
     assert reply.notice is not None
     assert "Ollama falhou" in reply.notice
-    assert "grok-4.7" in reply.notice
+    assert "openrouter/free" in reply.notice
 
 
 def test_ollama_fora_sem_chave_explica_o_bloqueio() -> None:
     ollama = FakeOllama(error=ProviderUnreachable("conexão recusada"))
     cloud = FakeCloud(api_key="")
-    reply = HybridEngine(_config(cloud_api_key=""), ollama, cloud).reply("oi")
+    reply = HybridEngine(
+        _config(cloud_api_key=""), ollama, cloud, cache=ResponseCache(ttl_seconds=0)
+    ).reply("oi")
 
     assert reply.provider == "none"
     assert reply.text == ""
@@ -247,7 +289,9 @@ def test_ollama_fora_sem_chave_explica_o_bloqueio() -> None:
 def test_heavy_sem_chave_degrada_para_o_local() -> None:
     ollama = FakeOllama()
     cloud = FakeCloud(api_key="")
-    reply = HybridEngine(_config(cloud_api_key=""), ollama, cloud).reply("oi", explicit_heavy=True)
+    reply = HybridEngine(
+        _config(cloud_api_key=""), ollama, cloud, cache=ResponseCache(ttl_seconds=0)
+    ).reply("oi", explicit_heavy=True)
 
     assert reply.provider == "local"
     assert reply.model == "qwen2.5-coder:3b"
@@ -260,7 +304,9 @@ def test_heavy_sem_chave_degrada_para_o_local() -> None:
 def test_heavy_sem_chave_e_sem_ollama() -> None:
     ollama = FakeOllama(error=ProviderUnreachable("down"))
     cloud = FakeCloud(api_key="")
-    reply = HybridEngine(_config(cloud_api_key=""), ollama, cloud).reply(
+    reply = HybridEngine(
+        _config(cloud_api_key=""), ollama, cloud, cache=ResponseCache(ttl_seconds=0)
+    ).reply(
         "pensa mais",
         explicit_heavy=True,
     )
@@ -274,22 +320,43 @@ def test_heavy_sem_chave_e_sem_ollama() -> None:
 def test_heavy_com_chave_nao_chama_ollama() -> None:
     ollama = FakeOllama()
     cloud = FakeCloud()
-    reply = HybridEngine(_config(), ollama, cloud).reply("pensa mais sobre isso")
+    reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0)).reply(
+        "pensa mais sobre isso"
+    )
 
     assert reply.provider == "cloud"
     assert reply.text == "resposta-nuvem"
     assert ollama.calls == []
-    assert cloud.calls[0]["model"] == "grok-4.7"
+    assert cloud.calls[0]["model"] == "openrouter/free"
 
 
 def test_nuvem_fora_volta_ao_local() -> None:
     ollama = FakeOllama()
     cloud = FakeCloud(error=ProviderError("HTTP 503"))
-    reply = HybridEngine(_config(), ollama, cloud).reply("a" * 1200)
+    reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0)).reply(
+        "a" * 1200
+    )
 
     assert reply.provider == "local"
     assert reply.notice is not None
     assert "Nuvem falhou" in reply.notice
+
+
+def test_contexto_e_truncado_antes_da_nuvem() -> None:
+    ollama = FakeOllama()
+    cloud = FakeCloud()
+    prompt = "pensa mais " + ("x" * 200)
+    reply = HybridEngine(
+        _config(cloud_max_chars=40),
+        ollama,
+        cloud,
+        cache=ResponseCache(ttl_seconds=0),
+    ).reply(prompt)
+
+    assert reply.provider == "cloud"
+    sent = cloud.calls[0]["prompt"]
+    assert len(sent) <= 40
+    assert "truncado" in sent
 
 
 class _Response:
@@ -339,25 +406,129 @@ def test_ollama_provider_trata_conexao_recusada() -> None:
 
 def test_cloud_provider_usa_bearer_e_nao_chama_sem_chave() -> None:
     session = _Session()
-    provider = CloudProvider("https://api.x.ai/v1/", api_key="", timeout=3, session=session)
+    provider = CloudProvider(
+        "https://openrouter.ai/api/v1/",
+        api_key="",
+        timeout=3,
+        session=session,
+    )
     with pytest.raises(ProviderError, match="YBY_CLOUD_API_KEY"):
-        provider.complete("oi", model="grok-4.7", system="sistema")
+        provider.complete("oi", model="openrouter/free", system="sistema")
     assert session.posts == []
 
     session = _Session(
         _Response(200, {"choices": [{"message": {"content": "da nuvem"}}]}),
     )
     provider = CloudProvider(
-        "https://api.x.ai/v1/",
+        "https://openrouter.ai/api/v1/",
         api_key="segredo",
         timeout=3,
         session=session,
     )
-    assert provider.complete("oi", model="grok-4.7", system="sistema") == "da nuvem"
+    assert provider.complete("oi", model="openrouter/free", system="sistema") == "da nuvem"
     headers = session.posts[0]["headers"]
     assert isinstance(headers, dict)
     assert headers["Authorization"] == "Bearer segredo"
-    assert session.posts[0]["url"] == "https://api.x.ai/v1/chat/completions"
+    assert session.posts[0]["url"] == "https://openrouter.ai/api/v1/chat/completions"
     body = session.posts[0]["json"]
     assert isinstance(body, dict)
-    assert body["model"] == "grok-4.7"
+    assert body["model"] == "openrouter/free"
+
+
+def test_cascading_openrouter_para_grok() -> None:
+    primary = CloudProvider(
+        "https://openrouter.ai/api/v1",
+        api_key="or",
+        timeout=3,
+        session=_Session(error=requests.ConnectionError("or-down")),
+    )
+    fallback = CloudProvider(
+        "https://api.x.ai/v1",
+        api_key="xai",
+        timeout=3,
+        session=_Session(
+            _Response(200, {"choices": [{"message": {"content": "via-grok"}}]}),
+        ),
+    )
+    chain = CascadingCloudProvider(
+        primary,
+        primary_model="openrouter/free",
+        fallback=fallback,
+        fallback_model="grok-4.7",
+    )
+    result = chain.complete_with_meta("oi", system="sys")
+    assert result.text == "via-grok"
+    assert result.model == "grok-4.7"
+    assert result.via == "grok"
+
+
+def test_cascading_usa_openrouter_quando_ok() -> None:
+    primary = CloudProvider(
+        "https://openrouter.ai/api/v1",
+        api_key="or",
+        timeout=3,
+        session=_Session(
+            _Response(200, {"choices": [{"message": {"content": "via-or"}}]}),
+        ),
+    )
+    fallback = CloudProvider(
+        "https://api.x.ai/v1",
+        api_key="xai",
+        timeout=3,
+        session=_Session(),
+    )
+    chain = CascadingCloudProvider(
+        primary,
+        primary_model="openrouter/free",
+        fallback=fallback,
+        fallback_model="grok-4.7",
+    )
+    result = chain.complete_with_meta("oi", system="sys")
+    assert result.text == "via-or"
+    assert result.via == "openrouter"
+    assert fallback._session.posts == []  # type: ignore[attr-defined]
+
+
+def test_cascading_sem_openrouter_vai_pro_grok() -> None:
+    primary = CloudProvider("https://openrouter.ai/api/v1", api_key="", timeout=3)
+    fallback = CloudProvider(
+        "https://api.x.ai/v1",
+        api_key="xai",
+        timeout=3,
+        session=_Session(
+            _Response(200, {"choices": [{"message": {"content": "via-grok"}}]}),
+        ),
+    )
+    chain = CascadingCloudProvider(
+        primary,
+        primary_model="openrouter/free",
+        fallback=fallback,
+        fallback_model="grok-4.7",
+    )
+    assert chain.has_credentials() is True
+    result = chain.complete_with_meta("oi", system="sys")
+    assert result.text == "via-grok"
+    assert result.via == "grok"
+
+
+def test_motor_com_cadeia_openrouter_para_grok() -> None:
+    ollama = FakeOllama()
+    primary = FakeCloud(api_key="or", error=ProviderError("HTTP 429"))
+    fallback = FakeCloud(text="via-grok", api_key="xai")
+    # CascadingCloudProvider espera CloudProvider; usamos Fake via chain no hybrid
+    chain = CascadingCloudProvider(
+        primary,  # type: ignore[arg-type]
+        primary_model="openrouter/free",
+        fallback=fallback,  # type: ignore[arg-type]
+        fallback_model="grok-4.7",
+    )
+    reply = HybridEngine(
+        _config(),
+        ollama,
+        chain,
+        cloud_chain=chain,
+        cache=ResponseCache(ttl_seconds=0),
+    ).reply("pensa mais")
+    assert reply.provider == "cloud"
+    assert reply.text == "via-grok"
+    assert reply.model == "grok-4.7"
