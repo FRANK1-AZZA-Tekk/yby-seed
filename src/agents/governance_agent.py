@@ -14,9 +14,10 @@ Regras Determinísticas:
 Licença: MIT
 """
 
-import re
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple
 import logging
+
+from src.security.ast_guard import validate_code_ast
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,31 +29,6 @@ class GovernanceAgent:
     """
     
     def __init__(self):
-        # Padrões perigosos (regex)
-        self.dangerous_patterns = [
-            r"rm\\s+-rf\\s+/",  # Delete raiz
-            r"DROP\\s+TABLE\\s+",  # Delete DB
-            r"os\\.system\\s*\\(",  # Shell command
-            r"subprocess\\..*shell\\s*=\\s*True",  # Shell injection
-            r"eval\\s*\\(",  # Eval injection
-            r"exec\\s*\\(",  # Exec injection
-            r"__import__\\s*\\(",  # Dynamic import
-            r"open\\s*\\([^)]*['\"]/[\\w/]+['\"]",  # Absolute path access
-        ]
-        
-        # Imports permitidos (whitelist)
-        self.allowed_imports = [
-            "math", "random", "datetime", "time",
-            "collections", "itertools", "functools",
-            "re", "json", "csv", "typing",
-            "dataclasses", "pathlib", "io",
-            "string", "textwrap", "unicodedata",
-            "zipfile", "tarfile", "shutil",  # Backup
-            "paho.mqtt.client",  # MQTT
-            "requests", "urllib"  # HTTP (com cuidado)
-        ]
-        
-        # Ações que exigem aprovação humana
         self.action_approval_required = [
             "delete_files",
             "drop_table",
@@ -72,60 +48,20 @@ class GovernanceAgent:
         Returns:
             (is_allowed, reason)
         """
-        logger.info(f"🛡️  Validando código (ação: {action})...")
-        
-        # 1. Verificar padrões perigosos
-        for pattern in self.dangerous_patterns:
-            if re.search(pattern, code):
-                logger.warning(f"❌ Padrão perigoso detectado: {pattern}")
-                return False, f"Código perigoso detectado (padrão: {pattern})"
-        
-        # 2. Verificar imports
-        imports = self._extract_imports(code)
-        
-        for imp in imports:
-            if imp not in self.allowed_imports:
-                logger.warning(f"⚠️  Import não permitido: {imp}")
-                return False, f"Import não permitido: {imp}"
-        
-        # 3. Verificar ação que exige aprovação
+        logger.info(f"Validando código (ação: {action})...")
+
         if action in self.action_approval_required:
-            logger.warning(f"⚠️  Ação exige aprovação humana: {action}")
+            logger.warning(f"Ação exige aprovação humana: {action}")
             return False, f"Ação '{action}' exige aprovação humana"
-        
-        logger.info("✅ Código validado")
+
+        allowed, errors = validate_code_ast(code)
+        if not allowed:
+            reason = errors[0] if errors else "código recusado"
+            logger.warning(reason)
+            return False, reason
+
+        logger.info("Código validado")
         return True, "Aprovado"
-    
-    def _extract_imports(self, code: str) -> List[str]:
-        """
-        Extrair imports do código.
-        
-        Args:
-            code: Código Python
-        
-        Returns:
-            Lista de imports
-        """
-        import ast
-        
-        imports = []
-        
-        try:
-            tree = ast.parse(code)
-            
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Import):
-                    for alias in node.names:
-                        imports.append(alias.name)
-                
-                elif isinstance(node, ast.ImportFrom):
-                    if node.module:
-                        imports.append(node.module)
-        
-        except SyntaxError:
-            logger.warning("⚠️  Erro de sintaxe ao extrair imports")
-        
-        return imports
     
     def require_human_approval(self, action: str, context: Dict[str, Any]) -> bool:
         """

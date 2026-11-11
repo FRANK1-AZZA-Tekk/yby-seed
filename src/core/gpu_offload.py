@@ -111,7 +111,7 @@ class GPUOffload:
             "vram_available_gb": vram_available
         }
     
-    def get_ollama_config(self, model: str = "qwen2.5:7b") -> Dict[str, str]:
+    def get_ollama_config(self, model: str = "qwen2.5-coder:3b") -> Dict[str, str]:
         """
         Obter configuração Ollama para offload.
         
@@ -123,13 +123,10 @@ class GPUOffload:
         """
         # Estimar tamanho do modelo
         model_sizes = {
-            "llama3.2:3b": 3.0,
-            "qwen2.5:7b": 7.0,
-            "olmo-hybrid:7b": 7.0,
-            "llama3.1:8b": 8.0
+            "qwen2.5-coder:3b": 3.0,
         }
-        
-        model_size = model_sizes.get(model, 7.0)
+
+        model_size = model_sizes.get(model, 3.0)
         offload = self.calculate_offload(model_size)
         
         return {
@@ -146,7 +143,7 @@ class GPUOffload:
             "OLLAMA_CUDA_STREAMS": "4"
         }
     
-    def benchmark(self, model: str = "qwen2.5:7b", prompt: str = "Hello"):
+    def benchmark(self, model: str = "qwen2.5-coder:3b", prompt: str = "Hello"):
         """
         Benchmark de inferência com offload.
         
@@ -258,11 +255,10 @@ if __name__ == "__main__":
     print(f"🎮 GPU: {gpu_offload.gpu_name} ({gpu_offload.gpu_vram}MB)")
     
     # Calcular offload
-    offload = gpu_offload.calculate_offload(7.0)  # Modelo 7B
+    offload = gpu_offload.calculate_offload(3.0)
     print(f"📊 Offload: {offload}")
-    
-    # Obter config Ollama
-    config = gpu_offload.get_ollama_config("qwen2.5:7b")
+
+    config = gpu_offload.get_ollama_config("qwen2.5-coder:3b")
     print(f"⚙️  Ollama config: {config}")
     
     # Benchmark

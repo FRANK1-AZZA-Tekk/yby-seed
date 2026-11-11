@@ -104,12 +104,12 @@ class KVCacheConfig:
             "OLLAMA_MAX_CONTEXT": str(self.max_context)
         }
     
-    def benchmark(self, model: str = "qwen2.5:7b", context_size: int = 8192):
+    def benchmark(self, model: str = "qwen2.5-coder:3b", context_size: int = 8192):
         """
         Benchmark de inferência.
         
         Args:
-            model: Modelo Ollama (ex: qwen2.5:7b)
+            model: Modelo Ollama (qwen2.5-coder:3b)
             context_size: Tamanho do contexto (tokens)
         
         Returns:

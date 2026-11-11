@@ -1,5 +1,7 @@
 # Primeiros Passos com YBY SEED
 
+> Decisão D4 (2026-11-11): o único modelo local é `qwen2.5-coder:3b`.
+
 > **Tempo estimado:** 15 minutos  
 > **Nível:** Iniciante absoluto
 
@@ -233,7 +235,7 @@ newgrp docker
 
 ```bash
 # Baixe modelos manualmente
-ollama pull llama3.2:3b-instruct-q4_K_M
+ollama pull qwen2.5-coder:3b
 ollama pull qwen2.5-coder:3b-instruct-q4_K_M
 ```
 

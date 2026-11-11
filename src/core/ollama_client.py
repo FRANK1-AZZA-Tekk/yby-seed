@@ -4,7 +4,7 @@ Cliente Ollama para inferência local de modelos
 
 Uso:
     ollama = OllamaClient(host="localhost", port=11434)
-    response = ollama.generate("llama3.2:3b", "Olá!")
+    response = ollama.generate("qwen2.5-coder:3b", "Olá!")
 """
 
 import requests

@@ -1,5 +1,7 @@
 # Deploy no PC Desktop (MVP YBY SEED)
 
+> Decisão D4 (2026-11-11): o único modelo local é `qwen2.5-coder:3b`. Menções a 7B abaixo são históricas.
+
 ## Visão Geral
 
 Este guia foca **exclusivamente no PC Desktop** como núcleo de inferência do YBY SEED. Wearable e mobile serão adicionados depois.
@@ -57,12 +59,11 @@ docker run --rm --gpus all nvidia/cuda:12.0-base-ubuntu22.04 nvidia-smi
 # Instala Ollama
 curl -fsSL https://ollama.com/install.sh | sh
 
-# Baixa modelos otimizados para GTX 1650
-ollama pull llama3.2:3b-instruct-q4_K_M
-ollama pull qwen2.5-coder:3b-instruct-q4_K_M
+# Baixa o modelo que cabe na GTX 1650
+ollama pull qwen2.5-coder:3b
 
-# Testa modelos
-ollama run llama3.2:3b-instruct-q4_K_M "Olá, YBY SEED!"
+# Testa o modelo
+ollama run qwen2.5-coder:3b "Olá, YBY SEED!"
 ```
 
 ---
@@ -104,7 +105,7 @@ sudo systemctl restart ollama
 watch -n 1 nvidia-smi
 
 # Em outro terminal, roda modelo
-ollama run llama3.2:3b-instruct-q4_K_M "Teste de carga"
+ollama run qwen2.5-coder:3b "Teste de carga"
 
 # Verifica se VRAM não excede 4GB
 ```
@@ -320,9 +321,9 @@ def benchmark_model(model, prompt="Olá", max_tokens=256):
 if __name__ == "__main__":
     print("🧪 Benchmark GTX 1650 4GB\n")
     
-    benchmark_model("llama3.2:3b-instruct-q4_K_M")
+    benchmark_model("qwen2.5-coder:3b")
     benchmark_model("qwen2.5-coder:3b-instruct-q4_K_M")
-    benchmark_model("qwen2.5-coder:7b-instruct-q4_K_M")
+    benchmark_model("qwen2.5-coder:3b")
 ```
 
 ### 5.2. Executa
@@ -338,7 +339,7 @@ python tests/gpu_benchmark.py
 **Resultados Esperados:**
 - Llama 3.2 3B: ~40-60 t/s
 - Qwen2.5-Coder 3B: ~35-50 t/s
-- Qwen2.5-Coder 7B: ~15-25 t/s (offloading)
+- Qwen2.5-Coder 3B: cabe na VRAM da GTX 1650
 
 ---
 

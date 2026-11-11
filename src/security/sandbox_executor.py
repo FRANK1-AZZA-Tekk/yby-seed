@@ -175,43 +175,11 @@ class SandboxExecutor:
         signal.signal(signal.SIGPIPE, signal.SIG_IGN)
     
     def _validate_ast(self, code: str) -> Tuple[bool, list]:
-        """Valida código com AST (análise estática)"""
-        
-        import ast
-        
-        errors = []
-        
-        try:
-            tree = ast.parse(code)
-        
-        except SyntaxError as e:
-            errors.append(f"Erro de sintaxe: {e}")
-            return False, errors
-        
-        # Verifica imports perigosos
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    if alias.name in self.DANGEROUS_MODULES:
-                        errors.append(f"Import perigoso: {alias.name}")
-            
-            elif isinstance(node, ast.ImportFrom):
-                if node.module and node.module in self.DANGEROUS_MODULES:
-                    errors.append(f"ImportFrom perigoso: {node.module}")
-            
-            elif isinstance(node, ast.Call):
-                if isinstance(node.func, ast.Name):
-                    if node.func.id in self.DANGEROUS_MODULES:
-                        errors.append(f"Chamada perigosa: {node.func.id}()")
-        
-        # Verifica chamadas eval/exec
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Call):
-                if isinstance(node.func, ast.Name):
-                    if node.func.id in ["eval", "exec", "compile"]:
-                        errors.append(f"Função proibida: {node.func.id}()")
-        
-        return len(errors) == 0, errors
+        """Usa a mesma guarda AST do GovernanceAgent."""
+
+        from src.security.ast_guard import validate_code_ast
+
+        return validate_code_ast(code)
     
     def execute_with_retry(
         self,
@@ -227,10 +195,8 @@ class SandboxExecutor:
             if result["success"]:
                 return result
             
-            # Se falhou por timeout, tenta aumentar limite
             if result["error"] == "Timeout" and attempt < max_retries - 1:
-                logger.warning(f"⚠️  Timeout na tentativa {attempt+1}, aumentando para {self.timeout * 2}s")
-                self.timeout *= 2
+                logger.warning(f"Timeout na tentativa {attempt + 1}")
             
             # Se falhou por erro de segurança, não retry
             if result["error"] == "Código inseguro detectado":

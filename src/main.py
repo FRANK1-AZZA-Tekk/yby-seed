@@ -12,9 +12,11 @@ Comandos:
 """
 
 import click
+from dotenv import load_dotenv
 from loguru import logger
 
 from src.engine.hybrid import HybridEngine, engine_from_env
+from src.memory.vault import VaultError, vault_from_env
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
 
 # Configura logging
@@ -116,6 +118,40 @@ def gate(comando: tuple[str, ...]) -> None:
         output_fn=click.echo,
     )
     raise SystemExit(0 if approved else 1)
+
+
+@cli.command()
+@click.argument("titulo")
+@click.argument("texto", nargs=-1, required=True)
+def note(titulo: str, texto: tuple[str, ...]) -> None:
+    """Grava uma nota Markdown no vault Obsidian."""
+
+    load_dotenv(override=False)
+    try:
+        vault = vault_from_env()
+        path = vault.write_note(titulo, " ".join(texto).strip() + "\n")
+    except VaultError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(path)
+
+
+@cli.command()
+@click.argument("consulta")
+def recall(consulta: str) -> None:
+    """Busca notas no índice do vault. Não chama a rede."""
+
+    load_dotenv(override=False)
+    try:
+        hits = vault_from_env().search(consulta)
+    except VaultError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    if not hits:
+        click.echo("Nenhuma nota.")
+        return
+    for hit in hits:
+        click.echo(f"{hit.score:.2f} {hit.name}")
 
 
 def build_engine() -> HybridEngine:

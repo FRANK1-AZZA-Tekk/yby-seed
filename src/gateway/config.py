@@ -1,69 +1,84 @@
-"""
-Configurações centralizadas do Gateway YBY SEED
+"""Configuração do gateway. Host local e token vêm do ambiente."""
 
-Responsabilidade:
-- Configurações de ambiente (variáveis de ambiente)
-- Defaults para MQTT, LanceDB, Ollama, etc.
-- Validação de configurações obrigatórias
+from __future__ import annotations
 
-Licença: MIT
-"""
-
-from pydantic import BaseSettings, Field
-from typing import Optional
+import os
+from collections.abc import Mapping
+from dataclasses import dataclass
 
 
-class Settings(BaseSettings):
-    """
-    Configurações do Gateway.
-    """
-    
-    # === MQTT ===
-    MQTT_BROKER_HOST: str = Field(default="localhost", description="Host do broker MQTT")
-    MQTT_BROKER_PORT: int = Field(default=1883, description="Porta do broker MQTT")
-    MQTT_CLIENT_ID: str = Field(default="yby-seed-gateway", description="Client ID MQTT")
-    MQTT_TOPIC_PREFIX: str = Field(default="yby", description="Prefixo dos tópicos MQTT")
-    
-    # === LanceDB ===
-    LANCEDB_PATH: str = Field(default="/data/vectors", description="Caminho do LanceDB")
-    LANCEDB_INDEX_CACHE_SIZE: int = Field(default=128, description="Cache do índice em MB")
-    
-    # === Ollama (IA local) ===
-    OLLAMA_HOST: str = Field(default="http://localhost:11434", description="Host do Ollama")
-    OLLAMA_MODEL_EMBEDDING: str = Field(default="all-minilm:22m", description="Modelo de embeddings")
-    OLLAMA_MODEL_LLM: str = Field(default="qwen2.5:7b", description="Modelo LLM principal")
-    
-    # === FastAPI ===
-    FASTAPI_HOST: str = Field(default="0.0.0.0", description="Host do FastAPI")
-    FASTAPI_PORT: int = Field(default=8000, description="Porta do FastAPI")
-    FASTAPI_WORKERS: int = Field(default=4, description="Número de workers")
-    
-    # === Logging ===
-    LOG_LEVEL: str = Field(default="INFO", description="Nível de log")
-    
-    # === Segurança ===
-    API_KEY: Optional[str] = Field(default=None, description="Chave de API (opcional)")
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+def _text(source: Mapping[str, str], name: str, default: str) -> str:
+    value = source.get(name)
+    if value is None or value.strip() == "":
+        return default
+    return value.strip()
 
 
-# Instância global
-settings = Settings()
+def _number(source: Mapping[str, str], name: str, default: int) -> int:
+    raw = source.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    return int(raw)
 
 
-# Validação de configurações obrigatórias
-def validate_settings():
-    """Validar configurações obrigatórias"""
+@dataclass(frozen=True)
+class Settings:
+    """Configurações do gateway. Sem senha embutida."""
+
+    MQTT_BROKER_HOST: str = "localhost"
+    MQTT_BROKER_PORT: int = 1883
+    MQTT_CLIENT_ID: str = "yby-seed-gateway"
+    MQTT_TOPIC_PREFIX: str = "yby"
+    LANCEDB_PATH: str = "/data/vectors"
+    LANCEDB_INDEX_CACHE_SIZE: int = 128
+    OLLAMA_HOST: str = "http://127.0.0.1:11434"
+    OLLAMA_MODEL_EMBEDDING: str = "all-minilm:22m"
+    OLLAMA_MODEL_LLM: str = "qwen2.5-coder:3b"
+    FASTAPI_HOST: str = "127.0.0.1"
+    FASTAPI_PORT: int = 8000
+    FASTAPI_WORKERS: int = 1
+    LOG_LEVEL: str = "INFO"
+    GATEWAY_TOKEN: str = ""
+
+
+def load_settings(source: Mapping[str, str] | None = None) -> Settings:
+    """Lê o ambiente. `source` explícito não chama dotenv."""
+
+    if source is None:
+        from dotenv import load_dotenv
+
+        load_dotenv(override=False)
+        source = os.environ
+
+    token = _text(source, "GATEWAY_TOKEN", "")
+    if not token:
+        token = _text(source, "API_KEY", "")
+
+    return Settings(
+        MQTT_BROKER_HOST=_text(source, "MQTT_BROKER_HOST", "localhost"),
+        MQTT_BROKER_PORT=_number(source, "MQTT_BROKER_PORT", 1883),
+        MQTT_CLIENT_ID=_text(source, "MQTT_CLIENT_ID", "yby-seed-gateway"),
+        MQTT_TOPIC_PREFIX=_text(source, "MQTT_TOPIC_PREFIX", "yby"),
+        LANCEDB_PATH=_text(source, "LANCEDB_PATH", "/data/vectors"),
+        LANCEDB_INDEX_CACHE_SIZE=_number(source, "LANCEDB_INDEX_CACHE_SIZE", 128),
+        OLLAMA_HOST=_text(source, "OLLAMA_HOST", "http://127.0.0.1:11434"),
+        OLLAMA_MODEL_EMBEDDING=_text(source, "OLLAMA_MODEL_EMBEDDING", "all-minilm:22m"),
+        OLLAMA_MODEL_LLM=_text(source, "OLLAMA_MODEL_LLM", "qwen2.5-coder:3b"),
+        FASTAPI_HOST=_text(source, "FASTAPI_HOST", "127.0.0.1"),
+        FASTAPI_PORT=_number(source, "FASTAPI_PORT", 8000),
+        FASTAPI_WORKERS=_number(source, "FASTAPI_WORKERS", 1),
+        LOG_LEVEL=_text(source, "LOG_LEVEL", "INFO"),
+        GATEWAY_TOKEN=token,
+    )
+
+
+settings = load_settings()
+
+
+def validate_settings() -> None:
+    """Confere o mínimo para subir o processo."""
+
     required = ["MQTT_BROKER_HOST", "LANCEDB_PATH", "OLLAMA_HOST"]
-    
     for field in required:
         if not getattr(settings, field):
             raise ValueError(f"Configuração obrigatória: {field}")
-    
-    print("✅ Configurações validadas")
-
-
-if __name__ == "__main__":
-    validate_settings()

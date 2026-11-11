@@ -59,7 +59,7 @@ Formato PRD.md:
     
     def __init__(self, ollama: OllamaClient):
         self.ollama = ollama
-        self.model = "qwen2.5-coder:3b-instruct-q4_K_M"
+        self.model = "qwen2.5-coder:3b"
         logger.info("📋 Planning Agent inicializado")
     
     def interview(

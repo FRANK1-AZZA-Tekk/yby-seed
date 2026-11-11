@@ -31,13 +31,13 @@ class ContextPruner:
     Poda seletiva de contexto para RAG.
     """
     
-    def __init__(self, model_fast: str = "llama3.2:3b", model_slow: str = "qwen2.5:7b"):
+    def __init__(self, model_fast: str = "qwen2.5-coder:3b", model_slow: str = "qwen2.5-coder:3b"):
         """
         Inicializar pruner.
         
         Args:
             model_fast: Modelo rápido para resumos (3B)
-            model_slow: Modelo lento para geração (7B)
+            model_slow: O mesmo modelo local, quando a geração pede mais contexto
         """
         self.model_fast = model_fast
         self.model_slow = model_slow

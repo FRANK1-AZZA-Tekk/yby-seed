@@ -175,7 +175,7 @@ Resposta:
         from litellm import completion
         
         response = completion(
-            model="qwen2.5:7b",
+            model="ollama/qwen2.5-coder:3b",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=512,
             temperature=0.2

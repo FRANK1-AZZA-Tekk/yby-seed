@@ -30,7 +30,7 @@ class InterviewAgent:
     Agente de entrevista em 3 modos.
     """
     
-    def __init__(self, model: str = "llama3.2:3b"):
+    def __init__(self, model: str = "qwen2.5-coder:3b"):
         """
         Inicializar agente.
         

@@ -18,7 +18,7 @@ Backpressure:
 Licença: MIT
 """
 
-from fastapi import FastAPI, WebSocket, HTTPException
+from fastapi import FastAPI, Request, WebSocket, HTTPException
 from asyncio import Queue
 from typing import List, Dict, Any
 import asyncio
@@ -26,6 +26,7 @@ from datetime import datetime
 import logging
 
 from .lancedb_client import LanceDBClient
+from .auth import check_token
 from .config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -48,6 +49,12 @@ db_client = LanceDBClient(
 
 # WebSocket clients (para dashboard em tempo real)
 websocket_clients: List[WebSocket] = []
+
+
+def _guard(headers) -> None:
+    allowed, status, detail = check_token(headers, settings.GATEWAY_TOKEN)
+    if not allowed:
+        raise HTTPException(status_code=status, detail=detail)
 
 
 @app.on_event("startup")
@@ -75,26 +82,11 @@ async def shutdown_event():
 
 
 @app.post("/telemetry")
-async def receive_telemetry(data: Dict[str, Any]):
+async def receive_telemetry(data: Dict[str, Any], request: Request):
     """
     Endpoint HTTP para telemetria (fallback se MQTT falhar).
-    
-    Payload:
-    {
-        "device_id": "yby-watch-001",
-        "timestamp": "2026-10-08T05:20:00Z",
-        "metrics": {
-            "heart_rate": 72,
-            "spo2": 98,
-            "battery": 85,
-            "steps": 1234
-        },
-        "context": {
-            "location": {"lat": -23.5505, "lon": -46.6333},
-            "activity": "walking"
-        }
-    }
     """
+    _guard(request.headers)
     try:
         # Validar payload mínimo
         required_fields = ["device_id", "timestamp", "metrics"]
@@ -118,11 +110,12 @@ async def receive_telemetry(data: Dict[str, Any]):
 
 @app.websocket("/ws/telemetry")
 async def websocket_telemetry(websocket: WebSocket):
-    """
-    WebSocket para dashboard em tempo real.
-    
-    Clientes recebem telemetria processada em tempo real.
-    """
+    """WebSocket para dashboard em tempo real."""
+    allowed, _status, _detail = check_token(websocket.headers, settings.GATEWAY_TOKEN)
+    if not allowed:
+        await websocket.close(code=1008)
+        return
+
     await websocket.accept()
     websocket_clients.append(websocket)
     
@@ -152,12 +145,9 @@ async def health_check():
 
 
 @app.get("/metrics")
-async def get_metrics(device_id: str, limit: int = 100):
-    """
-    Recuperar últimas N métricas de um dispositivo.
-    
-    Exemplo: /metrics?device_id=yby-watch-001&limit=100
-    """
+async def get_metrics(device_id: str, request: Request, limit: int = 100):
+    """Recuperar últimas N métricas de um dispositivo."""
+    _guard(request.headers)
     try:
         metrics = await db_client.get_metrics(device_id, limit=limit)
         return {
@@ -172,12 +162,9 @@ async def get_metrics(device_id: str, limit: int = 100):
 
 
 @app.post("/vectors/search")
-async def search_vectors(query: str, top_k: int = 5):
-    """
-    Buscar vetores similares no LanceDB (RAG).
-    
-    Exemplo: /vectors/search?query=backup+automation&top_k=5
-    """
+async def search_vectors(query: str, request: Request, top_k: int = 5):
+    """Buscar vetores similares no LanceDB (RAG)."""
+    _guard(request.headers)
     try:
         results = await db_client.search(query, top_k=top_k)
         return {
@@ -289,3 +276,15 @@ def generate_embedding(features: Dict[str, Any]) -> List[float]:
     # TODO: Implementar com Ollama embeddings
     # Por enquanto, retornar vetor dummy
     return [0.0] * 384
+
+
+def main() -> None:
+    """Sobe o gateway só no host configurado. O padrão é 127.0.0.1."""
+
+    import uvicorn
+
+    uvicorn.run(app, host=settings.FASTAPI_HOST, port=settings.FASTAPI_PORT)
+
+
+if __name__ == "__main__":
+    main()
