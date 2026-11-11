@@ -9,14 +9,19 @@ Uso:
     result = sandbox.execute(code, timeout=5, memory_limit_mb=128)
 """
 
-import subprocess
-import tempfile
+import base64
 import os
 import resource
 import signal
-from typing import Dict, Any, Tuple, Optional
+import subprocess
+import textwrap
+import tempfile
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+
 from loguru import logger
+
+from src.security.ast_guard import SAFE_IMPORTS
 
 
 class SandboxExecutor:
@@ -32,14 +37,7 @@ class SandboxExecutor:
         "open", "file", "input", "raw_input"
     }
     
-    # Imports permitidos (seguros)
-    SAFE_IMPORTS = {
-        "math", "random", "datetime", "time",
-        "collections", "itertools", "functools",
-        "re", "json", "csv", "typing",
-        "dataclasses", "pathlib", "io",
-        "string", "textwrap", "unicodedata"
-    }
+    SAFE_IMPORTS = set(SAFE_IMPORTS)
     
     def __init__(
         self,
@@ -81,9 +79,7 @@ class SandboxExecutor:
         # 2. Cria diretório temporário isolado
         with tempfile.TemporaryDirectory() as tmpdir:
             script_path = Path(tmpdir) / "sandbox_script.py"
-            
-            # Escreve script
-            script_path.write_text(code, encoding="utf-8")
+            script_path.write_text(self._wrap_for_runtime(code), encoding="utf-8")
             
             # 3. Configura limites de recursos
             limits = {
@@ -180,6 +176,119 @@ class SandboxExecutor:
         from src.security.ast_guard import validate_code_ast
 
         return validate_code_ast(code)
+
+    def _wrap_for_runtime(self, user_code: str) -> str:
+        """Encapsula o código com namespace e audit hook restritos."""
+
+        payload = base64.b64encode(user_code.encode("utf-8")).decode("ascii")
+        safe_modules = ", ".join(repr(name) for name in sorted(self.SAFE_IMPORTS))
+        blocked_builtins = (
+            "eval",
+            "exec",
+            "compile",
+            "open",
+            "input",
+            "getattr",
+            "setattr",
+            "delattr",
+            "globals",
+            "locals",
+            "vars",
+            "dir",
+            "help",
+            "memoryview",
+            "bytearray",
+            "chr",
+            "breakpoint",
+        )
+        blocked_builtins_repr = ", ".join(repr(n) for n in blocked_builtins)
+        blocked_dunders = (
+            "__builtins__",
+            "__class__",
+            "__subclasses__",
+            "__globals__",
+            "__locals__",
+            "__code__",
+            "__closure__",
+            "__dict__",
+            "__bases__",
+            "__mro__",
+        )
+        blocked_dunders_repr = ", ".join(repr(n) for n in blocked_dunders)
+        return textwrap.dedent(
+            f"""
+            import base64
+            import sys
+
+            _USER_CODE = base64.b64decode({payload!r}).decode("utf-8")
+            _SAFE_MODULES = {{{safe_modules}}}
+            _BLOCKED_BUILTINS = {{{blocked_builtins_repr}}}
+            _BLOCKED_DUNDERS = {{{blocked_dunders_repr}}}
+
+            def _blocked_builtin(name):
+                raise RuntimeError(f"builtin bloqueado: {{name}}")
+
+            def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+                root = name.partition(".")[0]
+                if root not in _SAFE_MODULES:
+                    raise ImportError(f"módulo bloqueado: {{root}}")
+                return __import__(name, globals, locals, fromlist, level)
+
+            def _audit_hook(event, args):
+                if event in ("input", "ctypes"):
+                    raise RuntimeError(f"audit bloqueado: {{event}}")
+                if event == "object.__getattribute__":
+                    attr = args[1]
+                    if attr in _BLOCKED_DUNDERS or (
+                        isinstance(attr, str) and attr.startswith("__") and attr.endswith("__")
+                    ):
+                        raise RuntimeError(f"atributo bloqueado: {{attr}}")
+
+            sys.addaudithook(_audit_hook)
+
+            _SAFE_BUILTINS = {{
+                "None": None,
+                "True": True,
+                "False": False,
+                "print": print,
+                "abs": abs,
+                "all": all,
+                "any": any,
+                "bin": bin,
+                "bool": bool,
+                "dict": dict,
+                "enumerate": enumerate,
+                "float": float,
+                "int": int,
+                "len": len,
+                "list": list,
+                "max": max,
+                "min": min,
+                "range": range,
+                "repr": repr,
+                "reversed": reversed,
+                "round": round,
+                "set": set,
+                "sorted": sorted,
+                "str": str,
+                "sum": sum,
+                "tuple": tuple,
+                "zip": zip,
+                "isinstance": isinstance,
+                "issubclass": issubclass,
+                "__import__": _safe_import,
+            }}
+            for _name in _BLOCKED_BUILTINS:
+                _SAFE_BUILTINS[_name] = lambda *a, _n=_name, **k: _blocked_builtin(_n)
+
+            def _run_user():
+                namespace = {{"__name__": "__main__", "__builtins__": _SAFE_BUILTINS}}
+                exec(_USER_CODE, namespace, namespace)
+
+            if __name__ == "__main__":
+                _run_user()
+            """
+        ).lstrip()
     
     def execute_with_retry(
         self,
