@@ -22,6 +22,9 @@ from dotenv import load_dotenv
 DEFAULT_INTERVAL_SECONDS = 60.0
 DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
 DEFAULT_TIMEOUT_SECONDS = 5.0
+DEFAULT_KEEP_ALIVE = "30m"
+DEFAULT_NUM_CTX = 4096
+DEFAULT_LOCAL_MODEL = "qwen2.5-coder:3b"
 
 logger = logging.getLogger("yby.hub")
 
@@ -63,13 +66,66 @@ def setup_logging(*, log_path: Path | None = None) -> None:
         root.addHandler(handler)
 
 
-def check_ollama(base_url: str, *, timeout: float, session: Any | None = None) -> str:
+def default_local_model() -> str:
+    return (
+        os.environ.get("YBY_LOCAL_MODEL", "").strip()
+        or os.environ.get("OLLAMA_DEFAULT_MODEL", "").strip()
+        or DEFAULT_LOCAL_MODEL
+    )
+
+
+def ollama_ping_payload(
+    *,
+    model: str | None = None,
+    keep_alive: str | None = None,
+    num_ctx: int | None = None,
+) -> dict[str, Any]:
+    """Payload mínimo de generate para manter o modelo quente (loopback)."""
+
+    return {
+        "model": model or default_local_model(),
+        "prompt": "",
+        "stream": False,
+        "keep_alive": (keep_alive or os.environ.get("OLLAMA_KEEP_ALIVE", DEFAULT_KEEP_ALIVE)).strip()
+        or DEFAULT_KEEP_ALIVE,
+        "options": {
+            "num_ctx": num_ctx
+            if num_ctx is not None
+            else int(os.environ.get("YBY_OLLAMA_NUM_CTX", DEFAULT_NUM_CTX)),
+        },
+    }
+
+
+def check_ollama(
+    base_url: str,
+    *,
+    timeout: float,
+    session: Any | None = None,
+    model: str | None = None,
+    keep_alive: str | None = None,
+    num_ctx: int | None = None,
+) -> str:
     """Devolve 'ok' ou uma mensagem de erro curta."""
 
-    url = f"{base_url.rstrip('/')}/api/tags"
     client = session or requests
+    post = getattr(client, "post", None)
+    if post is not None:
+        url = f"{base_url.rstrip('/')}/api/generate"
+        payload = ollama_ping_payload(model=model, keep_alive=keep_alive, num_ctx=num_ctx)
+        try:
+            response = post(url, json=payload, timeout=timeout)
+        except requests.RequestException as exc:
+            return f"indisponível ({exc})"
+        if response.status_code >= 400:
+            return f"HTTP {response.status_code}"
+        return "ok"
+
+    url = f"{base_url.rstrip('/')}/api/tags"
+    get = getattr(client, "get", None)
+    if get is None:
+        return "indisponível (cliente sem HTTP)"
     try:
-        response = client.get(url, timeout=timeout)
+        response = get(url, timeout=timeout)
     except requests.RequestException as exc:
         return f"indisponível ({exc})"
     if response.status_code >= 400:

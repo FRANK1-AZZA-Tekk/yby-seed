@@ -22,12 +22,36 @@ class _Session:
     def __init__(self, response: _Resp | None = None, error: Exception | None = None) -> None:
         self.response = response
         self.error = error
+        self.posted: list[dict[str, object]] = []
 
     def get(self, url: str, **_kwargs: object) -> _Resp:
         if self.error:
             raise self.error
         assert self.response is not None
         return self.response
+
+    def post(self, url: str, **kwargs: object) -> _Resp:
+        self.posted.append({"url": url, **kwargs})
+        if self.error:
+            raise self.error
+        assert self.response is not None
+        return self.response
+
+
+def test_ollama_ping_inclui_keep_alive_e_num_ctx() -> None:
+    session = _Session(_Resp(200))
+    hub.check_ollama(
+        "http://127.0.0.1:11434",
+        timeout=1,
+        session=session,
+        keep_alive="30m",
+        num_ctx=4096,
+    )
+    assert len(session.posted) == 1
+    payload = session.posted[0]["json"]
+    assert payload["keep_alive"] == "30m"
+    assert payload["options"]["num_ctx"] == 4096
+    assert session.posted[0]["url"].endswith("/api/generate")
 
 
 def test_ollama_falha_registrada_no_log(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
@@ -100,3 +124,10 @@ def test_keepalive_permanece_ativo_com_ollama_off() -> None:
 @pytest.fixture
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
+
+
+def test_security_doc_menciona_limitacao_ast(repo_root: Path) -> None:
+    text = (repo_root / "docs/SECURITY.md").read_text(encoding="utf-8")
+    assert "Limitação conhecida do AST guard" in text
+    assert "chr()" in text
+    assert "sandbox.py" in text
