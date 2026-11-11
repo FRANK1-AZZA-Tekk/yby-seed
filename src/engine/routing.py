@@ -46,6 +46,7 @@ class RouteDecision:
 
     target: RouteTarget
     reasons: tuple[str, ...]
+    codes: tuple[str, ...] = ()
 
 
 def decide_route(
@@ -60,32 +61,38 @@ def decide_route(
     """Classifica o pedido. Não chama modelo nenhum."""
 
     reasons: list[str] = []
+    codes: list[str] = []
     folded = prompt.casefold()
 
     if explicit_heavy:
         reasons.append("flag --heavy")
+        codes.append("explicit_heavy")
 
     for phrase in heavy_phrases:
         needle = phrase.casefold()
         if needle and needle in folded:
             reasons.append(f"frase explícita: {needle}")
+            codes.append("heavy_phrase")
             break
 
     characters = len(prompt.strip())
     if characters >= heavy_min_chars:
         reasons.append(f"tamanho: {characters} caracteres (limite {heavy_min_chars})")
+        codes.append("large_prompt")
 
     lines = _line_count(prompt)
     if lines >= heavy_min_lines:
         reasons.append(f"tamanho: {lines} linhas (limite {heavy_min_lines})")
+        codes.append("many_lines")
 
     questions = prompt.count("?")
     if questions >= heavy_min_questions:
         reasons.append(f"complexidade: {questions} perguntas (limite {heavy_min_questions})")
+        codes.append("many_questions")
 
     if reasons:
-        return RouteDecision("cloud", tuple(reasons))
-    return RouteDecision("local", ("pedido dentro do limite local",))
+        return RouteDecision("cloud", tuple(reasons), tuple(codes))
+    return RouteDecision("local", ("pedido dentro do limite local",), ("local_default",))
 
 
 def _line_count(prompt: str) -> int:

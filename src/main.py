@@ -19,6 +19,8 @@ Comandos:
     recall  - Busca no vault
 """
 
+import sys
+
 import click
 from dotenv import load_dotenv
 from loguru import logger
@@ -228,10 +230,18 @@ def recall(consulta: str) -> None:
         click.echo(f"{hit.score:.2f} {hit.name}")
 
 
+def _confirm_cloud(message: str) -> bool:
+    answer = click.prompt(message, default="n", show_default=False).strip().casefold()
+    return answer in {"s", "sim", "y", "yes"}
+
+
 def build_engine() -> HybridEngine:
     """Ponto de troca nos testes. Em execução normal, lê o ambiente."""
 
-    return engine_from_env()
+    return engine_from_env(
+        confirm_fn=_confirm_cloud,
+        has_tty_fn=lambda: sys.stdin.isatty() and sys.stdout.isatty(),
+    )
 
 
 def _wait_enter(_prompt: str = "") -> str:
