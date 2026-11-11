@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 import requests
+
+DEFAULT_OLLAMA_KEEP_ALIVE = "30m"
+DEFAULT_OLLAMA_NUM_CTX = 4096
 
 
 class ProviderError(Exception):
@@ -40,6 +44,39 @@ class HttpSession(Protocol):
         """Envia um POST e devolve uma resposta com status e JSON."""
 
 
+def _ollama_runtime_tuning() -> tuple[str, int]:
+    """Lê tunables locais do ambiente (sem nuvem)."""
+
+    keep_alive = os.environ.get("OLLAMA_KEEP_ALIVE", DEFAULT_OLLAMA_KEEP_ALIVE).strip()
+    if not keep_alive:
+        keep_alive = DEFAULT_OLLAMA_KEEP_ALIVE
+    raw_ctx = os.environ.get("YBY_OLLAMA_NUM_CTX", str(DEFAULT_OLLAMA_NUM_CTX)).strip()
+    try:
+        num_ctx = int(raw_ctx) if raw_ctx else DEFAULT_OLLAMA_NUM_CTX
+    except ValueError:
+        num_ctx = DEFAULT_OLLAMA_NUM_CTX
+    return keep_alive, num_ctx
+
+
+def build_ollama_generate_payload(
+    prompt: str,
+    *,
+    model: str,
+    system: str,
+) -> dict[str, Any]:
+    """Corpo JSON de `POST /api/generate` com keep_alive e num_ctx."""
+
+    keep_alive, num_ctx = _ollama_runtime_tuning()
+    return {
+        "model": model,
+        "prompt": prompt,
+        "system": system,
+        "stream": False,
+        "keep_alive": keep_alive,
+        "options": {"num_ctx": num_ctx},
+    }
+
+
 class OllamaProvider:
     """Cliente mínimo de `POST /api/generate`."""
 
@@ -59,12 +96,7 @@ class OllamaProvider:
         try:
             response = self._session.post(
                 url,
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "system": system,
-                    "stream": False,
-                },
+                json=build_ollama_generate_payload(prompt, model=model, system=system),
                 timeout=self.timeout,
             )
         except requests.RequestException as exc:
