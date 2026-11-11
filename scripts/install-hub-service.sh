@@ -25,6 +25,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 UNIT_SRC="${ROOT}/scripts/yby-hub.service"
 UNIT_DIR="${HOME}/.config/systemd/user"
 UNIT_DST="${UNIT_DIR}/yby-hub.service"
+ENV_FILE="${YBY_ENV_FILE:-${HOME}/.config/yby-seed/.env}"
 
 if [[ -x "${ROOT}/.venv/bin/python" ]]; then
   PYTHON="${ROOT}/.venv/bin/python"
@@ -36,15 +37,28 @@ else
 fi
 
 mkdir -p "${UNIT_DIR}"
+mkdir -p "$(dirname "${ENV_FILE}")"
+
 sed \
   -e "s|__YBY_ROOT__|${ROOT}|g" \
   -e "s|__YBY_PYTHON__|${PYTHON}|g" \
+  -e "s|^EnvironmentFile=.*|EnvironmentFile=-${ENV_FILE}|" \
   "${UNIT_SRC}" > "${UNIT_DST}"
 
-systemctl --user daemon-reload
+if command -v systemctl >/dev/null 2>&1; then
+  if systemctl --user daemon-reload 2>/dev/null; then
+    :
+  else
+    echo "Aviso: systemctl --user indisponível aqui; unidade gravada em ${UNIT_DST}" >&2
+  fi
+else
+  echo "Aviso: systemctl não encontrado; unidade gravada em ${UNIT_DST}" >&2
+fi
+
 echo "Unidade instalada em ${UNIT_DST}"
 echo "Python: ${PYTHON}"
 echo "Root:   ${ROOT}"
+echo "Env:    ${ENV_FILE}  (fora do repo; use YBY_ENV_FILE para mudar)"
 
 if [[ "${ENABLE}" -eq 1 ]]; then
   systemctl --user enable --now yby-hub.service
