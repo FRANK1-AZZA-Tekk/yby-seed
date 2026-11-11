@@ -12,13 +12,15 @@ A plataforma desse PC Hub está em D9: servidor doméstico sempre ligado.
 
 Inventário real de repositórios e arquitetura por domínios antes de qualquer código novo.
 
-## D3 — Local-first, nuvem sob demanda (2026-11-11)
+## D3 — Local-first, nuvem sob demanda (2026-11-11; nota OpenRouter 2026-11-11)
 
 Ollama local primeiro. A nuvem entra quando a heurística de complexidade ou tamanho dispara, ou quando a pessoa pede (`--heavy`, frases como "pensa mais").
 
-O provedor de nuvem é compatível com a API da OpenAI e configurável por URL, modelo e chave. O padrão é **Grok (xAI)**. **OpenRouter** continua disponível como configuração alternativa, não como destino automático.
+O provedor de nuvem é compatível com a API da OpenAI e configurável por URL, modelo e chave. Destino de nuvem padrão: **OpenRouter com modelo free** (`openrouter/free`). Se OpenRouter falhar ou não houver chave, fallback para **Grok (xAI)**. Chaves só no `.env` do servidor.
 
-Substitui a redação de D3 anterior: "Ollama local primeiro; OpenRouter apenas como fallback."
+Nota do dono (aprovado): OpenRouter free é o alvo de nuvem padrão; Grok é o fallback.
+
+Substitui a redação intermediária em que Grok era o destino automático e OpenRouter só configuração alternativa. Também substitui a redação antiga "Ollama local primeiro; OpenRouter apenas como fallback."
 
 ## D4 — Modelo local (2026-11-11)
 
@@ -42,6 +44,8 @@ Materiais de YBY, YBY Zero e outros projetos são revisados e unificados no YBY 
 
 Em 2026-11-11 o inventário ficou assim: o v1 programa-se neste repositório. YBY (wearable), yby-core (LangGraph), FRANK_ZER0 (TypeScript, Android, ESP32) e FRANK_ZERO (sem código) permanecem separados. Forks de terceiros não são copiados. O mapa está em `docs/REPOS.md`.
 
+**Clarificação (organização):** “consolidar” = inventário, docs e fronteiras claras — **não** copiar árvores de YBY / yby-core / FRANK para dentro do seed. PRs que absorvem esses produtos no `yby-seed` vão contra este escopo.
+
 ## D8 — Memória (2026-11-11)
 
 A memória da pessoa é um vault Obsidian em Markdown, com índice vetorial por cima. O vault sincroniza com o servidor de casa via Syncthing.
@@ -51,6 +55,8 @@ A memória da pessoa é um vault Obsidian em Markdown, com índice vetorial por 
 ## D9 — Plataforma (2026-11-11)
 
 O YBY SEED roda num servidor doméstico sempre ligado. Esse servidor é o PC Hub.
+
+Operação: unit systemd de usuário (`scripts/yby-hub.service` + `scripts/install-hub-service.sh`) mantém um keepalive fino (`python -m src.platform.hub` / `yby hub`) que só checa o Ollama — **não** sobe o gateway MQTT. Vault via Syncthing (`examples/syncthing/`, `docs/syncthing/`). Cache de respostas e limite de contexto antes da nuvem. Detalhe: [docs/PLATFORM.md](docs/PLATFORM.md).
 
 ## D10 — Segurança de comandos (2026-11-11)
 

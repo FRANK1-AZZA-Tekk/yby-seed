@@ -7,8 +7,8 @@
 model_list:
   # --- Nível 1: Volume local (custo zero, privacidade) ---
   # D4 (2026-11-11): qwen2.5-coder:3b substitui llama3.2:3b.
-  # D3: o `yby ask` usa Grok (xAI) como nuvem padrão. Os aliases
-  # OpenRouter abaixo são a configuração alternativa, não o destino automático.
+  # D3: o `yby ask` usa OpenRouter free como nuvem padrão e Grok como fallback.
+  # Os aliases abaixo espelham a pirâmide de custo do proxy LiteLLM (opcional).
   - model_name: yby-local
     litellm_params:
       model: ollama/qwen2.5-coder:3b

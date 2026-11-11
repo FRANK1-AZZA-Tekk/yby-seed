@@ -1,0 +1,21 @@
+# Exemplo de pasta Syncthing para o vault Obsidian do YBY.
+# IDs e paths são PLACEHOLDERS — não são segredos reais.
+# Copie para a sua config local; não versionar a pasta real.
+
+folder:
+  id: ybyvaultXXXXXXXX
+  label: yby-vault
+  path: /home/SEU_USER/Obsidian/YBY
+  type: sendreceive
+  devices:
+    - deviceID: HUBDEVICEIDPLACEHOLDER
+    - deviceID: NOTEBOOKDEVICEIDPLACEHOLDER
+
+devices:
+  - deviceID: HUBDEVICEIDPLACEHOLDER
+    name: yby-hub
+  - deviceID: NOTEBOOKDEVICEIDPLACEHOLDER
+    name: notebook
+
+# No hub, aponte o vault:
+# YBY_VAULT_PATH=/home/SEU_USER/Obsidian/YBY

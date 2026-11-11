@@ -1,20 +1,20 @@
 # Roadmap — YBY SEED
 
+Estado alinhado ao checklist em [docs/REPOS.md](docs/REPOS.md) e às decisões D1–D11.
+
 | Fase | Descrição | Status |
 |---|---|---|
-| 0 | Consolidação de repositórios | Em andamento |
-| 1 | Núcleo local (yby.py + Ollama) | Pendente |
-| 2 | Qualidade (Pytest, Ruff, Black, mypy) | Pendente |
-| 3 | RouterAgent | Pendente |
-| 4 | Primeira skill (dry-run) | Pendente |
-| 5 | Memória (Qdrant) | Pendente |
-| 6 | Serviço (FastAPI) | Pendente |
-| 7 | Persistência (PostgreSQL + Redis) | Pendente |
-| 8 | Interface web | Pendente |
-| 9 | Mobile (Tailscale + Termux) | Pendente |
+| 0 | Consolidação: escopo PC Hub, docs, separação de repos | Em andamento (docs); código irmão **não** entra no seed |
+| 1 | Núcleo local (`yby.py` + Ollama + nuvem sob demanda) | Feito (`src/engine`) |
+| 1b | Porta + execução (`safety` / `actions`) + vault | Feito |
+| 1c | Voz local (Whisper + Piper) | Feito (#36) |
+| 2 | Qualidade contínua (Ruff + Pytest no CI) | Feito no essencial |
+| **P** | **Plataforma** — hub sempre ligado (D9): serviço, boot, sync Syncthing | Em andamento |
+| 3+ | Skills dry-run, agentes no caminho do `ask`, gateway exposto | Depois da plataforma estável |
+| Futuro | Mobile / ESP32 | Fora do v1 — código saiu da árvore |
 
-## Escopo por fase
+## Escopo
 
-- **MVP (fases 0–4):** src, tests, skills, scripts, docs — sem Docker.
-- **Pós-MVP (fases 5–8):** Qdrant, FastAPI, PostgreSQL, Redis, interface.
-- **Futuro, fora do v1:** mobile e firmware. O código saiu da árvore.
+- **v1 agora:** `engine`, `safety`, `actions`, `memory`, `voice`, `platform`, `security/ast_guard`, testes.
+- **Não fazer:** absorver YBY / yby-core / FRANK_* neste repo; programar em forks.
+- **Fora do v1:** mobile e firmware ([docs/archive/FORA-DO-V1.md](docs/archive/FORA-DO-V1.md)).
