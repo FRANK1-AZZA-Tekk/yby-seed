@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YBY Core — Teste de Chat Streaming</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0f14;
+      --panel: #111823;
+      --border: #1f2b3a;
+      --text: #e6edf3;
+      --muted: #8b98a9;
+      --accent: #00e5ff;
+      --ok: #3ddc84;
+      --warn: #ffb74d;
+      --error: #ff5370;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .app {
+      width: min(920px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: .04em;
+    }
+
+    .status {
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 999px;
+    }
+
+    form {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    input, textarea {
+      width: 100%;
+      background: #0a1017;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      font: inherit;
+      outline: none;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    button {
+      justify-self: end;
+      background: var(--accent);
+      color: #001018;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.4fr .8fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: #0a1017;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      min-height: 320px;
+    }
+
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    #output {
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.55;
+    }
+
+    #events {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: var(--muted);
+      max-height: 320px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+
+    .tool-start { color: var(--warn); }
+    .tool-end { color: var(--ok); }
+    .done { color: var(--accent); }
+    .error { color: var(--error); }
+
+    @media (max-width: 720px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>YBY CORE</h1>
+      <div id="status" class="status">Pronto</div>
+    </header>
+
+    <form id="chat-form">
+      <div>
+        <label for="project">Projeto</label>
+        <input id="project" value="projects/yby-seed" autocomplete="off">
+      </div>
+
+      <div>
+        <label for="message">Mensagem</label>
+        <textarea id="message" placeholder="Ex.: Leia projects/yby-seed/README.md e resuma o projeto."></textarea>
+      </div>
+
+      <button id="send" type="submit">Enviar</button>
+    </form>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Resposta</h2>
+        <div id="output"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Eventos</h2>
+        <div id="events"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById("chat-form");
+    const messageInput = document.getElementById("message");
+    const projectInput = document.getElementById("project");
+    const sendButton = document.getElementById("send");
+    const output = document.getElementById("output");
+    const events = document.getElementById("events");
+    const status = document.getElementById("status");
+
+    function logEvent(name, data) {
+      const line = document.createElement("div");
+      line.className = name;
+      line.textContent = `[${name}] ${JSON.stringify(data)}`;
+      events.appendChild(line);
+      events.scrollTop = events.scrollHeight;
+    }
+
+    function setStatus(text) {
+      status.textContent = text;
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const message = messageInput.value.trim();
+
+      if (!message) return;
+
+      output.textContent = "";
+      events.textContent = "";
+      sendButton.disabled = true;
+      setStatus("Executando...");
+
+      try {
+        const response = await fetch("http://127.0.0.1:8000/chat/stream", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message,
+            project_path: projectInput.value.trim(),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop();
+
+          for (const rawEvent of parts) {
+            const lines = rawEvent.split("\n");
+            const eventName = lines
+              .find((line) => line.startsWith("event:"))
+              ?.replace("event: ", "");
+
+            const dataLine = lines
+              .find((line) => line.startsWith("data:"))
+              ?.replace("data: ", "");
+
+            if (!eventName || !dataLine) continue;
+
+            const data = JSON.parse(dataLine);
+
+            logEvent(eventName, data);
+
+            if (eventName === "token") {
+              output.textContent += data.content;
+            }
+
+            if (eventName === "done") {
+              setStatus("Concluído");
+            }
+
+            if (eventName === "error") {
+              setStatus("Erro");
+            }
+          }
+        }
+      } catch (error) {
+        setStatus("Erro");
+        logEvent("error", { message: error.message });
+      } finally {
+        sendButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+"""YBY Core application package."""

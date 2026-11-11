@@ -27,3 +27,22 @@ Toda skill começa em dry-run e só executa após confirmação do usuário.
 ## D7 — Consolidação de repositórios
 
 Materiais de YBY, YBY Zero e outros projetos são revisados e unificados no YBY SEED quando fizer sentido técnico.
+
+Mapa vivo: `docs/REPO_MAP.md`.
+
+Absorvidos nesta rodada:
+
+- **YBY** → `src/yby_zero/` + docs de spec/capacidade.
+- **yby-core** → `src/orchestrator/`, `src/tools/`, espelho em `integrations/yby-core/`.
+- **yby-seed-local** → `docs/benchmarks/` + `scripts/benchmark_ollama.sh`.
+- **FRANK_ZER0** → apenas blueprint em `docs/legacy/` (inspiração; sem PWA neon no núcleo).
+
+Repositórios stub (`YBY-brasil`, `YBY-YOU-BY-YOURSELF`, `FRANK_ZERO`) e os absorvidos passam a apontar para este hub.
+
+## D8 — Modelo padrão pós-benchmark
+
+Na GTX 1650 4 GB, `qwen2.5-coder:3b` superou os demais em eval rate nos testes de `yby-seed-local`. É o default de `YBY_LOCAL_MODEL` / orquestrador até novo benchmark.
+
+## D9 — Memória SQLite primeiro
+
+Qdrant/PostgreSQL do yby-core ficam opcionais. Padrão: SQLite (+ sqlite-vec). LanceDB só acima de ~50 mil vetores (`docs/CAPACIDADE-HARDWARE.md`).

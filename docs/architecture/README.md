@@ -4,6 +4,15 @@
 > **Última atualização:** 2026-10-08  
 > **Commit de referência:** HEAD (main)
 
+## Consolidação
+
+Ver também:
+
+- [Mapa de repositórios](../REPO_MAP.md)
+- [YBY Core](../YBY_CORE.md)
+- [Pilares YBY ZERO](../yby-zero/architecture/routing.md)
+- [Benchmarks](../benchmarks/README.md)
+
 ## 🌐 Visão Geral
 
 O **YBY SEED** opera como o **PC Hub** central dentro do ecossistema YBY (um exocórtex pessoal distribuído). Ele é o motor de inferência pesada e execução de código do sistema, projetado para capacitar não-programadores a construírem automações em linguagem natural (NL2Code). 
