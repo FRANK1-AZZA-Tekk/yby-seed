@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-
 from src.agents.execution_agent import ExecutionAgent
 
 

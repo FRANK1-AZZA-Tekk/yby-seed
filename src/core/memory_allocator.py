@@ -18,10 +18,9 @@ Benchmark (16GB RAM):
 Licença: BSD-2 (jemalloc) / MIT (mimalloc)
 """
 
+import logging
 import os
 import subprocess
-import logging
-from typing import Optional
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,7 +41,7 @@ class MemoryAllocator:
         self.allocator = allocator
         self.lib_path = self._find_library(allocator)
     
-    def _find_library(self, allocator: str) -> Optional[str]:
+    def _find_library(self, allocator: str) -> str | None:
         """
         Encontrar biblioteca no sistema.
         
@@ -208,7 +207,7 @@ class MemoryAllocator:
             lib = ctypes.CDLL(self.lib_path)
             
             # Obter estatísticas
-            stats = {}
+            stats: dict[str, object] = {}
             lib.mallctl(b"stats.allocated", ctypes.byref(ctypes.c_size_t()), None, 0)
             
             return stats
@@ -225,7 +224,7 @@ class MemoryAllocator:
             lib = ctypes.CDLL(self.lib_path)
             
             # Obter estatísticas
-            stats = {}
+            stats: dict[str, object] = {}
             lib.mi_stats_print(None)
             
             return stats

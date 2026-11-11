@@ -19,10 +19,10 @@ Licença: MIT
 """
 
 import asyncio
-import paho.mqtt.client as mqtt
 import logging
 from datetime import datetime
-from typing import Queue
+
+import paho.mqtt.client as mqtt
 
 from .config import settings
 
@@ -30,10 +30,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def mqtt_listener(queue: Queue):
+async def mqtt_listener(queue: asyncio.Queue):
     """
     Subscriber MQTT assíncrono.
-    
+
     Args:
         queue: asyncio.Queue para enfileirar mensagens (backpressure)
     """
@@ -121,7 +121,7 @@ def on_message(client, userdata, msg):
     
     Enfileirar mensagem para processamento assíncrono (backpressure).
     """
-    queue: Queue = userdata["queue"]
+    queue: asyncio.Queue = userdata["queue"]
     
     try:
         # Parse payload JSON

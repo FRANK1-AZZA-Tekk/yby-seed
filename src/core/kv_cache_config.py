@@ -18,9 +18,8 @@ Benchmark GTX 1650 (4GB VRAM):
 Licença: MIT
 """
 
-import subprocess
 import logging
-from typing import Dict, Any
+import subprocess
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
@@ -77,7 +76,7 @@ class KVCacheConfig:
             logger.error(f"❌ Erro ao compilar: {e}")
             raise
     
-    def get_ollama_env(self) -> Dict[str, str]:
+    def get_ollama_env(self) -> dict[str, str]:
         """
         Variáveis de ambiente para Ollama.
         

@@ -4,7 +4,6 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
-
 from src.agents.router_agent import RouterAgent
 
 
@@ -60,6 +59,26 @@ def test_fallback_json_invalido(router, ollama_mock):
     assert resultado["agent"] == "planning"
     assert resultado["intent"] == "unknown"
     assert resultado["requires_interview"] is True
+
+
+def test_json_aninhado(router, ollama_mock):
+    """JSON com objetos aninhados não deve ser truncado no primeiro }."""
+    ollama_mock.generate.return_value = (
+        'texto {"agent": "planning", "intent": "api_integration", '
+        '"confidence": 0.9, "meta": {"nested": true}, '
+        '"requires_interview": true} fim'
+    )
+    resultado = router.classify("integre uma API")
+    assert resultado["agent"] == "planning"
+    assert resultado["intent"] == "api_integration"
+    assert resultado["meta"]["nested"] is True
+
+
+def test_resposta_vazia(router, ollama_mock):
+    ollama_mock.generate.return_value = ""
+    resultado = router.classify("oi")
+    assert resultado["intent"] in {"unknown", "ollama_unavailable"}
+    assert resultado.get("error")
 
 
 def test_entrevista_por_voz_backup(router):

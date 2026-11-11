@@ -3,3 +3,10 @@ __pycache__/
 *.pyc
 data/
 .env
+logs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+htmlcov/
+.yby/

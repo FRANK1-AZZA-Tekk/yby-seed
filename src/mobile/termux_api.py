@@ -20,10 +20,10 @@ Comandos:
 Licença: MIT
 """
 
-import subprocess
 import json
 import logging
-from typing import Dict, Any, Optional
+import subprocess
+from typing import Any
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ class TermuxAPI:
         except Exception:
             return False
     
-    def get_battery_status(self) -> Dict[str, Any]:
+    def get_battery_status(self) -> dict[str, Any]:
         """
         Obter status da bateria.
         
@@ -82,7 +82,7 @@ class TermuxAPI:
             logger.error(f"❌ Erro ao ler bateria: {e}")
             return {}
     
-    def get_location(self) -> Dict[str, Any]:
+    def get_location(self) -> dict[str, Any]:
         """
         Obter localização GPS.
         
@@ -223,7 +223,7 @@ class TermuxAPI:
         except Exception as e:
             logger.error(f"❌ Erro ao vibrar: {e}")
     
-    def get_sensors(self) -> Dict[str, Any]:
+    def get_sensors(self) -> dict[str, Any]:
         """
         Obter dados de sensores (acelerômetro, giroscópio, etc.).
         

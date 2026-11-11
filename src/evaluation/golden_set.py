@@ -9,10 +9,11 @@ Uso:
     score = golden.evaluate(agent_function)
 """
 
-from typing import Dict, Any, List, Callable
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
+
 from loguru import logger
-import json
 
 
 @dataclass
@@ -35,7 +36,7 @@ class GoldenSet:
         self.tasks = self._load_tasks()
         logger.info(f"📊 GoldenSet carregado com {len(self.tasks)} tarefas")
     
-    def _load_tasks(self) -> List[Task]:
+    def _load_tasks(self) -> list[Task]:
         """Carrega tarefas de benchmark"""
         
         return [
@@ -185,7 +186,7 @@ class GoldenSet:
         self,
         agent_function: Callable[[str], str],
         task_id: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Avalia agente em uma tarefa específica"""
         
         task = next((t for t in self.tasks if t.id == task_id), None)
@@ -234,7 +235,7 @@ class GoldenSet:
         self,
         generated_code: str,
         task: Task
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Avalia código gerado em relação ao esperado"""
         
         # Critérios de avaliação
@@ -322,7 +323,7 @@ class GoldenSet:
         
         return has_entry_point
     
-    def run_full_benchmark(self, agent_function: Callable[[str], str]) -> Dict[str, Any]:
+    def run_full_benchmark(self, agent_function: Callable[[str], str]) -> dict[str, Any]:
         """Rodar benchmark completo em todas as tarefas"""
         
         logger.info("📊 Iniciando benchmark completo...")
@@ -351,7 +352,7 @@ class GoldenSet:
             "detailed_results": results
         }
     
-    def _group_by_difficulty(self, results: List[Dict]) -> Dict[str, Any]:
+    def _group_by_difficulty(self, results: list[dict]) -> dict[str, Any]:
         """Agrupa resultados por dificuldade"""
         
         grouped = {}
@@ -378,7 +379,7 @@ class GoldenSet:
         
         return grouped
     
-    def _group_by_category(self, results: List[Dict]) -> Dict[str, Any]:
+    def _group_by_category(self, results: list[dict]) -> dict[str, Any]:
         """Agrupa resultados por categoria"""
         
         grouped = {}

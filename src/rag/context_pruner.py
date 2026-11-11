@@ -18,8 +18,8 @@ Benchmark:
 Licença: MIT
 """
 
-from typing import List, Dict, Any
 import logging
+
 from litellm import completion  # LiteLLM wrapper
 
 logging.basicConfig(level=logging.INFO)
@@ -42,7 +42,7 @@ class ContextPruner:
         self.model_fast = model_fast
         self.model_slow = model_slow
     
-    def prune(self, chunks: List[str], query: str, max_tokens: int = 2000) -> List[str]:
+    def prune(self, chunks: list[str], query: str, max_tokens: int = 2000) -> list[str]:
         """
         Podar contexto para caber em max_tokens.
         
@@ -126,7 +126,7 @@ Resumo:
             logger.error(f"❌ Erro ao resumir: {e}")
             return text[:200]  # Fallback: truncar
     
-    def _rerank(self, summaries: List[Dict[str, str]], query: str) -> List[Dict[str, str]]:
+    def _rerank(self, summaries: list[dict[str, str]], query: str) -> list[dict[str, str]]:
         """
         Re-rank resumos por relevância.
         

@@ -11,10 +11,11 @@ Uso:
     skill.execute()
 """
 
-import yaml
-from pathlib import Path
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
 from loguru import logger
 
 
@@ -53,7 +54,7 @@ class Skill:
         
         logger.debug(f"Skill carregada: {metadata.name}")
     
-    def _parse_instructions(self, content: str) -> Dict[str, Any]:
+    def _parse_instructions(self, content: str) -> dict[str, Any]:
         """Parse do conteúdo do SKILL.md"""
         
         # Remove YAML frontmatter
@@ -63,7 +64,7 @@ class Skill:
                 content = parts[2].strip()
         
         # Parse seções
-        sections = {}
+        sections: dict[str, list[str]] = {}
         current_section = "body"
         
         for line in content.split("\n"):
@@ -105,7 +106,7 @@ class Skill:
         
         return self.instructions.get("exemplos", "")
     
-    def get_scripts(self) -> List[Path]:
+    def get_scripts(self) -> list[Path]:
         """Retorna scripts da skill"""
         
         if not self.metadata.directory:
@@ -124,7 +125,7 @@ class SkillManager:
     
     def __init__(self, skills_dir: str = "skills"):
         self.skills_dir = Path(skills_dir)
-        self.skills: Dict[str, Skill] = {}
+        self.skills: dict[str, Skill] = {}
         
         logger.info(f"📚 SkillManager inicializado (diretório: {skills_dir})")
     
@@ -170,13 +171,13 @@ class SkillManager:
                 except Exception as e:
                     logger.error(f"  ❌ Erro ao carregar skill {skill_dir.name}: {e}")
     
-    def find_best_skill(self, user_command: str) -> Optional[Skill]:
+    def find_best_skill(self, user_command: str) -> Skill | None:
         """Encontra melhor skill para comando do usuário"""
         
         logger.info(f"🔍 Buscando skill para: {user_command[:50]}...")
         
         best_match = None
-        best_score = 0
+        best_score = 0.0
         
         for skill in self.skills.values():
             if skill.should_activate(user_command):
@@ -224,7 +225,7 @@ class SkillManager:
         
         return score
     
-    def list_skills(self) -> List[Dict[str, str]]:
+    def list_skills(self) -> list[dict[str, str]]:
         """Lista todas as skills disponíveis"""
         
         return [
@@ -236,7 +237,7 @@ class SkillManager:
             for skill in self.skills.values()
         ]
     
-    def get_skill(self, name: str) -> Optional[Skill]:
+    def get_skill(self, name: str) -> Skill | None:
         """Retorna skill por nome"""
         
         return self.skills.get(name)
@@ -252,7 +253,7 @@ class SkillManager:
         
         print(f"\n🧪 Testando skill: {name}")
         print(f"📝 Comando: {test_command}")
-        print(f"\n📊 Metadados:")
+        print("\n📊 Metadados:")
         print(f"  Nome: {skill.metadata.name}")
         print(f"  Descrição: {skill.metadata.description}")
         print(f"  Compatibilidade: {skill.metadata.compatibility}")
@@ -261,10 +262,10 @@ class SkillManager:
         print(f"\n🎯 Should activate: {skill.should_activate(test_command)}")
         print(f"📈 Match score: {self._calculate_match_score(skill, test_command)}")
         
-        print(f"\n📚 Instruções:")
+        print("\n📚 Instruções:")
         print(skill.get_instructions()[:500] + "...")
     
-    def generate_report(self) -> Dict[str, Any]:
+    def generate_report(self) -> dict[str, Any]:
         """Gera relatório de skills"""
         
         return {
@@ -304,4 +305,4 @@ if __name__ == "__main__":
         if skill:
             print(f"  ✅ Skill: {skill.metadata.name}")
         else:
-            print(f"  ❌ Nenhuma skill encontrada")
+            print("  ❌ Nenhuma skill encontrada")

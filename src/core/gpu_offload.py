@@ -18,10 +18,9 @@ Benchmark GTX 1650 (4GB VRAM):
 Licença: MIT
 """
 
-import subprocess
 import logging
-from typing import Dict, Any, List
-import torch  # Opcional, só se PyTorch estiver instalado
+import subprocess
+from typing import Any
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -79,7 +78,7 @@ class GPUOffload:
         except Exception:
             return 0
     
-    def calculate_offload(self, model_size_gb: float, max_vram_usage_pct: float = 0.8) -> Dict[str, Any]:
+    def calculate_offload(self, model_size_gb: float, max_vram_usage_pct: float = 0.8) -> dict[str, Any]:
         """
         Calcular offload ótimo entre GPU e CPU.
         
@@ -112,7 +111,7 @@ class GPUOffload:
             "vram_available_gb": vram_available
         }
     
-    def get_ollama_config(self, model: str = "qwen2.5:7b") -> Dict[str, str]:
+    def get_ollama_config(self, model: str = "qwen2.5:7b") -> dict[str, str]:
         """
         Obter configuração Ollama para offload.
         

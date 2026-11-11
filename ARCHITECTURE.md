@@ -4,27 +4,45 @@
 
 YBY SEED é um PC Hub local-first para automações e IA. A fase atual é exclusivamente PC-first; mobile e ESP32 são expansões futuras.
 
-## Componentes do núcleo
+## Forma do produto (Camada A)
 
 ```text
 Usuário
   ↓
-CLI yby.py
-  ↓
-RouterAgent
-  ↓
-Planner
-  ↓
-Validation
-  ↓
-Executor
-  ↓
-Skill segura
-  ↓
-Resultado
+yby_seed.py  (fachada)
+  ├─ sem args  → src.app.App.repl()   (chat + /comandos)
+  └─ com args  → src.main.cli (Click) (doctor/setup/test/brief/skills/run/…)
+       ↓
+src/app/kernel.py  (despacho + register_command)
+  ├─ /brief   → BriefingPipeline (Camada B)
+  ├─ /skills  → SkillsLayer discovery (Camada C)
+  ├─ /skill   → dry-run preview (sem execução)
+  ├─ /chat    → modules.llm_brain (LiteLLM)
+  ├─ /status  → settings + LayerRegistry
+  └─ /layers  → A–D
+       ↓
+src/app/pipeline.py  (LayerPlugin protocol)
+  └─ SkillsLayer → SkillManager (skills/*/SKILL.md)
 ```
 
-## Serviços opcionais
+## Camadas
+
+| Camada | Nome | Status |
+|---|---|---|
+| A | Forma (kernel + entrypoint) | ready |
+| B | Briefing revisável | ready |
+| C | Skills dry-run | partial (discovery + preview) |
+| D | Memória local | planned |
+
+## Componentes do núcleo
+
+```text
+RouterAgent → Planner → Validation → Executor → Skill (dry-run)
+                         ↑
+              Camada C esqueleto hoje: discovery + preview; Executor ainda não
+```
+
+## Serviços opcionais (congelados no MVP)
 
 | Serviço | Função | Fase |
 |---|---|---|
@@ -39,3 +57,4 @@ Resultado
 - Um serviço por vez.
 - Automações em dry-run antes de executar.
 - Local-first; nuvem apenas como fallback.
+- Nenhum comando reporta sucesso sem ação verificável.

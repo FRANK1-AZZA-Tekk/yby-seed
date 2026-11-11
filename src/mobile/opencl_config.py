@@ -19,10 +19,9 @@ Requisitos:
 Licença: MIT
 """
 
-import subprocess
-import os
 import logging
-from typing import Dict, Any
+import os
+import subprocess
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -194,7 +193,7 @@ class OpenCLConfig:
         except Exception:
             return 0.0
     
-    def verify(self) -> Dict[str, bool]:
+    def verify(self) -> dict[str, bool]:
         """
         Verificar se OpenCL está configurado.
         

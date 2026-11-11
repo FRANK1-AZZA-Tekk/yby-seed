@@ -14,9 +14,9 @@ Regras Determinísticas:
 Licença: MIT
 """
 
-import re
-from typing import Dict, Any, Tuple, List
 import logging
+import re
+from typing import Any
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,17 +28,25 @@ class GovernanceAgent:
     """
     
     def __init__(self):
-        # Padrões perigosos (regex)
-        self.dangerous_patterns = [
-            r"rm\\s+-rf\\s+/",  # Delete raiz
-            r"DROP\\s+TABLE\\s+",  # Delete DB
-            r"os\\.system\\s*\\(",  # Shell command
-            r"subprocess\\..*shell\\s*=\\s*True",  # Shell injection
-            r"eval\\s*\\(",  # Eval injection
-            r"exec\\s*\\(",  # Exec injection
-            r"__import__\\s*\\(",  # Dynamic import
-            r"open\\s*\\([^)]*['\"]/[\\w/]+['\"]",  # Absolute path access
+        # Padrões perigosos (regex) — escapes simples em raw strings.
+        # Antes: r"os\\.system\\s*\\(" compilava mal / não batia em os.system(.
+        raw_patterns = [
+            r"rm\s+-rf\s+/",  # Delete raiz
+            r"DROP\s+TABLE\s+",  # Delete DB
+            r"os\.system\s*\(",  # Shell command
+            r"subprocess\..*shell\s*=\s*True",  # Shell injection
+            r"eval\s*\(",  # Eval injection
+            r"exec\s*\(",  # Exec injection
+            r"__import__\s*\(",  # Dynamic import
+            r"open\s*\([^)]*['\"]/[\w/]+['\"]",  # Absolute path access
         ]
+        self.dangerous_patterns: list[re.Pattern[str]] = []
+        for pattern in raw_patterns:
+            try:
+                self.dangerous_patterns.append(re.compile(pattern, re.IGNORECASE))
+            except re.error as exc:
+                logger.error("Regex de governança inválida %r: %s", pattern, exc)
+                raise
         
         # Imports permitidos (whitelist)
         self.allowed_imports = [
@@ -61,7 +69,7 @@ class GovernanceAgent:
             "api_write"
         ]
     
-    def check(self, code: str, action: str = "execute") -> Tuple[bool, str]:
+    def check(self, code: str, action: str = "execute") -> tuple[bool, str]:
         """
         Validar código.
         
@@ -76,9 +84,9 @@ class GovernanceAgent:
         
         # 1. Verificar padrões perigosos
         for pattern in self.dangerous_patterns:
-            if re.search(pattern, code):
-                logger.warning(f"❌ Padrão perigoso detectado: {pattern}")
-                return False, f"Código perigoso detectado (padrão: {pattern})"
+            if pattern.search(code):
+                logger.warning("❌ Padrão perigoso detectado: %s", pattern.pattern)
+                return False, f"Código perigoso detectado (padrão: {pattern.pattern})"
         
         # 2. Verificar imports
         imports = self._extract_imports(code)
@@ -96,7 +104,7 @@ class GovernanceAgent:
         logger.info("✅ Código validado")
         return True, "Aprovado"
     
-    def _extract_imports(self, code: str) -> List[str]:
+    def _extract_imports(self, code: str) -> list[str]:
         """
         Extrair imports do código.
         
@@ -127,7 +135,7 @@ class GovernanceAgent:
         
         return imports
     
-    def require_human_approval(self, action: str, context: Dict[str, Any]) -> bool:
+    def require_human_approval(self, action: str, context: dict[str, Any]) -> bool:
         """
         Verificar se ação exige aprovação humana.
         
@@ -151,7 +159,7 @@ class GovernanceAgent:
         
         return False
     
-    def generate_approval_request(self, action: str, code: str, context: Dict[str, Any]) -> str:
+    def generate_approval_request(self, action: str, code: str, context: dict[str, Any]) -> str:
         """
         Gerar solicitação de aprovação humana.
         

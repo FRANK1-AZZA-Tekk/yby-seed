@@ -18,32 +18,42 @@ Otimizações:
 Licença: Apache 2.0
 """
 
-import lancedb
-from datetime import datetime
-from typing import List, Dict, Any, Optional
 import logging
-
-from .config import settings
+from typing import Any
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def safe_device_id(device_id: str) -> str:
+    """Permite apenas IDs alfanuméricos, hífen e underscore (anti injection)."""
+    if not device_id or not all(ch.isalnum() or ch in "-_" for ch in device_id):
+        raise ValueError(f"device_id inválido: {device_id!r}")
+    return device_id
 
 
 class LanceDBClient:
     """
     Cliente LanceDB otimizado para Edge AI (4GB VRAM / 16GB RAM).
     """
-    
+
     def __init__(self, db_path: str, index_cache_size: int = 128):
         """
         Inicializar LanceDB.
-        
+
         Args:
             db_path: Caminho para o diretório do banco
             index_cache_size: Tamanho máximo do cache em MB (evitar OOM)
         """
+        try:
+            import lancedb
+        except ImportError as exc:
+            raise ImportError(
+                "lancedb não instalado. Instale para usar o gateway/RAG (Fase 5+)."
+            ) from exc
+
         logger.info(f"🗄️  Inicializando LanceDB em {db_path}...")
-        
+
         self.db = lancedb.connect(
             uri=db_path,
             index_cache_size=index_cache_size,
@@ -95,7 +105,7 @@ class LanceDBClient:
         else:
             self.vectors_table = self.db.open_table("vectors")
     
-    async def insert_metrics(self, data: Dict[str, Any]):
+    async def insert_metrics(self, data: dict[str, Any]):
         """
         Inserir métricas brutas.
         
@@ -127,7 +137,7 @@ class LanceDBClient:
             logger.error(f"❌ Erro ao inserir métricas: {e}")
             raise
     
-    async def insert_vector(self, data: Dict[str, Any]):
+    async def insert_vector(self, data: dict[str, Any]):
         """
         Inserir embedding vetorial.
         
@@ -158,7 +168,7 @@ class LanceDBClient:
             logger.error(f"❌ Erro ao inserir vetor: {e}")
             raise
     
-    async def insert(self, data: Dict[str, Any]):
+    async def insert(self, data: dict[str, Any]):
         """
         Inserir métricas + vetor (transacional).
         
@@ -186,35 +196,36 @@ class LanceDBClient:
             "metadata": "{\"metrics\": " + str(data["metrics"]) + "}"
         })
     
-    async def get_metrics(self, device_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+    async def get_metrics(self, device_id: str, limit: int = 100) -> list[dict[str, Any]]:
         """
         Recuperar últimas N métricas de um dispositivo.
-        
+
         Args:
             device_id: ID do dispositivo
             limit: Número máximo de métricas
-        
+
         Returns:
             Lista de métricas ordenadas por timestamp (desc)
         """
+        safe_id = safe_device_id(device_id)
         try:
             results = (
                 self.metrics_table
                 .search()
-                .where(f"device_id = '{device_id}'")
+                .where(f"device_id = '{safe_id}'")
                 .order_by("timestamp", order="desc")
                 .limit(limit)
                 .to_list()
             )
             
-            logger.debug(f"✅ Recuperadas {len(results)} métricas de {device_id}")
+            logger.debug(f"✅ Recuperadas {len(results)} métricas de {safe_id}")
             return results
         
         except Exception as e:
             logger.error(f"❌ Erro ao recuperar métricas: {e}")
             raise
     
-    async def search(self, query_vector: List[float], top_k: int = 5) -> List[Dict[str, Any]]:
+    async def search(self, query_vector: list[float], top_k: int = 5) -> list[dict[str, Any]]:
         """
         Buscar vetores similares (RAG).
         

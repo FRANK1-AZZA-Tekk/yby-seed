@@ -7,23 +7,24 @@ Regras:
 - Foco em testes unitários dos agentes e lógica pura.
 """
 
-import pytest
+from __future__ import annotations
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
-
-# ============================================================================
-# FIXTURES GERAIS
-# ============================================================================
+import pytest
 
 
 @pytest.fixture
 def mock_llm_client():
-    """Mock do cliente LLM (Ollama/LiteLLM) para testes unitários."""
-    with patch("src.agents.router_agent.LLMClient") as mock_client:
-        mock_instance = MagicMock()
-        mock_instance.generate = AsyncMock(return_value="mocked response")
-        mock_client.return_value = mock_instance
-        yield mock_instance
+    """Mock genérico de cliente LLM para testes unitários.
+
+    Não faz patch de atributos inexistentes (ex.: LLMClient no RouterAgent).
+    Os testes que precisam de patch específico devem fazê-lo localmente.
+    """
+    mock_instance = MagicMock()
+    mock_instance.generate = AsyncMock(return_value="mocked response")
+    mock_instance.chat = MagicMock(return_value={"message": {"content": "{}"}})
+    yield mock_instance
 
 
 @pytest.fixture
@@ -44,16 +45,13 @@ def mock_lancedb():
     with patch("src.gateway.lancedb_client.lancedb.connect") as mock_connect:
         mock_db = MagicMock()
         mock_table = MagicMock()
-        mock_table.search = MagicMock(return_value=MagicMock(to_list=AsyncMock(return_value=[])))
+        mock_table.search = MagicMock(
+            return_value=MagicMock(to_list=AsyncMock(return_value=[]))
+        )
         mock_table.add = AsyncMock()
         mock_db.open_table = MagicMock(return_value=mock_table)
         mock_connect.return_value = mock_db
         yield mock_db
-
-
-# ============================================================================
-# DADOS DE TESTE
-# ============================================================================
 
 
 @pytest.fixture
@@ -78,13 +76,14 @@ def sample_skill_manifest():
     }
 
 
-# ============================================================================
-# MARCADORES DE TESTE
-# ============================================================================
-
-
 def pytest_configure(config):
     """Registrar marcadores personalizados."""
-    config.addinivalue_line("markers", "skip: marcar teste como skip (integração pendente)")
-    config.addinivalue_line("markers", "unit: teste unitário (sem dependências externas)")
-    config.addinivalue_line("markers", "integration: teste de integração (requer serviços)")
+    config.addinivalue_line(
+        "markers", "skip: marcar teste como skip (integração pendente)"
+    )
+    config.addinivalue_line(
+        "markers", "unit: teste unitário (sem dependências externas)"
+    )
+    config.addinivalue_line(
+        "markers", "integration: teste de integração (requer serviços)"
+    )

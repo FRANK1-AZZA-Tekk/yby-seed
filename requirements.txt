@@ -1,4 +1,5 @@
 # YBY SEED - Dependências Principais
+# Fundação (Passo 1 / Function Over Form): litellm, python-dotenv, paho-mqtt
 
 # Core
 litellm>=1.40.0

@@ -19,10 +19,9 @@ Estratégia:
 Licença: MIT
 """
 
-import subprocess
-import json
 import logging
-from typing import Dict, Any
+import subprocess
+from typing import Any
 
 from .termux_api import termux_api
 
@@ -140,7 +139,7 @@ done
             logger.error(f"❌ Erro ao definir CPU governor: {e}")
             logger.warning("⚠️  Requer root ou kernel com suporte")
     
-    def get_power_stats(self) -> Dict[str, Any]:
+    def get_power_stats(self) -> dict[str, Any]:
         """
         Obter estatísticas de energia.
         
