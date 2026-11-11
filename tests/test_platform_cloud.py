@@ -101,7 +101,7 @@ def test_from_env_le_openrouter_e_grok_aliases() -> None:
     assert config.cache_ttl_seconds == 10.0
 
 
-def test_openrouter_falha_cai_no_grok_http_mock() -> None:
+def test_openrouter_falha_nao_chama_grok_automaticamente() -> None:
     openrouter = CloudProvider(
         "https://openrouter.ai/api/v1",
         api_key="or-key",
@@ -122,10 +122,9 @@ def test_openrouter_falha_cai_no_grok_http_mock() -> None:
         fallback=grok,
         fallback_model="grok-4.7",
     )
-    result = chain.complete_with_meta("pensa mais", system="sys")
-    assert result.text == "via grok"
-    assert result.model == "grok-4.7"
-    assert result.via == "grok"
+    with pytest.raises(ProviderError, match="não é chamada automaticamente"):
+        chain.complete_with_meta("pensa mais", system="sys")
+    assert grok._session.posts == []
 
 
 def test_openrouter_ok_nao_chama_grok() -> None:
@@ -244,7 +243,7 @@ def test_trim_context_corta_longo() -> None:
     assert "truncado" in out
 
 
-def test_conexao_recusada_no_openrouter_tenta_grok() -> None:
+def test_conexao_recusada_no_openrouter_nao_tenta_grok() -> None:
     openrouter = CloudProvider(
         "https://openrouter.ai/api/v1",
         api_key="or-key",
@@ -265,4 +264,5 @@ def test_conexao_recusada_no_openrouter_tenta_grok() -> None:
         fallback=grok,
         fallback_model="grok-4.7",
     )
-    assert chain.complete("pensa mais", model="x", system="s") == "grok ok"
+    with pytest.raises(ProviderError, match="não é chamada automaticamente"):
+        chain.complete("pensa mais", model="x", system="s")

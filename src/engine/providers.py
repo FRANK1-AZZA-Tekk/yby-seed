@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 import requests
+
+DEFAULT_OLLAMA_KEEP_ALIVE = "30m"
+DEFAULT_OLLAMA_NUM_CTX = 4096
 
 
 class ProviderError(Exception):
@@ -40,6 +44,39 @@ class HttpSession(Protocol):
         """Envia um POST e devolve uma resposta com status e JSON."""
 
 
+def _ollama_runtime_tuning() -> tuple[str, int]:
+    """Lê tunables locais do ambiente (sem nuvem)."""
+
+    keep_alive = os.environ.get("OLLAMA_KEEP_ALIVE", DEFAULT_OLLAMA_KEEP_ALIVE).strip()
+    if not keep_alive:
+        keep_alive = DEFAULT_OLLAMA_KEEP_ALIVE
+    raw_ctx = os.environ.get("YBY_OLLAMA_NUM_CTX", str(DEFAULT_OLLAMA_NUM_CTX)).strip()
+    try:
+        num_ctx = int(raw_ctx) if raw_ctx else DEFAULT_OLLAMA_NUM_CTX
+    except ValueError:
+        num_ctx = DEFAULT_OLLAMA_NUM_CTX
+    return keep_alive, num_ctx
+
+
+def build_ollama_generate_payload(
+    prompt: str,
+    *,
+    model: str,
+    system: str,
+) -> dict[str, Any]:
+    """Corpo JSON de `POST /api/generate` com keep_alive e num_ctx."""
+
+    keep_alive, num_ctx = _ollama_runtime_tuning()
+    return {
+        "model": model,
+        "prompt": prompt,
+        "system": system,
+        "stream": False,
+        "keep_alive": keep_alive,
+        "options": {"num_ctx": num_ctx},
+    }
+
+
 class OllamaProvider:
     """Cliente mínimo de `POST /api/generate`."""
 
@@ -59,12 +96,7 @@ class OllamaProvider:
         try:
             response = self._session.post(
                 url,
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "system": system,
-                    "stream": False,
-                },
+                json=build_ollama_generate_payload(prompt, model=model, system=system),
                 timeout=self.timeout,
             )
         except requests.RequestException as exc:
@@ -143,7 +175,11 @@ class CloudResult:
 
 
 class CascadingCloudProvider:
-    """OpenRouter (ou outro primário) e, se falhar, Grok (fallback)."""
+    """Nuvem primária (ex.: OpenRouter). Sem failover automático para Grok (D12).
+
+    Fallback alternativo fica no construtor até a issue #42 (confirmação explícita);
+    não é chamado em `complete_with_meta`.
+    """
 
     def __init__(
         self,
@@ -163,47 +199,31 @@ class CascadingCloudProvider:
         self.fallback_label = fallback_label
 
     def has_credentials(self) -> bool:
-        if self.primary.has_credentials():
-            return True
-        return bool(self.fallback and self.fallback.has_credentials())
+        return self.primary.has_credentials()
 
     def complete(self, prompt: str, *, model: str, system: str) -> str:
-        """Protocolo CloudClient: tenta primário e depois fallback."""
+        """Protocolo CloudClient: apenas o provedor primário."""
 
         return self.complete_with_meta(prompt, system=system).text
 
     def complete_with_meta(self, prompt: str, *, system: str) -> CloudResult:
-        """Tenta o destino primário; em falha, o fallback (Grok)."""
+        """Chama só o destino primário; falha não dispara Grok (confirmação futura #42)."""
 
-        primary_error: ProviderError | None = None
-        if self.primary.has_credentials():
-            try:
-                text = self.primary.complete(
-                    prompt, model=self.primary_model, system=system
-                )
-                return CloudResult(text, self.primary_model, self.primary_label)
-            except ProviderError as exc:
-                primary_error = exc
-        elif self.fallback is None or not self.fallback.has_credentials():
-            raise ProviderError("YBY_CLOUD_API_KEY não está definida.")
-
-        if self.fallback is None or not self.fallback.has_credentials():
-            assert primary_error is not None
-            raise primary_error
-
-        try:
-            text = self.fallback.complete(
-                prompt, model=self.fallback_model, system=system
+        if not self.primary.has_credentials():
+            raise ProviderError(
+                "YBY_CLOUD_API_KEY não está definida. "
+                "Fallback de nuvem exige autorização explícita (issue #42)."
             )
-        except ProviderError as fallback_error:
-            if primary_error is not None:
-                raise ProviderError(
-                    f"{self.primary_label} falhou ({primary_error}); "
-                    f"{self.fallback_label} falhou ({fallback_error})"
-                ) from fallback_error
-            raise fallback_error
-
-        return CloudResult(text, self.fallback_model, self.fallback_label)
+        try:
+            text = self.primary.complete(
+                prompt, model=self.primary_model, system=system
+            )
+        except ProviderError as exc:
+            raise ProviderError(
+                f"{self.primary_label} falhou ({exc}). "
+                "Nuvem alternativa não é chamada automaticamente (D12)."
+            ) from exc
+        return CloudResult(text, self.primary_model, self.primary_label)
 
 
 def _json_object(response: requests.Response, who: str) -> dict[str, Any]:
