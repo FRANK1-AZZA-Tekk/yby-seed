@@ -3,18 +3,23 @@
 YBY SEED - Ponto de Entrada Principal
 
 Uso:
-    python src/main.py
+    python yby.py ask "..."
+    python yby.py run "ls"
+    python yby.py gate "rm arquivo"
 
 Comandos:
-    run     - Inicia o sistema
-    test    - Roda testes rápidos
-    setup   - Configura ambiente
+    ask     - Responde em texto (sem shell)
+    run     - Executa comando após a porta de segurança
+    gate    - Só decide; não executa
+    note    - Grava nota no vault
+    recall  - Busca no vault
 """
 
 import click
 from dotenv import load_dotenv
 from loguru import logger
 
+from src.actions.runner import DEFAULT_TIMEOUT, run_command
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.memory.vault import VaultError, vault_from_env
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
@@ -29,44 +34,56 @@ def cli():
     pass
 
 
-@cli.command()
-def run():
-    """Inicia o sistema YBY SEED"""
-    logger.info("🌱 Iniciando YBY SEED...")
-    
-    # TODO: Implementar inicialização completa
-    # 1. Carrega modelos Ollama
-    # 2. Inicia Node-RED flows
-    # 3. Conecta ao MQTT broker
-    # 4. Inicia TUI (Textual)
-    
-    logger.info("✅ YBY SEED iniciado com sucesso!")
-    logger.info("📌 Acesse http://localhost:1880 (Node-RED)")
+@cli.command(
+    "run",
+    context_settings={"ignore_unknown_options": True, "allow_interspersed_args": False},
+)
+@click.option(
+    "--timeout",
+    default=DEFAULT_TIMEOUT,
+    show_default=True,
+    type=float,
+    help="Segundos máximos do subprocesso.",
+)
+@click.argument("comando", nargs=-1, required=True, type=click.UNPROCESSED)
+def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
+    """Executa um comando só se a porta de segurança permitir.
 
+    Allowlist roda direto. Fora dela, pergunta s/n. Recusa nunca executa.
+    """
 
-@cli.command()
-def test():
-    """Rodar testes rápidos"""
-    logger.info("🧪 Rodando testes...")
-    
-    # TODO: Implementar suite de testes
-    # pytest tests/ -v
-    
-    logger.info("✅ Testes concluídos!")
+    texto = " ".join(comando).strip()
+    if not texto:
+        click.echo('Informe um comando. Exemplo: yby run "ls"', err=True)
+        raise SystemExit(1)
 
+    policy = load_policy(default_policy_path())
+    project_root = default_policy_path().parents[1]
+    result = run_command(
+        texto,
+        policy=policy,
+        project_root=project_root,
+        timeout=timeout,
+        input_fn=lambda: click.prompt("s/n", prompt_suffix=" "),
+        output_fn=click.echo,
+    )
 
-@cli.command()
-def setup():
-    """Configurar ambiente"""
-    logger.info("🛠️  Configurando ambiente...")
-    
-    # TODO: Implementar setup automático
-    # 1. Cria ambiente virtual
-    # 2. Instala dependências
-    # 3. Baixa modelos Ollama
-    # 4. Configura Docker
-    
-    logger.info("✅ Ambiente configurado!")
+    if not result.approved:
+        raise SystemExit(1)
+
+    if result.stdout:
+        click.echo(result.stdout, nl=False)
+        if not result.stdout.endswith("\n"):
+            click.echo()
+    if result.stderr:
+        click.echo(result.stderr, err=True, nl=False)
+        if not result.stderr.endswith("\n"):
+            click.echo(err=True)
+
+    if result.timed_out:
+        click.echo(f"timeout após {timeout:g}s", err=True)
+        raise SystemExit(124)
+    raise SystemExit(0 if result.exit_code == 0 else (result.exit_code or 1))
 
 
 @cli.command()
@@ -95,8 +112,10 @@ def ask(heavy: bool, pergunta: tuple[str, ...]) -> None:
     click.echo(resposta.text)
 
 
-@cli.command()
-@click.argument("comando", nargs=-1, required=True)
+@cli.command(
+    context_settings={"ignore_unknown_options": True, "allow_interspersed_args": False},
+)
+@click.argument("comando", nargs=-1, required=True, type=click.UNPROCESSED)
 def gate(comando: tuple[str, ...]) -> None:
     """Decide se um comando rodaria, pediria confirmação ou seria recusado.
 

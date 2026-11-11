@@ -16,7 +16,7 @@ YBY SEED é o exocórtex pessoal nesse servidor:
 - Conversa primeiro no Ollama, modelo `qwen2.5-coder:3b`.
 - Sobe para a nuvem só em pedido pesado ou explícito. O padrão é Grok (xAI), num endpoint compatível com a API da OpenAI. OpenRouter fica como configuração alternativa.
 - A memória é um vault Obsidian em Markdown, com índice local. `python yby.py note` grava e `python yby.py recall` busca. O Syncthing sincroniza a pasta com o servidor de casa. O `ask` ainda não grava nota sozinho.
-- Comandos de terminal seguem a allowlist em `config/safety-allowlist.txt` (leitura, git, scripts em `scripts/` e `examples/`). O resto pede sim ou não. `python yby.py gate "..."` só decide; não executa.
+- Comandos de terminal seguem a allowlist em `config/safety-allowlist.txt` (leitura, git, scripts em `scripts/` e `examples/`). O resto pede sim ou não. `python yby.py run "..."` passa pela porta e, se permitido, executa com timeout. `python yby.py gate "..."` só decide; não executa.
 - O único modelo local é `qwen2.5-coder:3b`.
 - O gateway HTTP, se for usado, escuta em `127.0.0.1` e exige `GATEWAY_TOKEN`.
 - Código gerado passa pela guarda AST em `src/security/ast_guard.py`.
@@ -51,7 +51,8 @@ O v1 mora neste repositório. O mapa dos outros repositórios está em [docs/REP
 ```text
 yby.py            → comando
 src/engine        → ask
-src/safety        → allowlist, sem executar
+src/safety        → allowlist, decide (não executa)
+src/actions       → executa após a porta
 src/memory        → vault de notas
 src/security      → guarda AST
 tests/            → pytest

@@ -10,6 +10,7 @@ O caminho que o `yby.py` usa hoje:
 |---|---|
 | `src/engine` | `ask`: Ollama local e fallback de nuvem |
 | `src/safety` | decide run, ask ou refuse; não executa |
+| `src/actions` | executa shell só depois da porta permitir |
 | `src/memory` | notas Markdown do vault |
 | `src/security/ast_guard.py` | bloqueia código gerado perigoso |
 | `tests/` | suíte que o CI roda |
