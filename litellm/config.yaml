@@ -3,7 +3,7 @@ model_list:
   # separados e chamados somente após a política de privacidade e consentimento.
   - model_name: yby-local
     litellm_params:
-      model: ollama_chat/qwen2.5-coder:3b-instruct-q4_K_M
+      model: ollama_chat/qwen2.5-coder:3b
       api_base: http://ollama:11434
       timeout: 60
 

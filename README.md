@@ -3,27 +3,28 @@
 [![CI](https://github.com/FRANK1-AZZA-Tekk/yby-seed/actions/workflows/ci.yml/badge.svg)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/FRANK1-AZZA-Tekk/yby-seed/branch/main/graph/badge.svg)](https://codecov.io/gh/FRANK1-AZZA-Tekk/yby-seed)
 
-PC Hub local-first para automações e IA.
+PC Hub local-first para automações e IA. As decisões de 2026-11-11 estão em [DECISIONS.md](DECISIONS.md) e substituem as anteriores no mesmo assunto.
 
 ## Status
 
-Fase atual: **Fase 0 — Consolidação**. Foco exclusivo no PC (Ubuntu 26.04 LTS). Mobile e ESP32 ficam para fases futuras.
+Fase atual: **Fase 0 — Consolidação**. A plataforma decidida é o servidor de casa sempre ligado (o PC Hub, Ubuntu). Mobile e ESP32 ficam para depois.
 
 ## O que é
 
-YBY SEED é um hub central no PC que:
+YBY SEED é o exocórtex pessoal nesse servidor:
 
-- Conversa localmente via Ollama.
-- Executa automações seguras.
-- Organiza e busca documentos.
-- Usa nuvem apenas como fallback.
+- Conversa primeiro no Ollama, modelo `qwen2.5-coder:3b`.
+- Sobe para a nuvem só em pedido pesado ou explícito. O padrão é Grok (xAI), num endpoint compatível com a API da OpenAI. OpenRouter fica como configuração alternativa.
+- A memória decidida é um vault Obsidian em Markdown, com índice vetorial, sincronizado por Syncthing. O `ask` ainda não grava nota.
+- Comandos de terminal seguem a allowlist (leitura, git, scripts da pasta do YBY); o resto pede sim ou não. Essa porta entra no PR de segurança. O `ask` ainda não executa shell.
 
 ## MVP
 
 O MVP funciona sem Docker:
 
 ```text
-yby.py → RouterAgent → Ollama → resposta
+yby.py ask → Ollama (qwen2.5-coder:3b) → resposta
+                ↘ Grok, se o pedido for pesado ou explícito
 ```
 
 ## Início rápido
