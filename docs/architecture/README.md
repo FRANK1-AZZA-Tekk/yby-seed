@@ -1,5 +1,7 @@
 # Arquitetura YBY SEED
 
+> **Histórico.** O caminho ativo do v1 e o checklist de camadas estão em [../REPOS.md](../REPOS.md) e [../../ARCHITECTURE.md](../../ARCHITECTURE.md). Este arquivo descreve o ecossistema amplo (mobile/wearable/7B) e não deve guiar implementação do `ask`.
+
 > Decisão D4 (2026-11-11): o único modelo local é `qwen2.5-coder:3b`. Menções a 7B abaixo são históricas.
 
 > **Status:** v1.0.0  

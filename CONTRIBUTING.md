@@ -2,7 +2,11 @@
 
 Primeiramente, obrigado por considerar contribuir com o YBY SEED! ❤️
 
+**Guia atual do v1 (PC Hub):** [docs/DEV.md](docs/DEV.md) — setup, CLI, variáveis, pastas e testes (`ruff check .` + `pytest -q`). Onde programar e o que *não* mesclar: [docs/REPOS.md](docs/REPOS.md).
+
 Este projeto e todos os participantes são regidos pelo [Código de Conduta](CODE_OF_CONDUCT.md). Ao participar, você deve uphold este código.
+
+> Trechos abaixo sobre `wearable/`, mkdocs e pastas `getting-started/` são históricos. Ignore-os em favor de `docs/DEV.md`.
 
 ## 🚀 Como Contribuir
 
@@ -79,25 +83,14 @@ git push origin feature/minha-feature
 
 ### 5. Testes
 
-**Rodar testes locais:**
+**Rodar testes locais (vigente):**
 
 ```bash
-# Todos os testes
-make test
-
-# Apenas wearable (PlatformIO)
-cd wearable && pio test
-
-# Apenas servidor (Pytest)
-cd tests && pytest -v
-
-# Com coverage
-cd tests && pytest --cov=server --cov-report=html
+ruff check .
+pytest -q
 ```
 
-**CI/CD:**
-- GitHub Actions roda testes automaticamente em PRs
-- Testes devem passar antes de merge
+**CI/CD:** GitHub Actions roda `ruff` e `pytest` em push e pull request.
 
 ### 6. Documentação
 

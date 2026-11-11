@@ -46,25 +46,23 @@ Sem `YBY_CLOUD_API_KEY` (ou `XAI_API_KEY`), a nuvem não é chamada: o comando a
 
 ## Onde programar
 
-O v1 mora neste repositório. O mapa dos outros repositórios está em [docs/REPOS.md](docs/REPOS.md).
+O v1 mora neste repositório. Mapa e checklist de camadas: [docs/REPOS.md](docs/REPOS.md). Como rodar e testar: [docs/DEV.md](docs/DEV.md).
 
 ```text
-yby.py            → comando
-src/engine        → ask
-src/safety        → allowlist, decide (não executa)
-src/actions       → executa após a porta
-src/memory        → vault de notas
-src/security      → guarda AST
-tests/            → pytest
+feito:   yby.py → engine | safety → actions | memory | security/ast_guard
+aberto:  voice (PR #36)
+próximo: Plataforma (servidor de casa / D9) — sem merge de YBY/yby-core/FRANK
 ```
 
-Agentes, RAG e gateway ainda estão em `src/`, fora desse caminho.
+Agentes, RAG e gateway ficam em `src/`, fora desse caminho ([src/README.md](src/README.md)).
 
-Mobile e firmware saíram do v1. Ver [docs/archive/FORA-DO-V1.md](docs/archive/FORA-DO-V1.md).
+Mobile e firmware saíram do v1. Ver [docs/archive/FORA-DO-V1.md](docs/archive/FORA-DO-V1.md). Não programe features do YBY em forks; não coloque segredos no repo.
 
 ## Documentação
 
+- [Índice dos docs](docs/README.md) (ativo vs histórico)
 - [Onde programar](docs/REPOS.md)
+- [Desenvolvimento](docs/DEV.md)
 - [Memória](docs/MEMORY.md)
 - [Arquitetura](ARCHITECTURE.md)
 - [Roadmap](ROADMAP.md)
@@ -72,5 +70,3 @@ Mobile e firmware saíram do v1. Ver [docs/archive/FORA-DO-V1.md](docs/archive/F
 - [Hardware](HARDWARE_SPEC.md)
 - [Model Card](MODEL_CARD.md)
 - [Segurança](SECURITY.md)
-- [Plano PC-first](docs/PLANO-PC-FIRST.md)
-- [Otimizações](docs/OTIMIZACOES.md)
