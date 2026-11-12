@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
 
+from src.yby_seed.agents import mission_progress_queues
 from src.yby_seed.engine import SeedEngine
 from src.yby_seed.forge import vast_router
 from src.yby_seed.models import ForgeDryRunRequest, GenerateRequest, GenerateResponse
@@ -38,7 +39,29 @@ async def telemetry_sse() -> StreamingResponse:
 
 @app.post("/v1/seed/generate", response_model=GenerateResponse)
 async def seed_generate(body: GenerateRequest) -> GenerateResponse:
+    """Vibe Coding via orquestrador multiagente (Architect → Builder → Sandbox → Auditor)."""
     return await _engine.generate(body)
+
+
+@app.get("/v1/seed/missions/{mission_id}/events")
+async def mission_events(mission_id: str) -> StreamingResponse:
+    """SSE de progresso da missão (fila alimentada pelo orquestrador)."""
+
+    async def generator():
+        queue = mission_progress_queues.get(mission_id)
+        if queue is None:
+            yield f"data: {json.dumps({'error': 'mission_not_found'}, ensure_ascii=False)}\n\n"
+            return
+        while True:
+            try:
+                event = await asyncio.wait_for(queue.get(), timeout=120.0)
+            except TimeoutError:
+                break
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            if event.get("phase") in {"success", "failed"}:
+                break
+
+    return StreamingResponse(generator(), media_type="text/event-stream")
 
 
 @app.post("/v1/seed/forge/dry-run")

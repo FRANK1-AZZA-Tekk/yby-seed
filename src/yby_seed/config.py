@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     mqtt_host: str = "127.0.0.1"
     mqtt_port: int = 1883
     mqtt_topic_validated: str = "yby/seed/code/validated"
+    mqtt_topic_agents_trace: str = "yby/seed/agents/trace"
 
     datasets_path: Path = Path("data/datasets/validated_pairs.jsonl")
     models_dir: Path = Path("data/models")
