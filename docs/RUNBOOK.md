@@ -27,3 +27,24 @@ Referência: **Ubuntu 26.04 LTS**, **GTX 1650 4 GB VRAM**, `num_ctx` 4096 no Lit
 ## LiteLLM
 
 Com `yby-seed-coder:latest` registrado, o proxy usa `yby-tuned` em `config/litellm_config.yaml` com fallback para `yby-local` se o modelo afinado não estiver disponível.
+
+## API — hardware, export e economia
+
+Subir API: `make api` (ou `uv run uvicorn src.yby_seed.main:app --host 127.0.0.1 --port 8088`).
+
+| Rota | Uso operacional |
+|---|---|
+| `GET /v1/seed/hardware/ports` | Listar portas seriais no host Ubuntu antes de flash/upload. Preferência `pyserial` (`uv sync --extra hardware`); sem ele, leitura via `/dev/ttyACM*`, `/dev/ttyUSB*`, `/dev/serial/by-id/*` (sysfs). |
+| `POST /v1/seed/export` | Exportar missão validada (`SUCCESS`) para `workspace/exports/`. JSON: `target_board` + `mission` opcional. Embedded → PlatformIO; Python/modbus → `pyproject.toml` + testes. |
+| `GET /v1/seed/export/{archive_name}` | Baixar ZIP gerado pelo POST (nome retornado em `archive_name`). |
+| `GET /v1/seed/stats` | Painel local-first: taxa local vs OpenRouter no ledger, economia estimada, teto mensal $3.50, amostras em `validated_pairs.jsonl`. |
+
+Exemplo rápido após missão OK na UI:
+
+```bash
+curl -sS http://127.0.0.1:8088/v1/seed/stats | jq .
+curl -sS http://127.0.0.1:8088/v1/seed/hardware/ports | jq .
+curl -sS -X POST http://127.0.0.1:8088/v1/seed/export \
+  -H 'Content-Type: application/json' \
+  -d '{"target_board":"esp32_s3_devkitc1"}' | jq .
+```

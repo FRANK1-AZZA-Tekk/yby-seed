@@ -70,6 +70,15 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 
 O CLI legado (`yby.py ask`) ainda usa `src/engine/` direto; o núcleo **Vibe Coding** usa LiteLLM em `src/yby_seed/`.
 
+## API HTTP (`/v1/seed`, porta 8088)
+
+| Rota | Contrato |
+|---|---|
+| `GET /v1/seed/hardware/ports` | Resposta `{"devices": [{"path", "label", "chipset", "suggested_board"?}]}`. Varredura em thread (`asyncio.to_thread`): `pyserial` se instalado (`hardware` extra), senão sysfs/glob em `/dev/ttyACM*`, `/dev/ttyUSB*`, `/dev/serial/by-id/*`. |
+| `POST /v1/seed/export` | Body `{"target_board"?: "esp32_s3_devkitc1", "mission"?: <MissionState>}`. Usa última missão `SUCCESS` se `mission` omitido. `409` sem missão; `400` se não exportável. Resposta `export_path`, `archive_name`, `download_url`. Grava em `workspace/exports/`; domínios embedded (`esp_idf`, `lvgl_v9`) → PlatformIO (`platformio.ini`, `pinout_manifest.h`, `WIRING.md`); `python_fastapi` / `modbus_rtu` → bundle Python. |
+| `GET /v1/seed/export/{archive_name}` | ZIP (`application/zip`). `400` se `..` ou `/` no nome; `404` se arquivo ausente em `workspace/exports/`. |
+| `GET /v1/seed/stats` | Métricas do `mission_ledger` (PG ou fallback memória): `total_missions`, `local_missions`, `cloud_missions`, percentuais, `estimated_savings_usd`, `ledger_cloud_cost_usd`, gasto OpenRouter (`monthly_spend_usd`) vs `budget_cap_usd` (padrão $3.50), `budget_remaining_usd`, `validated_pairs` (`data/datasets/validated_pairs.jsonl`), `gpu_profile` (`GTX 1650 (local-first)`). |
+
 ## Módulos `src.yby_seed` (uv)
 
 | Módulo | Comando |
