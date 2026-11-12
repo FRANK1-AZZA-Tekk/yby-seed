@@ -3,51 +3,72 @@
 from __future__ import annotations
 
 import asyncio
-import os
-from functools import partial
+import logging
+from typing import Any
 
-import psycopg
-from openai import OpenAI
+from psycopg import AsyncConnection
 
-from src.yby_seed.config import get_settings
+from src.yby_seed.config import Settings, get_settings
+from src.yby_seed.runtime import resources
+
+logger = logging.getLogger(__name__)
 
 EMBED_MODEL = "nomic-embed-text"
 
+_SQL = """
+    SELECT content, domain, source_file
+    FROM knowledge_chunks
+    WHERE (%s::text IS NULL OR domain = %s)
+    ORDER BY embedding <=> %s::vector
+    LIMIT %s
+"""
 
-def _database_url() -> str:
-    dsn = os.environ.get("YBY_DATABASE_URL", "").strip()
-    if dsn:
-        return dsn
-    password = os.environ.get("POSTGRES_PASSWORD", "yby_local_dev")
-    return f"postgresql://yby:{password}@127.0.0.1:5432/yby_brain"
+
+def _embed_query(query: str, settings: Settings) -> list[float]:
+    client = resources.build_openai_client(settings)
+    response = client.embeddings.create(model=EMBED_MODEL, input=query)
+    return response.data[0].embedding
 
 
-def _fetch_sync(query: str, domain: str | None, top_k: int) -> str:
-    settings = get_settings()
-    client = OpenAI(base_url=settings.litellm_base_url, api_key=settings.litellm_api_key)
-    vector = client.embeddings.create(model=EMBED_MODEL, input=query).data[0].embedding
-
-    sql = """
-        SELECT content, domain, source_file
-        FROM knowledge_chunks
-        WHERE (%s::text IS NULL OR domain = %s)
-        ORDER BY embedding <=> %s::vector
-        LIMIT %s
-    """
+def _format_rows(rows: list[tuple[Any, ...]]) -> str:
     lines: list[str] = []
-    try:
-        with psycopg.connect(_database_url()) as conn:
-            rows = conn.execute(sql, (domain, domain, vector, top_k)).fetchall()
-    except Exception:
-        return ""
-
     for content, dom, source in rows:
         header = f"[{dom}:{source}]"
         lines.append(f"{header}\n{content}")
     return "\n\n---\n\n".join(lines)
 
 
+async def _query_vectors(
+    conn: AsyncConnection,
+    domain: str | None,
+    vector: list[float],
+    top_k: int,
+) -> list[tuple[Any, ...]]:
+    async with conn.cursor() as cur:
+        await cur.execute(_SQL, (domain, domain, vector, top_k))
+        return await cur.fetchall()
+
+
 async def fetch_context(query: str, domain: str | None = None, top_k: int = 4) -> str:
     """Busca trechos relevantes para injeção no prompt do engine."""
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, partial(_fetch_sync, query, domain, top_k))
+    settings = get_settings()
+    try:
+        vector = await asyncio.to_thread(_embed_query, query, settings)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("embedding indisponível: %s", exc)
+        return ""
+
+    pool = resources.get_pg_pool()
+    try:
+        if pool is not None:
+            async with pool.connection() as conn:
+                rows = await _query_vectors(conn, domain, vector, top_k)
+        else:
+            dsn = resources.database_url(settings)
+            async with await AsyncConnection.connect(dsn) as conn:
+                rows = await _query_vectors(conn, domain, vector, top_k)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("consulta pgvector falhou: %s", exc)
+        return ""
+
+    return _format_rows(rows)

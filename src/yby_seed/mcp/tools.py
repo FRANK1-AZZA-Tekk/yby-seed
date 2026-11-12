@@ -14,7 +14,8 @@ from openai import OpenAI
 
 from src.yby_seed.config import Settings, get_settings
 from src.yby_seed.forge import vast_router
-from src.yby_seed.memory.retriever import EMBED_MODEL, _database_url
+from src.yby_seed.memory.retriever import EMBED_MODEL
+from src.yby_seed.runtime import resources
 from src.yby_seed.telemetry import read_gpu_stats
 
 AUDIT_PATH = Path("data/mcp/audit.jsonl")
@@ -83,7 +84,7 @@ async def search_knowledge_base(query: str, domain: str | None = None) -> dict[s
     """
     chunks: list[dict[str, str]] = []
     try:
-        with psycopg.connect(_database_url()) as conn:
+        with psycopg.connect(resources.database_url()) as conn:
             rows = conn.execute(sql, (domain, domain, vector)).fetchall()
             for source_file, dom, content in rows:
                 chunks.append(
