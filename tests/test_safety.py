@@ -63,12 +63,15 @@ def test_fora_da_allowlist_pede_confirmacao(tmp_path: Path) -> None:
     assert any("s/n" in line for line in said)
 
     said.clear()
-    assert confirm(
-        "rm arquivo.txt",
-        decision,
-        input_fn=lambda: "não",
-        output_fn=said.append,
-    ) is False
+    assert (
+        confirm(
+            "rm arquivo.txt",
+            decision,
+            input_fn=lambda: "não",
+            output_fn=said.append,
+        )
+        is False
+    )
 
 
 def test_destrutivo_e_recusado_sem_perguntar(tmp_path: Path) -> None:

@@ -17,9 +17,9 @@ Otimizações:
 Licença: MIT
 """
 
-import os
-from typing import Dict, Any, List
 import logging
+import os
+from typing import Any, Dict, List
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class LearningAgent:
     """
     Agente de aprendizado contínuo.
     """
-    
+
     def __init__(self, db_url: str | None = None):
         """
         Inicializar agente.
@@ -59,12 +59,12 @@ class LearningAgent:
 
         self.conn = psycopg2.connect(self.db_url)
         register_vector(self.conn)
-        
+
         # Criar tabelas
         self._create_tables()
-        
+
         logger.info("✅ PostgreSQL conectado")
-    
+
     def _create_tables(self):
         """Criar tabelas se não existirem"""
         with self.conn.cursor() as cur:
@@ -81,7 +81,7 @@ class LearningAgent:
                     embedding vector(384)
                 )
             """)
-            
+
             # Tabela de crenças (Bayesian Teaching)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS beliefs (
@@ -93,7 +93,7 @@ class LearningAgent:
                     updated_at TIMESTAMPTZ DEFAULT NOW()
                 )
             """)
-            
+
             # Índice para busca vetorial
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_executions_embedding
@@ -101,13 +101,15 @@ class LearningAgent:
                 USING ivfflat (embedding vector_cosine_ops)
                 WITH (lists = 100)
             """)
-            
+
             self.conn.commit()
-    
-    def log_execution(self, intent: str, slots: Dict, code: str, result: Dict, feedback: str = None):
+
+    def log_execution(
+        self, intent: str, slots: Dict, code: str, result: Dict, feedback: str = None
+    ):
         """
         Logar execução.
-        
+
         Args:
             intent: Intenção (ex: backup_automation)
             slots: Slots preenchidos
@@ -117,103 +119,117 @@ class LearningAgent:
         """
         self._ensure()
         logger.info(f"Logando execução: {intent}")
-        
+
         # Gerar embedding da execução
         embedding = self._generate_embedding(f"{intent} {slots} {code}")
-        
+
         with self.conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO executions (intent, slots, code, result, feedback, embedding)
                 VALUES (%s, %s, %s, %s, %s, %s)
-            """, (intent, slots, code, result, feedback, embedding))
-            
+            """,
+                (intent, slots, code, result, feedback, embedding),
+            )
+
             self.conn.commit()
-        
+
         logger.info("✅ Execução logada")
-    
+
     def learn_from_feedback(self, execution_id: int, feedback: str):
         """
         Aprender com feedback do usuário.
-        
+
         Args:
             execution_id: ID da execução
             feedback: Feedback (success, error, neutral)
         """
         self._ensure()
         logger.info(f"Aprendendo com feedback: {feedback}")
-        
+
         # Atualizar feedback
         with self.conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 UPDATE executions
                 SET feedback = %s
                 WHERE id = %s
-            """, (feedback, execution_id))
-            
+            """,
+                (feedback, execution_id),
+            )
+
             self.conn.commit()
-        
+
         # Bayesian update
         self._bayesian_update(execution_id, feedback)
-        
+
         logger.info("✅ Feedback aprendido")
-    
+
     def _bayesian_update(self, execution_id: int, feedback: str):
         """
         Atualizar crenças com Bayesian Teaching.
-        
+
         Args:
             execution_id: ID da execução
             feedback: Feedback (success, error)
         """
         # Obter execução
         with self.conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT intent, slots, result
                 FROM executions
                 WHERE id = %s
-            """, (execution_id,))
-            
+            """,
+                (execution_id,),
+            )
+
             row = cur.fetchone()
             intent, slots, result = row
-        
+
         # Calcular likelihood (probabilidade do feedback dado a crença)
         likelihood = 0.9 if feedback == "success" else 0.1
-        
+
         # Obter crença anterior (prior)
         prior = self._get_belief(f"intent_{intent}")
-        
+
         # Calcular posterior (Bayes)
         posterior = (likelihood * prior) / ((likelihood * prior) + ((1 - likelihood) * (1 - prior)))
-        
+
         # Atualizar crença
         self._update_belief(f"intent_{intent}", prior, likelihood, posterior)
-        
-        logger.info(f"✅ Bayesian update: {intent} (prior={prior:.2f}, likelihood={likelihood:.2f}, posterior={posterior:.2f})")
-    
+
+        logger.info(
+            f"✅ Bayesian update: {intent} (prior={prior:.2f}, likelihood={likelihood:.2f}, posterior={posterior:.2f})"
+        )
+
     def _get_belief(self, key: str) -> float:
         """
         Obter crença (prior).
-        
+
         Args:
             key: Chave da crença
-        
+
         Returns:
             Valor do prior (0.0-1.0)
         """
         with self.conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT prior
                 FROM beliefs
                 WHERE key = %s
-            """, (key,))
-            
+            """,
+                (key,),
+            )
+
             row = cur.fetchone()
             return row[0] if row else 0.5  # Default: 0.5 (incerteza)
-    
+
     def _update_belief(self, key: str, prior: float, likelihood: float, posterior: float):
         """
         Atualizar crença.
-        
+
         Args:
             key: Chave da crença
             prior: Prior anterior
@@ -221,7 +237,8 @@ class LearningAgent:
             posterior: Posterior calculado
         """
         with self.conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO beliefs (key, prior, likelihood, posterior)
                 VALUES (%s, %s, %s, %s)
                 ON CONFLICT (key)
@@ -230,95 +247,104 @@ class LearningAgent:
                     likelihood = EXCLUDED.likelihood,
                     posterior = EXCLUDED.posterior,
                     updated_at = NOW()
-            """, (key, prior, likelihood, posterior))
-            
+            """,
+                (key, prior, likelihood, posterior),
+            )
+
             self.conn.commit()
-    
+
     def suggest_improvements(self, limit: int = 5) -> List[Dict[str, Any]]:
         """
         Sugerir melhorias baseado em erros.
-        
+
         Args:
             limit: Número máximo de sugestões
-        
+
         Returns:
             Lista de sugestões
         """
         self._ensure()
         logger.info(f"Sugerindo melhorias (top {limit})...")
-        
+
         with self.conn.cursor() as cur:
             # Buscar execuções com erro
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT intent, slots, code, result
                 FROM executions
                 WHERE feedback = 'error'
                 ORDER BY timestamp DESC
                 LIMIT %s
-            """, (limit,))
-            
+            """,
+                (limit,),
+            )
+
             errors = cur.fetchall()
-            
+
             # Gerar sugestões
             suggestions = []
-            
+
             for intent, slots, code, result in errors:
                 suggestion = self._generate_suggestion(intent, slots, code, result)
                 suggestions.append(suggestion)
-            
+
             logger.info(f"✅ {len(suggestions)} sugestões geradas")
             return suggestions
-    
-    def _generate_suggestion(self, intent: str, slots: Dict, code: str, result: Dict) -> Dict[str, Any]:
+
+    def _generate_suggestion(
+        self, intent: str, slots: Dict, code: str, result: Dict
+    ) -> Dict[str, Any]:
         """
         Gerar sugestão de melhoria.
-        
+
         Args:
             intent: Intenção
             slots: Slots
             code: Código
             result: Resultado com erro
-        
+
         Returns:
             Sugestão
         """
         # Analisar erro
         error_message = result.get("error", "Unknown error")
-        
+
         # Gerar sugestão baseada no erro
         if "timeout" in error_message.lower():
             suggestion = f"Aumentar timeout para {intent} (atual: 30s, sugerido: 60s)"
-        
+
         elif "memory" in error_message.lower():
-            suggestion = f"Otimizar uso de memória em {intent} (reduzir batch size, usar generators)"
-        
+            suggestion = (
+                f"Otimizar uso de memória em {intent} (reduzir batch size, usar generators)"
+            )
+
         elif "permission" in error_message.lower():
             suggestion = f"Verificar permissões para {intent} (chmod, chown, sudo)"
-        
+
         else:
             suggestion = f"Revisar código de {intent}: {error_message[:100]}"
-        
+
         return {
             "intent": intent,
             "error": error_message,
             "suggestion": suggestion,
-            "priority": "high" if "timeout" in error_message.lower() else "medium"
+            "priority": "high" if "timeout" in error_message.lower() else "medium",
         }
-    
+
     def _generate_embedding(self, text: str) -> List[float]:
         """
         Gerar embedding (modelo local via Ollama).
-        
+
         Args:
             text: Texto para embedar
-        
+
         Returns:
             Vetor de 384 dimensões
         """
         # TODO: Implementar com Ollama embeddings
         # Por enquanto, retornar vetor dummy
         return [0.0] * 384
-    
+
     def close(self):
         """Fechar conexão"""
         if self.conn:
@@ -337,18 +363,18 @@ if __name__ == "__main__":
         slots={"source": "/home/user/docs", "dest": "/backup"},
         code="import zipfile; ...",
         result={"success": True},
-        feedback="success"
+        feedback="success",
     )
-    
+
     # Aprender com feedback
     learning_agent.learn_from_feedback(execution_id=1, feedback="success")
-    
+
     # Sugerir melhorias
     suggestions = learning_agent.suggest_improvements(limit=5)
-    
+
     print(f"\n🧠 Sugestões ({len(suggestions)}):")
     for s in suggestions:
         print(f"- {s['suggestion']}")
-    
+
     # Fechar
     learning_agent.close()

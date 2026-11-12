@@ -78,57 +78,61 @@ BACKUP_FOLDER = "/caminho/backup"
 BACKUP_PREFIX = "backup"
 MAX_BACKUPS = 7  # Manter últimos 7 backups
 
+
 def create_backup():
     """Cria backup ZIP"""
-    
+
     # Gera nome com timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_name = f"{BACKUP_PREFIX}_{timestamp}.zip"
     backup_path = Path(BACKUP_FOLDER) / backup_name
-    
+
     # Cria pasta de backup se não existir
     Path(BACKUP_FOLDER).mkdir(parents=True, exist_ok=True)
-    
+
     # Compacta arquivos
     print(f"📦 Criando backup: {backup_path}")
-    
-    with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+
+    with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zipf:
         for file in Path(SOURCE_FOLDER).glob("**/*"):
             if file.is_file():
                 arcname = file.relative_to(SOURCE_FOLDER)
                 zipf.write(file, arcname)
-    
+
     print(f"✅ Backup criado: {backup_path.name}")
-    
+
     # Rotação de backups
     rotate_backups()
 
+
 def rotate_backups():
     """Mantém apenas últimos N backups"""
-    
+
     backups = sorted(Path(BACKUP_FOLDER).glob(f"{BACKUP_PREFIX}_*.zip"))
-    
+
     if len(backups) > MAX_BACKUPS:
         # Remove backups antigos
         for old_backup in backups[:-MAX_BACKUPS]:
             old_backup.unlink()
             print(f"🗑️  Backup antigo removido: {old_backup.name}")
 
+
 def schedule_backup():
     """Agenda backup"""
-    
+
     schedule.every().day.at("23:00").do(create_backup)
-    
+
     print("🕒 Backup agendado para 23:00 diariamente")
-    
+
     while True:
         schedule.run_pending()
         time.sleep(60)
 
+
 if __name__ == "__main__":
     # Backup imediato
     create_backup()
-    
+
     # Agendar backups futuros
     schedule_backup()
 ```

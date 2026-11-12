@@ -77,11 +77,7 @@ from src.agents.execution_agent import ExecutionAgent
 
 agent = ExecutionAgent(model="qwen2.5:7b")
 
-code = agent.generate(
-    prd=result.prd,
-    context=rag_chunks,
-    skill_template="backup-automation"
-)
+code = agent.generate(prd=result.prd, context=rag_chunks, skill_template="backup-automation")
 # → Código Python completo com imports, funções, main
 ```
 
@@ -106,10 +102,7 @@ from src.agents.validation_agent import ValidationAgent
 
 agent = ValidationAgent()
 
-is_valid, errors = agent.validate(
-    code=generated_code,
-    prd=result.prd
-)
+is_valid, errors = agent.validate(code=generated_code, prd=result.prd)
 # → (True, []) ou (False, ["Erro: função main não encontrada"])
 ```
 
@@ -126,9 +119,9 @@ is_valid, errors = agent.validate(
 
 ```python
 DANGEROUS_PATTERNS = [
-    r"rm\s+-rf\s+/",          # Delete raiz
-    r"DROP\s+TABLE\s+",       # Delete DB
-    r"os\.system\s*\(",      # Shell command
+    r"rm\s+-rf\s+/",  # Delete raiz
+    r"DROP\s+TABLE\s+",  # Delete DB
+    r"os\.system\s*\(",  # Shell command
     r"subprocess\..*shell\s*=\s*True",  # Shell injection
 ]
 ```
@@ -140,10 +133,7 @@ from src.agents.governance_agent import GovernanceAgent
 
 agent = GovernanceAgent()
 
-is_allowed, reason = agent.check(
-    code=generated_code,
-    action="execute"
-)
+is_allowed, reason = agent.check(code=generated_code, action="execute")
 # → (True, "Aprovado") ou (False, "Código perigoso detectado")
 ```
 
@@ -171,14 +161,11 @@ agent.log_execution(
     intent="backup_automation",
     code=generated_code,
     result=execution_result,
-    user_feedback="success"
+    user_feedback="success",
 )
 
 # Aprende com erro:
-agent.learn_from_mistake(
-    error="Timeout após 30s",
-    fix="Aumentar timeout para 60s"
-)
+agent.learn_from_mistake(error="Timeout após 30s", fix="Aumentar timeout para 60s")
 ```
 
 ---

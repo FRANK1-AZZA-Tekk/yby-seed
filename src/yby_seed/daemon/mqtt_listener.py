@@ -18,9 +18,13 @@ logger = logging.getLogger(__name__)
 
 
 class MqttAutonomyWorker:
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        engine: SeedEngine | None = None,
+    ) -> None:
         self.settings = settings or get_settings()
-        self._engine = SeedEngine(self.settings)
+        self._engine = engine or SeedEngine(self.settings)
         self._queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
         self._task: asyncio.Task[None] | None = None
         self._client: mqtt.Client | None = None

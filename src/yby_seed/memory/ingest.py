@@ -18,9 +18,14 @@ from src.yby_seed.memory.chunking import iter_semantic_chunks
 EMBED_MODEL = "nomic-embed-text"
 
 
-def _file_hash(path: Path) -> str:
+def _file_hash(path: Path, chunk_bytes: int = 1_048_576) -> str:
     h = hashlib.sha256()
-    h.update(path.read_bytes())
+    with path.open("rb") as handle:
+        while True:
+            block = handle.read(chunk_bytes)
+            if not block:
+                break
+            h.update(block)
     return h.hexdigest()
 
 

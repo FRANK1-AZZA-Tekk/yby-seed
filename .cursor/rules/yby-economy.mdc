@@ -7,7 +7,7 @@ alwaysApply: true
 # Economia de execução
 
 - Priorize execução local e o menor escopo funcional.
-- Use Ollama e `qwen2.5-coder:3b` como padrão.
+- Use Ollama local `qwen2.5-coder:7b-instruct-q4_K_M` (Q4, 4 GB VRAM) com **uma inferência por vez** (`gpu_gate`).
 - Não explore o repositório além dos arquivos da tarefa.
 - Não refatore, documente ou crie dependências sem aprovação.
 - Use nuvem apenas se a tarefa exigir ou se o usuário autorizar.
@@ -15,4 +15,5 @@ alwaysApply: true
 - Respeite D12: local primeiro; nuvem sob demanda.
 - Respeite D13: voz em nuvem via Grok/xAI é opcional e futura.
 - Entregue diff mínimo, testes e próximo passo.
-- Não use modelos 7B ou maiores no v1, salvo decisão explícita.
+- LiteLLM: só `./config/litellm_config.yaml`, cache Redis `ttl: 86400`, `max_budget: 3.50` / `30d` OpenRouter.
+- Vast.ai: respeitar `--max-usd` (teto mensal ~R$ 50 documentado pelo operador).

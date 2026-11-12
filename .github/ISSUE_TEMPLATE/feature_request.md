@@ -28,7 +28,7 @@ Como esta feature seria usada? Dê um exemplo concreto.
 # Usuário fala: "Crie um alerta se temperatura > 80"
 # Sistema gera:
 if temperature > 80:
-    mqtt_publish('yby/alert', {'message': 'Temperatura elevada!'})
+    mqtt_publish("yby/alert", {"message": "Temperatura elevada!"})
 ```
 
 **Impacto**

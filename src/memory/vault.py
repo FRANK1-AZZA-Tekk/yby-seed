@@ -58,11 +58,7 @@ class Vault:
     def search(self, query: str, k: int = 3) -> list[Hit]:
         index = self._load_index()
         query_vector = _vector(query)
-        scored = [
-            Hit(name, _dot(query_vector, vector))
-            for name, vector in index.items()
-            if vector
-        ]
+        scored = [Hit(name, _dot(query_vector, vector)) for name, vector in index.items() if vector]
         scored.sort(key=lambda hit: hit.score, reverse=True)
         return [hit for hit in scored[:k] if hit.score > 0]
 

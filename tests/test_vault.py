@@ -6,7 +6,6 @@ import pytest
 from click.testing import CliRunner
 
 from src.agents.learning_agent import LearningAgent
-from src.core.auto_cleanup import AutoCleanup
 from src.main import cli
 from src.memory.vault import Vault, VaultError
 
@@ -39,10 +38,8 @@ def test_cli_grava_no_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 def test_agentes_nao_trazem_senha(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("YBY_DATABASE_URL", raising=False)
     agent = LearningAgent()
-    cleanup = AutoCleanup()
     assert agent.db_url == ""
     assert agent.conn is None
-    assert cleanup.db_url == ""
     with pytest.raises(RuntimeError, match="YBY_DATABASE_URL"):
         agent.log_execution("x", {}, "print(1)", {})
 

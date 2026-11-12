@@ -92,17 +92,18 @@ from tree_sitter import Parser
 parser = Parser()
 parser.set_language(tspython.language())
 
+
 def ast_chunk(code: str, max_tokens: int = 512):
     tree = parser.parse(bytes(code, "utf8"))
     chunks = []
-    
+
     # Percorre árvore AST e fatia em funções/classes completas
     for node in tree.root_node.children:
         if node.type == "function_definition":
-            chunk = code[node.start_byte:node.end_byte]
+            chunk = code[node.start_byte : node.end_byte]
             if len(chunk.split()) <= max_tokens:
                 chunks.append(chunk)
-    
+
     return chunks
 ```
 

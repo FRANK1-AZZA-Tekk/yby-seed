@@ -11,6 +11,7 @@ dependencies = [
     "docker>=7.1.0",
     "paho-mqtt>=2.1.0",
     "psycopg[binary]>=3.2.0",
+    "psycopg-pool>=3.2.0",
     "pgvector>=0.3.6",
     "pydantic-settings>=2.6.0",
     "httpx>=0.28.0",

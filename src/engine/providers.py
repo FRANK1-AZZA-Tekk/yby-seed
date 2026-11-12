@@ -215,9 +215,7 @@ class CascadingCloudProvider:
                 "Fallback de nuvem exige autorização explícita (issue #42)."
             )
         try:
-            text = self.primary.complete(
-                prompt, model=self.primary_model, system=system
-            )
+            text = self.primary.complete(prompt, model=self.primary_model, system=system)
         except ProviderError as exc:
             raise ProviderError(
                 f"{self.primary_label} falhou ({exc}). "

@@ -33,7 +33,7 @@ def test_runtime_getattr_system_falha(sandbox: SandboxExecutor) -> None:
 
 
 def test_runtime_codigo_seguro_math_json(sandbox: SandboxExecutor) -> None:
-    code = "import math\nimport json\nprint(math.sqrt(4))\nprint(json.dumps({\"ok\": 1}))\n"
+    code = 'import math\nimport json\nprint(math.sqrt(4))\nprint(json.dumps({"ok": 1}))\n'
     result = sandbox.execute(code)
     assert result["success"] is True, result
     assert "2.0" in result["stdout"]
@@ -41,10 +41,7 @@ def test_runtime_codigo_seguro_math_json(sandbox: SandboxExecutor) -> None:
 
 
 def test_runtime_ofuscacao_chr_getattr_falha(sandbox: SandboxExecutor) -> None:
-    code = (
-        "name = chr(101)+chr(118)+chr(97)+chr(108)\n"
-        "getattr(__builtins__, name)(\"1+1\")\n"
-    )
+    code = 'name = chr(101)+chr(118)+chr(97)+chr(108)\ngetattr(__builtins__, name)("1+1")\n'
     result = sandbox.execute(code)
     assert result["success"] is False
 

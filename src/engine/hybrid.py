@@ -7,10 +7,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-from src.engine.budget import CloudBudget, CODE_BLOCKED_BUDGET, CODE_BLOCKED_LOCAL_ONLY, CODE_BLOCKED_NO_TTY
+from src.engine.budget import (
+    CODE_BLOCKED_BUDGET,
+    CODE_BLOCKED_LOCAL_ONLY,
+    CODE_BLOCKED_NO_TTY,
+    CloudBudget,
+)
 from src.engine.cache import ResponseCache
 from src.engine.cloud_usage_log import (
-    CloudUsageLog,
     EVENT_BLOCKED_BUDGET,
     EVENT_BLOCKED_LOCAL_ONLY,
     EVENT_BLOCKED_NO_TTY,
@@ -19,6 +23,7 @@ from src.engine.cloud_usage_log import (
     EVENT_CONFIRMED,
     EVENT_FAILED,
     EVENT_REQUESTED,
+    CloudUsageLog,
     utc_timestamp,
 )
 from src.engine.config import EngineConfig
@@ -82,9 +87,7 @@ class HybridEngine:
             self.has_tty_fn = has_tty_fn or (lambda: True)
         else:
             self.confirm_fn = confirm_fn
-            self.has_tty_fn = has_tty_fn or (
-                lambda: sys.stdin.isatty() and sys.stdout.isatty()
-            )
+            self.has_tty_fn = has_tty_fn or (lambda: sys.stdin.isatty() and sys.stdout.isatty())
         self._cloud_session_confirmed = False
 
     def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
@@ -180,9 +183,7 @@ class HybridEngine:
         decision: RouteDecision,
         why: str,
     ) -> EngineReply:
-        prefix = (
-            f"Pedido encaminhado à nuvem ({why}). YBY_CLOUD_API_KEY não está definida."
-        )
+        prefix = f"Pedido encaminhado à nuvem ({why}). YBY_CLOUD_API_KEY não está definida."
         try:
             text = self.ollama.complete(prompt, model=self.config.local_model, system=SYSTEM_PROMPT)
         except ProviderError as local_error:
@@ -274,9 +275,7 @@ class HybridEngine:
 
         needs_confirm = self.budget.require_confirm and not self._cloud_session_confirmed
         if needs_confirm:
-            question = (
-                "Este pedido pode usar nuvem (tokens/custo). Confirmar? [s/n]"
-            )
+            question = "Este pedido pode usar nuvem (tokens/custo). Confirmar? [s/n]"
             if not self.confirm_fn(question):
                 self.cloud_log.append(
                     {

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from src.yby_seed.config import Settings, get_settings
+from src.yby_seed.runtime import resources
 from src.yby_seed.sandbox.hardware_linter import analyze_hardware
 from src.yby_seed.sandbox.runners import select_runner
 
@@ -37,13 +38,11 @@ def _run_docker(
 ) -> tuple[bool, str, str]:
     try:
         from docker.errors import DockerException
-
-        import docker
     except ImportError:
         return False, "", "pacote docker não instalado"
 
     try:
-        client = docker.from_env()
+        client = resources.get_docker_client_sync()
     except DockerException as exc:
         return False, "", f"falha ao conectar ao Docker: {exc}"
 

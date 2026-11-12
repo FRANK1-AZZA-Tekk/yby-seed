@@ -88,6 +88,6 @@ model_list:
 
 ## Próximos passos
 
-1. Configurar `litellm_config.yaml` com os 4 níveis, fallback e budget diário.
+1. Configurar `config/litellm_config.yaml` com os 4 níveis, fallback e budget de 30 dias (`max_budget: 3.50`).
 2. Mapear os modelos `:free` atuais por agente do crew (pesquisador, revisor, implementador).
 3. Criar protocolo de sessão econômica (template de CLAUDE.md + estrutura de prompt otimizada para cache).

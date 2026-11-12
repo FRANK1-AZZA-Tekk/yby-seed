@@ -77,12 +77,7 @@ class CloudBudget:
                 CODE_BLOCKED_BUDGET,
             )
 
-        if (
-            requires_confirmation
-            and self.require_confirm
-            and not has_tty
-            and not self.allow_no_tty
-        ):
+        if requires_confirmation and self.require_confirm and not has_tty and not self.allow_no_tty:
             return BudgetEvaluation(
                 False,
                 "Confirmação de nuvem exige TTY (stdin/stdout interativo).",

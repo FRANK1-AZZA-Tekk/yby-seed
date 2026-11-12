@@ -76,11 +76,13 @@ def test_gera_prd(planner, ollama_mock):
 
 def test_modos_definem_max_perguntas(planner, ollama_mock, monkeypatch):
     """Modo basic deve limitar a 2 perguntas na entrevista."""
-    respostas = iter([
-        "Primeira pergunta?",
-        "FINALIZAR",
-        "# PRD: Teste\n",
-    ])
+    respostas = iter(
+        [
+            "Primeira pergunta?",
+            "FINALIZAR",
+            "# PRD: Teste\n",
+        ]
+    )
     ollama_mock.generate.side_effect = lambda **kwargs: next(respostas)
 
     monkeypatch.setattr("builtins.input", lambda _: "resposta do usuário")

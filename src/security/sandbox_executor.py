@@ -14,8 +14,8 @@ import os
 import resource
 import signal
 import subprocess
-import textwrap
 import tempfile
+import textwrap
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -26,45 +26,60 @@ from src.security.ast_guard import SAFE_IMPORTS
 
 class SandboxExecutor:
     """Executa código Python em sandbox isolado"""
-    
+
     # Módulos proibidos (perigosos)
     DANGEROUS_MODULES = {
-        "os", "sys", "subprocess", "multiprocessing",
-        "socket", "http", "urllib", "requests",
-        "ctypes", "pickle", "marshal", "shelve",
-        "importlib", "pkgutil", "inspect",
-        "__import__", "eval", "exec", "compile",
-        "open", "file", "input", "raw_input"
+        "os",
+        "sys",
+        "subprocess",
+        "multiprocessing",
+        "socket",
+        "http",
+        "urllib",
+        "requests",
+        "ctypes",
+        "pickle",
+        "marshal",
+        "shelve",
+        "importlib",
+        "pkgutil",
+        "inspect",
+        "__import__",
+        "eval",
+        "exec",
+        "compile",
+        "open",
+        "file",
+        "input",
+        "raw_input",
     }
-    
+
     SAFE_IMPORTS = set(SAFE_IMPORTS)
-    
+
     def __init__(
         self,
         timeout: int = 5,
         memory_limit_mb: int = 128,
         cpu_limit: int = 1,
-        network_enabled: bool = False
+        network_enabled: bool = False,
     ):
         self.timeout = timeout
         self.memory_limit_mb = memory_limit_mb
         self.cpu_limit = cpu_limit
         self.network_enabled = network_enabled
-        
-        logger.info(f"🔒 SandboxExecutor inicializado (timeout={timeout}s, mem={memory_limit_mb}MB)")
-    
-    def execute(
-        self,
-        code: str,
-        input_data: Optional[str] = None
-    ) -> Dict[str, Any]:
+
+        logger.info(
+            f"🔒 SandboxExecutor inicializado (timeout={timeout}s, mem={memory_limit_mb}MB)"
+        )
+
+    def execute(self, code: str, input_data: Optional[str] = None) -> Dict[str, Any]:
         """Executa código em sandbox"""
-        
+
         logger.info("🔒 Executando código em sandbox...")
-        
+
         # 1. Validação AST (análise estática)
         is_safe, ast_errors = self._validate_ast(code)
-        
+
         if not is_safe:
             logger.warning(f"⚠️  Código rejeitado na validação AST: {ast_errors}")
             return {
@@ -73,29 +88,29 @@ class SandboxExecutor:
                 "details": ast_errors,
                 "stdout": "",
                 "stderr": "",
-                "exit_code": -1
+                "exit_code": -1,
             }
-        
+
         # 2. Cria diretório temporário isolado
         with tempfile.TemporaryDirectory() as tmpdir:
             script_path = Path(tmpdir) / "sandbox_script.py"
             script_path.write_text(self._wrap_for_runtime(code), encoding="utf-8")
-            
+
             # 3. Configura limites de recursos
             limits = {
                 "RLIMIT_CPU": self.cpu_limit,
                 "RLIMIT_AS": self.memory_limit_mb * 1024 * 1024,  # Memória virtual
                 "RLIMIT_FSIZE": 10 * 1024 * 1024,  # Arquivos máx 10MB
-                "RLIMIT_NOFILE": 64  # Máx 64 arquivos abertos
+                "RLIMIT_NOFILE": 64,  # Máx 64 arquivos abertos
             }
-            
+
             # 4. Prepara comando
             cmd = ["python3", str(script_path)]
-            
+
             env = os.environ.copy()
             env["PYTHONPATH"] = tmpdir
             env["PYTHONDONTWRITEBYTECODE"] = "1"
-            
+
             # 5. Executa com isolamento
             try:
                 process = subprocess.Popen(
@@ -105,26 +120,25 @@ class SandboxExecutor:
                     stderr=subprocess.PIPE,
                     env=env,
                     cwd=tmpdir,
-                    preexec_fn=lambda: self._apply_limits(limits)
+                    preexec_fn=lambda: self._apply_limits(limits),
                 )
-                
+
                 stdout, stderr = process.communicate(
-                    input=input_data.encode() if input_data else None,
-                    timeout=self.timeout
+                    input=input_data.encode() if input_data else None, timeout=self.timeout
                 )
-                
+
                 result = {
                     "success": process.returncode == 0,
                     "error": None,
                     "details": None,
                     "stdout": stdout.decode("utf-8", errors="replace"),
                     "stderr": stderr.decode("utf-8", errors="replace"),
-                    "exit_code": process.returncode
+                    "exit_code": process.returncode,
                 }
-                
+
                 logger.info(f"✅ Execução concluída: exit_code={process.returncode}")
                 return result
-            
+
             except subprocess.TimeoutExpired:
                 process.kill()
                 logger.error("⏰ Timeout na execução")
@@ -134,9 +148,9 @@ class SandboxExecutor:
                     "details": f"Código excedeu {self.timeout} segundos",
                     "stdout": "",
                     "stderr": "",
-                    "exit_code": -2
+                    "exit_code": -2,
                 }
-            
+
             except Exception as e:
                 logger.error(f"❌ Erro na execução: {e}")
                 return {
@@ -145,31 +159,35 @@ class SandboxExecutor:
                     "details": None,
                     "stdout": "",
                     "stderr": "",
-                    "exit_code": -3
+                    "exit_code": -3,
                 }
-    
+
     def _apply_limits(self, limits: Dict[str, int]):
         """Aplica limites de recursos ao processo"""
-        
+
         # Limita CPU
         if "RLIMIT_CPU" in limits:
             resource.setrlimit(resource.RLIMIT_CPU, (limits["RLIMIT_CPU"], limits["RLIMIT_CPU"]))
-        
+
         # Limita memória
         if "RLIMIT_AS" in limits:
             resource.setrlimit(resource.RLIMIT_AS, (limits["RLIMIT_AS"], limits["RLIMIT_AS"]))
-        
+
         # Limita tamanho de arquivos
         if "RLIMIT_FSIZE" in limits:
-            resource.setrlimit(resource.RLIMIT_FSIZE, (limits["RLIMIT_FSIZE"], limits["RLIMIT_FSIZE"]))
-        
+            resource.setrlimit(
+                resource.RLIMIT_FSIZE, (limits["RLIMIT_FSIZE"], limits["RLIMIT_FSIZE"])
+            )
+
         # Limita arquivos abertos
         if "RLIMIT_NOFILE" in limits:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (limits["RLIMIT_NOFILE"], limits["RLIMIT_NOFILE"]))
-        
+            resource.setrlimit(
+                resource.RLIMIT_NOFILE, (limits["RLIMIT_NOFILE"], limits["RLIMIT_NOFILE"])
+            )
+
         # Bloqueia sinais perigosos
         signal.signal(signal.SIGPIPE, signal.SIG_IGN)
-    
+
     def _validate_ast(self, code: str) -> Tuple[bool, list]:
         """Usa a mesma guarda AST do GovernanceAgent."""
 
@@ -289,26 +307,23 @@ class SandboxExecutor:
                 _run_user()
             """
         ).lstrip()
-    
+
     def execute_with_retry(
-        self,
-        code: str,
-        max_retries: int = 3,
-        input_data: Optional[str] = None
+        self, code: str, max_retries: int = 3, input_data: Optional[str] = None
     ) -> Dict[str, Any]:
         """Executa código com retry automático"""
-        
+
         for attempt in range(max_retries):
             result = self.execute(code, input_data)
-            
+
             if result["success"]:
                 return result
-            
+
             if result["error"] == "Timeout" and attempt < max_retries - 1:
                 logger.warning(f"Timeout na tentativa {attempt + 1}")
-            
+
             # Se falhou por erro de segurança, não retry
             if result["error"] == "Código inseguro detectado":
                 break
-        
+
         return result

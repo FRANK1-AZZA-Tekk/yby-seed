@@ -17,21 +17,26 @@ from src.yby_seed.engine import SeedEngine
 from src.yby_seed.forge import vast_router
 from src.yby_seed.mcp.server import mount_mcp_on_fastapi
 from src.yby_seed.models import ForgeDryRunRequest, GenerateRequest, GenerateResponse
+from src.yby_seed.runtime import resources
 from src.yby_seed.telemetry import collect_telemetry
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 UI_INDEX = Path(__file__).resolve().parent / "ui" / "index.html"
-_engine = SeedEngine()
+_engine: SeedEngine | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    worker = MqttAutonomyWorker()
+    await resources.startup()
+    global _engine
+    _engine = SeedEngine(client=resources.build_openai_client())
+    worker = MqttAutonomyWorker(engine=_engine)
     await worker.start()
     logger.info("YBY SEED: worker MQTT autônomo ativo")
     yield
     await worker.stop()
+    await resources.shutdown()
     logger.info("YBY SEED: worker MQTT encerrado")
 
 
@@ -58,6 +63,8 @@ async def telemetry_sse() -> StreamingResponse:
 @app.post("/v1/seed/generate", response_model=GenerateResponse)
 async def seed_generate(body: GenerateRequest) -> GenerateResponse:
     """Vibe Coding via orquestrador multiagente (Architect → Builder → Sandbox → Auditor)."""
+    if _engine is None:
+        raise RuntimeError("engine não inicializado")
     return await _engine.generate(body)
 
 

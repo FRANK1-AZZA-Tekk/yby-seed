@@ -57,7 +57,10 @@ def test_check_stt_sem_pacote(monkeypatch) -> None:
 def test_transcribe_sem_pacote_levanta(monkeypatch) -> None:
     monkeypatch.setattr(
         "src.voice.stt.check_stt",
-        lambda: (False, "faster-whisper não instalado. Rode: pip install -r requirements-voice.txt"),
+        lambda: (
+            False,
+            "faster-whisper não instalado. Rode: pip install -r requirements-voice.txt",
+        ),
     )
     try:
         transcribe(Path("/tmp/x.wav"), _cfg())
@@ -162,9 +165,7 @@ def test_listen_once_tts_opcional(monkeypatch, tmp_path: Path) -> None:
         raise TtsError("sem piper")
 
     monkeypatch.setattr("src.voice.session.speak", _boom)
-    engine = _ScriptedEngine(
-        EngineReply("olá", "local", "qwen2.5-coder:3b", ("ok",), None)
-    )
+    engine = _ScriptedEngine(EngineReply("olá", "local", "qwen2.5-coder:3b", ("ok",), None))
     notices: list[str] = []
     turn = listen_once(
         engine,
@@ -197,9 +198,7 @@ def test_listen_cli(monkeypatch) -> None:
 
 
 def test_ask_voice_flag(monkeypatch) -> None:
-    engine = _ScriptedEngine(
-        EngineReply("ok voz", "local", "qwen2.5-coder:3b", ("ok",), None)
-    )
+    engine = _ScriptedEngine(EngineReply("ok voz", "local", "qwen2.5-coder:3b", ("ok",), None))
     monkeypatch.setattr("src.main.build_engine", lambda: engine)
     monkeypatch.setattr(
         "src.main.listen_once",
@@ -216,9 +215,9 @@ def test_ask_voice_flag(monkeypatch) -> None:
 
 
 def test_ask_voice_erro_degrada_para_mensagem(monkeypatch) -> None:
-    monkeypatch.setattr("src.main.build_engine", lambda: _ScriptedEngine(
-        EngineReply("", "none", "", ("x",), None)
-    ))
+    monkeypatch.setattr(
+        "src.main.build_engine", lambda: _ScriptedEngine(EngineReply("", "none", "", ("x",), None))
+    )
     monkeypatch.setattr(
         "src.main.listen_once",
         lambda *_a, **_k: (_ for _ in ()).throw(VoiceError("sem mic")),
@@ -230,9 +229,7 @@ def test_ask_voice_erro_degrada_para_mensagem(monkeypatch) -> None:
 
 
 def test_ask_texto_ainda_funciona(monkeypatch) -> None:
-    engine = _ScriptedEngine(
-        EngineReply("só texto", "local", "qwen2.5-coder:3b", ("ok",), None)
-    )
+    engine = _ScriptedEngine(EngineReply("só texto", "local", "qwen2.5-coder:3b", ("ok",), None))
     monkeypatch.setattr("src.main.build_engine", lambda: engine)
     result = CliRunner().invoke(cli, ["ask", "oi"])
     assert result.exit_code == 0

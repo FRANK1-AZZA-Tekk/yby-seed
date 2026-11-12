@@ -100,9 +100,7 @@ def test_cascade_sucesso_primario_nao_chama_fallback() -> None:
         "https://openrouter.ai/api/v1",
         api_key="or-key",
         timeout=1,
-        session=_Session(
-            _Resp(200, {"choices": [{"message": {"content": "or"}}]})
-        ),
+        session=_Session(_Resp(200, {"choices": [{"message": {"content": "or"}}]})),
     )
     fallback = CloudProvider(
         "https://api.x.ai/v1",

@@ -112,9 +112,7 @@ def test_openrouter_falha_nao_chama_grok_automaticamente() -> None:
         "https://api.x.ai/v1",
         api_key="xai-key",
         timeout=3,
-        session=_Session(
-            [_Response(200, {"choices": [{"message": {"content": "via grok"}}]})]
-        ),
+        session=_Session([_Response(200, {"choices": [{"message": {"content": "via grok"}}]})]),
     )
     chain = CascadingCloudProvider(
         openrouter,
@@ -184,9 +182,7 @@ def test_cache_ttl_zero_desliga() -> None:
 
 
 def test_motor_usa_cache_na_segunda_chamada_nuvem() -> None:
-    session = _Session(
-        [_Response(200, {"choices": [{"message": {"content": "nuvem-1"}}]})]
-    )
+    session = _Session([_Response(200, {"choices": [{"message": {"content": "nuvem-1"}}]})])
     primary = CloudProvider(
         "https://openrouter.ai/api/v1", api_key="or-key", timeout=3, session=session
     )
@@ -207,9 +203,7 @@ def test_motor_usa_cache_na_segunda_chamada_nuvem() -> None:
 
 
 def test_contexto_truncado_antes_da_nuvem() -> None:
-    session = _Session(
-        [_Response(200, {"choices": [{"message": {"content": "ok"}}]})]
-    )
+    session = _Session([_Response(200, {"choices": [{"message": {"content": "ok"}}]})])
     primary = CloudProvider(
         "https://openrouter.ai/api/v1", api_key="or-key", timeout=3, session=session
     )
@@ -254,9 +248,7 @@ def test_conexao_recusada_no_openrouter_nao_tenta_grok() -> None:
         "https://api.x.ai/v1",
         api_key="xai-key",
         timeout=3,
-        session=_Session(
-            [_Response(200, {"choices": [{"message": {"content": "grok ok"}}]})]
-        ),
+        session=_Session([_Response(200, {"choices": [{"message": {"content": "grok ok"}}]})]),
     )
     chain = CascadingCloudProvider(
         openrouter,

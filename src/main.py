@@ -264,7 +264,7 @@ def _voice_turn(*, heavy: bool) -> None:
     except VoiceError as exc:
         click.echo(str(exc), err=True)
         click.echo(
-            "Texto continua disponível: python yby.py ask \"sua pergunta\"",
+            'Texto continua disponível: python yby.py ask "sua pergunta"',
             err=True,
         )
         raise SystemExit(1) from exc

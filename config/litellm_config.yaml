@@ -4,6 +4,7 @@ model_list:
     litellm_params:
       model: ollama/qwen2.5-coder:7b-instruct-q4_K_M
       api_base: http://host.docker.internal:11434
+      num_ctx: 4096
 
   - model_name: yby-cloud-coder
     litellm_params:
@@ -30,8 +31,9 @@ litellm_settings:
     type: redis
     host: redis
     port: 6379
+    ttl: 86400
   max_budget: 3.50
-  budget_duration: 30d
+  budget_duration: "30d"
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY

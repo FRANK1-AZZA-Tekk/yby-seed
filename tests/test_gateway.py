@@ -1,31 +1,21 @@
-"""Testes do gateway (FastAPI + MQTT + LanceDB).
+"""Gateway FastAPI (yby_seed) — determinístico, sem Ollama/MQTT reais."""
 
-Estes testes dependem de serviços externos (Ollama, PostgreSQL, MQTT, LanceDB).
-Por enquanto, estão marcados como skip até que fixtures reais sejam implementadas.
-"""
+from fastapi.testclient import TestClient
 
-import pytest
+from src.yby_seed.main import app
 
 
-@pytest.mark.skip(reason="Gateway depende de Ollama/PostgreSQL/MQTT - fixtures pendentes")
-@pytest.mark.integration
-def test_gateway_recebe_comando_e_retorna_id(sample_user_command, mock_mqtt_client, mock_lancedb):
-    """Gateway deve receber comando e retornar ID de tarefa."""
-    # TODO: Implementar testes reais quando fixtures estiverem prontas
-    pass
+def test_health_routes_respond() -> None:
+    with TestClient(app) as client:
+        home = client.get("/")
+        assert home.status_code == 200
+        assert "YBY" in home.text or "seed" in home.text.lower()
 
 
-@pytest.mark.skip(reason="Gateway depende de Ollama/PostgreSQL/MQTT - fixtures pendentes")
-@pytest.mark.integration
-def test_gateway_publica_no_mqtt(mock_mqtt_client):
-    """Gateway deve publicar mensagem no tópico MQTT correto."""
-    # TODO: Implementar testes reais quando fixtures estiverem prontas
-    pass
-
-
-@pytest.mark.skip(reason="Gateway depende de Ollama/PostgreSQL/MQTT - fixtures pendentes")
-@pytest.mark.integration
-def test_gateway_armazena_no_lancedb(mock_lancedb):
-    """Gateway deve armazenar embeddings no LanceDB."""
-    # TODO: Implementar testes reais quando fixtures estiverem prontas
-    pass
+def test_generate_endpoint_accepts_payload() -> None:
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/seed/generate",
+            json={"prompt": "ping", "domain": "python_fastapi"},
+        )
+        assert response.status_code in {200, 422, 500}

@@ -260,21 +260,22 @@ from textual.widgets import DataTable, Log
 from textual import work
 import sqlite3, asyncio
 
+
 class YBYMonitor(App):
     CSS = """
     DataTable { height: 20; }
     Log { height: 10; }
     """
-    
+
     def compose(self):
         yield DataTable(id="traces")
         yield Log(id="logs")
-    
+
     @work
     async def load_data(self):
-        conn = sqlite3.connect('/opt/yby/logs/yby_traces.db')
+        conn = sqlite3.connect("/opt/yby/logs/yby_traces.db")
         cursor = conn.cursor()
-        
+
         while True:
             cursor.execute("""
                 SELECT trace_id, source, status, latency_ms, timestamp
@@ -282,15 +283,16 @@ class YBYMonitor(App):
                 ORDER BY timestamp DESC
                 LIMIT 20
             """)
-            
+
             rows = cursor.fetchall()
             table = self.query_one("#traces", DataTable)
             table.clear()
-            
+
             for row in rows:
                 table.add_row(*row)
-            
+
             await asyncio.sleep(2)
+
 
 if __name__ == "__main__":
     YBYMonitor().run()
@@ -321,13 +323,15 @@ SERVICES = {
     "mosquitto": "tcp://192.168.1.100:1883",
     "node-red": "http://192.168.1.100:1880",
     "ollama": "http://192.168.1.100:11434",
-    "litellm": "http://192.168.1.100:4000"
+    "litellm": "http://192.168.1.100:4000",
 }
+
 
 def check_service(name, url):
     try:
         if url.startswith("tcp://"):
             import paho.mqtt.client as mqtt
+
             client = mqtt.Client()
             client.connect(url.replace("tcp://", ""), timeout=5)
             client.disconnect()
@@ -337,19 +341,21 @@ def check_service(name, url):
     except Exception as e:
         return f"down: {e}"
 
+
 def log_health():
-    conn = sqlite3.connect('/opt/yby/logs/yby_health.db')
+    conn = sqlite3.connect("/opt/yby/logs/yby_health.db")
     cursor = conn.cursor()
-    
+
     for name, url in SERVICES.items():
         status = check_service(name, url)
         cursor.execute(
             "INSERT INTO health (service, status, timestamp) VALUES (?, ?, ?)",
-            (name, status, datetime.now().isoformat())
+            (name, status, datetime.now().isoformat()),
         )
-    
+
     conn.commit()
     conn.close()
+
 
 if __name__ == "__main__":
     while True:

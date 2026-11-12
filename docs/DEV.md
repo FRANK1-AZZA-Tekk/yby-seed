@@ -63,18 +63,19 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 
 **Não mexa** em `src/agents`, `src/rag`, `src/gateway`, `src/core` (legado), etc. a menos que a tarefa seja explicitamente sobre esse módulo. Eles não estão no caminho do `ask`. Ver [src/README.md](../src/README.md).
 
-## LiteLLM (duas configs)
+## LiteLLM (Docker)
 
-- **Canônica:** `litellm_config.yaml` na raiz (aliases `yby-local`, etc., alinhados a D3/D4).
-- **Espelho antigo:** `litellm/config.yaml` — não use como fonte da verdade; preferir a raiz.
+- **Canônica:** `config/litellm_config.yaml` (cache Redis, `max_budget: 3.50`, `30d`).
+- Subir stack: `make up` · API seed: `make api` · testes: `make test`.
 
-O `ask` atual fala com Ollama/nuvem direto via `src/engine`; o proxy LiteLLM é opcional/legado de custo.
+O CLI legado (`yby.py ask`) ainda usa `src/engine/` direto; o núcleo **Vibe Coding** usa LiteLLM em `src/yby_seed/`.
 
 ## Testes
 
 ```bash
-ruff check .
-pytest -q
+uv sync --extra dev
+uv run ruff check .
+uv run pytest -v
 ```
 
 O CI roda o mesmo em push/PR. Não precisa de Docker para o núcleo.

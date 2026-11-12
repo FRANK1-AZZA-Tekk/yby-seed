@@ -20,12 +20,7 @@
 ```python
 from src.security.sandbox_executor import SandboxExecutor
 
-sandbox = SandboxExecutor(
-    timeout=5,
-    memory_limit_mb=128,
-    cpu_limit=1,
-    network_enabled=False
-)
+sandbox = SandboxExecutor(timeout=5, memory_limit_mb=128, cpu_limit=1, network_enabled=False)
 
 result = sandbox.execute(generated_code)
 

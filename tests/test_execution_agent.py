@@ -19,7 +19,7 @@ def executor(ollama_mock):
     return ExecutionAgent(ollama=ollama_mock)
 
 
-CODIGO_MARKDOWN = '''Aqui está o código:
+CODIGO_MARKDOWN = """Aqui está o código:
 
 ```python
 def main():
@@ -28,11 +28,11 @@ def main():
 if __name__ == "__main__":
     main()
 ```
-'''
+"""
 
-CODIGO_PURO = '''def main():
+CODIGO_PURO = """def main():
     print("Olá, YBY!")
-'''
+"""
 
 
 def test_modelo_padrao_e_configuravel(ollama_mock, monkeypatch):
@@ -79,10 +79,7 @@ def test_generate_com_rag(executor, ollama_mock):
     """Chunks RAG devem ser incluídos no contexto."""
     ollama_mock.generate.return_value = CODIGO_PURO
 
-    executor.generate_with_rag(
-        "PRD de teste",
-        rag_chunks=["chunk 1", "chunk 2"]
-    )
+    executor.generate_with_rag("PRD de teste", rag_chunks=["chunk 1", "chunk 2"])
 
     prompt_enviado = ollama_mock.generate.call_args.kwargs["prompt"]
     assert "Chunk 1:" in prompt_enviado

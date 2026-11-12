@@ -289,38 +289,36 @@ docker compose logs -f ollama
 
 import requests, time
 
+
 def benchmark_model(model, prompt="Olá", max_tokens=256):
     url = "http://localhost:11434/api/generate"
-    
+
     payload = {
         "model": model,
         "prompt": prompt,
         "stream": False,
-        "options": {
-            "num_predict": max_tokens,
-            "temperature": 0.1,
-            "num_ctx": 8192
-        }
+        "options": {"num_predict": max_tokens, "temperature": 0.1, "num_ctx": 8192},
     }
-    
+
     start = time.time()
     response = requests.post(url, json=payload)
     end = time.time()
-    
+
     result = response.json()
     tokens = len(result.get("response", "").split())
     latency = end - start
     tps = tokens / latency
-    
+
     print(f"Modelo: {model}")
     print(f"  Tokens: {tokens}")
     print(f"  Latência: {latency:.2f}s")
     print(f"  Tokens/s: {tps:.2f}")
     print()
 
+
 if __name__ == "__main__":
     print("🧪 Benchmark GTX 1650 4GB\n")
-    
+
     benchmark_model("qwen2.5-coder:3b")
     benchmark_model("qwen2.5-coder:3b-instruct-q4_K_M")
     benchmark_model("qwen2.5-coder:3b")
