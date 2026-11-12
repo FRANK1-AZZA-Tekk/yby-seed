@@ -20,6 +20,7 @@ from src.yby_seed.models import ForgeDryRunRequest, GenerateRequest, GenerateRes
 from src.yby_seed.telemetry import collect_telemetry
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 UI_INDEX = Path(__file__).resolve().parent / "ui" / "index.html"
 _engine = SeedEngine()
 
@@ -40,14 +41,14 @@ mount_mcp_on_fastapi(app)
 
 @app.get("/", response_class=HTMLResponse)
 async def home() -> str:
-    return UI_INDEX.read_text(encoding="utf-8")
+    return await asyncio.to_thread(UI_INDEX.read_text, encoding="utf-8")
 
 
 @app.get("/v1/seed/telemetry")
 async def telemetry_sse() -> StreamingResponse:
     async def generator():
         while True:
-            payload = collect_telemetry()
+            payload = await asyncio.to_thread(collect_telemetry)
             yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
             await asyncio.sleep(2)
 
@@ -85,7 +86,12 @@ async def mission_events(mission_id: str) -> StreamingResponse:
 async def forge_dry_run(body: ForgeDryRunRequest) -> dict:
     profile = vast_router.MISSION_PROFILES[body.mission]
     max_usd = body.max_usd if body.max_usd is not None else profile["default_max_usd"]
-    return vast_router.run_mission(body.mission, max_usd=max_usd, dry_run=True)
+    return await asyncio.to_thread(
+        vast_router.run_mission,
+        body.mission,
+        max_usd=max_usd,
+        dry_run=True,
+    )
 
 
 def run() -> None:

@@ -50,6 +50,4 @@ def _fetch_sync(query: str, domain: str | None, top_k: int) -> str:
 async def fetch_context(query: str, domain: str | None = None, top_k: int = 4) -> str:
     """Busca trechos relevantes para injeção no prompt do engine."""
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(
-        None, partial(_fetch_sync, query, domain, top_k)
-    )
+    return await loop.run_in_executor(None, partial(_fetch_sync, query, domain, top_k))

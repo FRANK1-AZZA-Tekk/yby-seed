@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import tempfile
 from dataclasses import dataclass, field
@@ -13,12 +14,7 @@ from src.yby_seed.config import Settings, get_settings
 from src.yby_seed.sandbox.hardware_linter import analyze_hardware
 from src.yby_seed.sandbox.runners import select_runner
 
-DOMAIN_LANGUAGE: dict[str, str] = {
-    "python_fastapi": "python",
-    "esp_idf": "cpp_embedded",
-    "lvgl_v9": "cpp_embedded",
-    "modbus_rtu": "python",
-}
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -36,7 +32,9 @@ class SandboxError(RuntimeError):
     pass
 
 
-def _run_docker(cmd_image: str, shell_cmd: str, work: Path, settings: Settings) -> tuple[bool, str, str]:
+def _run_docker(
+    cmd_image: str, shell_cmd: str, work: Path, settings: Settings
+) -> tuple[bool, str, str]:
     try:
         from docker.errors import DockerException
 
@@ -56,7 +54,9 @@ def _run_docker(cmd_image: str, shell_cmd: str, work: Path, settings: Settings) 
             command=["bash", "-lc", shell_cmd],
             volumes={str(work): {"bind": "/work", "mode": "rw"}},
             network_mode="none",
-            mem_limit=settings.sandbox_memory_mb * 1024 * 1024,
+            mem_limit=f"{settings.sandbox_memory_mb}m",
+            nano_cpus=1_000_000_000,
+            pids_limit=64,
             working_dir="/work",
         )
         container.start()
@@ -71,8 +71,8 @@ def _run_docker(cmd_image: str, shell_cmd: str, work: Path, settings: Settings) 
         if container is not None:
             try:
                 container.remove(force=True)
-            except Exception:  # noqa: BLE001, S110
-                pass
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("falha ao remover container sandbox: %s", exc)
 
 
 def execute_validated(
@@ -126,24 +126,3 @@ def execute_validated(
             stdout = (stdout or "") + "\n" + json.dumps(report, ensure_ascii=False)
 
         return ValidationResult(success=ok, stdout=stdout, stderr=stderr, report=report)
-
-
-def execute_validated_legacy(
-    *,
-    language: str,
-    code: str,
-    filename: str,
-    tests: str | None = None,
-    settings: Settings | None = None,
-    domain: str | None = None,
-) -> tuple[bool, str, str]:
-    """Compatibilidade com chamadas antigas (tupla)."""
-    result = execute_validated(
-        language=language,
-        code=code,
-        filename=filename,
-        tests=tests,
-        settings=settings,
-        domain=domain,
-    )
-    return result.as_tuple()

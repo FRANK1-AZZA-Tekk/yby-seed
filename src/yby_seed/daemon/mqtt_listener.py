@@ -22,13 +22,9 @@ class MqttAutonomyWorker:
         self.settings = settings or get_settings()
         self._engine = SeedEngine(self.settings)
         self._queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
-        self._sem = asyncio.Semaphore(self._max_concurrency())
         self._task: asyncio.Task[None] | None = None
         self._client: mqtt.Client | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
-
-    def _max_concurrency(self) -> int:
-        return int(getattr(self.settings, "mqtt_max_concurrent_jobs", 1) or 1)
 
     async def start(self) -> None:
         self._loop = asyncio.get_running_loop()
@@ -78,47 +74,54 @@ class MqttAutonomyWorker:
             asyncio.create_task(self._handle_request(request_id, payload))
 
     async def _handle_request(self, request_id: str, payload: dict[str, Any]) -> None:
-        async with self._sem:
-            gpu = await asyncio.to_thread(check_gpu_headroom)
-            if gpu.get("decision") != "process_local":
-                self._publish(
-                    request_id,
-                    {
-                        "id": request_id,
-                        "status": "queued",
-                        "reason": gpu.get("reason"),
-                    },
-                )
-                return
+        gpu = await asyncio.to_thread(check_gpu_headroom)
+        if gpu.get("decision") != "process_local":
+            self._publish(
+                request_id,
+                {
+                    "id": request_id,
+                    "status": "queued",
+                    "reason": gpu.get("reason"),
+                },
+            )
+            return
 
-            prompt = str(payload.get("prompt", "")).strip()
-            if not prompt:
-                self._publish(request_id, {"id": request_id, "status": "error", "error": "prompt vazio"})
-                return
+        prompt = str(payload.get("prompt", "")).strip()
+        if not prompt:
+            self._publish(
+                request_id, {"id": request_id, "status": "error", "error": "prompt vazio"}
+            )
+            return
 
-            domain_raw = payload.get("domain", "python_fastapi")
-            domain: DomainKind = domain_raw if domain_raw in {
+        domain_raw = payload.get("domain", "python_fastapi")
+        domain: DomainKind = (
+            domain_raw
+            if domain_raw
+            in {
                 "python_fastapi",
                 "esp_idf",
                 "lvgl_v9",
                 "modbus_rtu",
-            } else "python_fastapi"
+            }
+            else "python_fastapi"
+        )
 
-            try:
-                response = await self._engine.generate(GenerateRequest(prompt=prompt, domain=domain))
-                self._publish(
-                    request_id,
-                    {
-                        "id": request_id,
-                        "status": "ok" if response.success else "failed",
-                        "success": response.success,
-                        "attempts": response.attempts,
-                        "code": response.code,
-                        "validation_report": response.validation_report,
-                    },
-                )
-            except Exception as exc:  # noqa: BLE001
-                self._publish(request_id, {"id": request_id, "status": "error", "error": str(exc)})
+        try:
+            response = await self._engine.generate(GenerateRequest(prompt=prompt, domain=domain))
+            self._publish(
+                request_id,
+                {
+                    "id": request_id,
+                    "status": "ok" if response.success else "failed",
+                    "success": response.success,
+                    "attempts": response.attempts,
+                    "code": response.code,
+                    "validation_report": response.validation_report,
+                },
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("falha MQTT request_id=%s", request_id)
+            self._publish(request_id, {"id": request_id, "status": "error", "error": str(exc)})
 
     def _publish(self, request_id: str, body: dict[str, Any]) -> None:
         if self._client is None:

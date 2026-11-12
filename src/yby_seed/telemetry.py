@@ -52,7 +52,13 @@ def read_gpu_stats() -> dict[str, Any]:
 
     parts = [p.strip() for p in result.stdout.strip().split(",")]
     if len(parts) < 4:
-        return {"available": False, "name": "GPU", "vram_used_mb": 0, "vram_total_mb": 4096, "temperature_c": 0}
+        return {
+            "available": False,
+            "name": "GPU",
+            "vram_used_mb": 0,
+            "vram_total_mb": 4096,
+            "temperature_c": 0,
+        }
 
     name, used, total, temp = parts[0], parts[1], parts[2], parts[3]
     return {

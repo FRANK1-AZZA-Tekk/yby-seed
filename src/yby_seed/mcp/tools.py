@@ -19,6 +19,8 @@ from src.yby_seed.telemetry import read_gpu_stats
 
 AUDIT_PATH = Path("data/mcp/audit.jsonl")
 CMD_TOPIC_PREFIX = "yby/seed/cmd/"
+FORBIDDEN_MQTT_KEYS = frozenset({"rm", "shutdown", "destroy", "format", "sudo", "exec"})
+FORBIDDEN_PATH_PARTS = frozenset({".git", ".env", "/etc", "/root", "/proc", "/sys"})
 USD_BRL_DEFAULT = 5.45
 GTX_VRAM_MB = 4096
 MIN_FREE_VRAM_MB = 768
@@ -46,15 +48,20 @@ def _allowed_roots(settings: Settings) -> list[Path]:
 
 
 def _resolve_safe_path(repo_path: str, settings: Settings) -> Path:
-    candidate = Path(repo_path).expanduser()
+    raw = repo_path.strip()
+    if any(part in raw for part in FORBIDDEN_PATH_PARTS):
+        raise PermissionError("segmento de caminho proibido")
+    candidate = Path(raw).expanduser()
     if not candidate.is_absolute():
         candidate = (Path.cwd() / candidate).resolve()
     else:
-        candidate = candidate.resolve()
+        candidate = candidate.resolve(strict=False)
 
     for root in _allowed_roots(settings):
         try:
             candidate.relative_to(root)
+            if ".." in candidate.parts:
+                raise PermissionError("path traversal detectado")
             return candidate
         except ValueError:
             continue
@@ -109,7 +116,12 @@ def inspect_local_repo(repo_path: str, file_pattern: str) -> dict[str, Any]:
     for path in sorted(root.glob(pattern)):
         if not path.is_file():
             continue
-        rel = str(path.relative_to(root))
+        resolved = path.resolve()
+        try:
+            resolved.relative_to(root)
+        except ValueError as exc:
+            raise PermissionError("symlink/path escape bloqueado") from exc
+        rel = str(resolved.relative_to(root))
         if len(files) >= 200:
             break
         files.append(rel)
@@ -156,6 +168,8 @@ def publish_mqtt_command(topic: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Publica comando validado no Mosquitto (`yby/seed/cmd/...`)."""
     if not topic.startswith(CMD_TOPIC_PREFIX):
         raise PermissionError(f"tópico deve começar com {CMD_TOPIC_PREFIX}")
+    if any(key in payload for key in FORBIDDEN_MQTT_KEYS):
+        raise PermissionError("payload contém chaves destrutivas bloqueadas")
 
     settings = get_settings()
     body = json.dumps(payload, ensure_ascii=False)

@@ -39,10 +39,14 @@ def _load_chatml_dataset(path: Path) -> Dataset:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=Path, default=Path("/workspace/input/validated_pairs.jsonl"))
+    parser.add_argument(
+        "--dataset", type=Path, default=Path("/workspace/input/validated_pairs.jsonl")
+    )
     parser.add_argument("--model", default="Qwen/Qwen2.5-Coder-7B-Instruct")
     parser.add_argument("--output-dir", type=Path, default=Path("/workspace/output/adapter"))
-    parser.add_argument("--bundle-out", type=Path, default=Path("/workspace/output/yby-seed-adapter.tar.zst"))
+    parser.add_argument(
+        "--bundle-out", type=Path, default=Path("/workspace/output/yby-seed-adapter.tar.zst")
+    )
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--max-seq-len", type=int, default=8192)
     args = parser.parse_args()

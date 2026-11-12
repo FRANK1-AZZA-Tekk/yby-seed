@@ -56,7 +56,9 @@ def main() -> None:
         default=DEFAULT_MODELS[0],
         help="sentence-transformers; fallback nomic-embed-text",
     )
-    parser.add_argument("--output", type=Path, default=Path("/workspace/output/yby_knowledge_dump.sql"))
+    parser.add_argument(
+        "--output", type=Path, default=Path("/workspace/output/yby_knowledge_dump.sql")
+    )
     parser.add_argument("--batch-size", type=int, default=32)
     args = parser.parse_args()
 

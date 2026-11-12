@@ -76,10 +76,12 @@ install-dev:
 	@echo "✅ Dependências de desenvolvimento instaladas!"
 
 test:
-	@echo "🧪 Testes YBY SEED (uv + ruff)..."
-	@export PATH="$$HOME/.local/bin:$$PATH"; \
-	uv run ruff check --fix src/yby_seed tests/test_sandbox.py tests/test_hardware_linter.py tests/test_vast_router_tco.py tests/test_api.py; \
-	uv run pytest -q tests/test_sandbox.py tests/test_hardware_linter.py tests/test_vast_router_tco.py tests/test_api.py
+	@echo "🧪 Validação YBY SEED (ruff + pytest)..."
+	@export PATH="$(HOME)/.local/bin:$$PATH"; \
+	uv sync --extra dev >/dev/null; \
+	uv run ruff check --fix src/yby_seed tests/test_orchestrator.py tests/test_sandbox_and_linter.py tests/test_vast_router_tco.py tests/test_mcp_and_security.py tests/test_api_and_mqtt.py; \
+	uv run ruff format src/yby_seed tests/test_orchestrator.py tests/test_sandbox_and_linter.py tests/test_vast_router_tco.py tests/test_mcp_and_security.py tests/test_api_and_mqtt.py; \
+	uv run pytest -v tests/test_orchestrator.py tests/test_sandbox_and_linter.py tests/test_vast_router_tco.py tests/test_mcp_and_security.py tests/test_api_and_mqtt.py
 	@echo "✅ Testes concluídos!"
 
 install-service:

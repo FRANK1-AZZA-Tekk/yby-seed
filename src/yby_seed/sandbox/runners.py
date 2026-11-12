@@ -34,11 +34,7 @@ class PythonRunner(BaseRunner):
         target.write_text(code, encoding="utf-8")
         test_body = tests or "def test_smoke():\n    assert True\n"
         (work / "test_generated.py").write_text(test_body, encoding="utf-8")
-        shell_cmd = (
-            "ruff check . && "
-            "python3 -m compileall -q . && "
-            "pytest -q"
-        )
+        shell_cmd = "ruff check . && python3 -m compileall -q . && pytest -q"
         return RunnerCommand(
             image=self.settings.sandbox_python_image,
             shell_cmd=shell_cmd,
@@ -86,8 +82,9 @@ def _embedded_stub_tree() -> dict[str, str]:
 
 
 def _embedded_lint_script() -> str:
-    return textwrap.dedent(
-        """
+    return (
+        textwrap.dedent(
+            """
         import re, sys
         code = open(sys.argv[1], encoding="utf-8").read()
         issues = []
@@ -111,7 +108,9 @@ def _embedded_lint_script() -> str:
             sys.exit(1)
         print("embedded structure ok")
         """
-    ).strip() + "\n"
+        ).strip()
+        + "\n"
+    )
 
 
 def select_runner(language: str, settings: Settings) -> BaseRunner:
