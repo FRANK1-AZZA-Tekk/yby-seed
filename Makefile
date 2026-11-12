@@ -2,7 +2,9 @@
 # Uso: make [comando]
 # Exemplo: make setup, make test, make run
 
-.PHONY: help setup test run stop clean docs lint format install-dev
+.PHONY: help setup test run stop clean docs lint format install-dev up down logs status api sandbox-image install-service curator
+
+DOCKER_COMPOSE ?= docker compose
 
 # Variáveis
 PYTHON := python3
@@ -73,13 +75,23 @@ install-dev:
 	@$(VENV)/bin/pip install -r requirements-dev.txt
 	@echo "✅ Dependências de desenvolvimento instaladas!"
 
-# Roda testes
-
 test:
-	@echo "🧪 Rodando testes..."
-	@$(VENV)/bin/pytest tests/ -v --tb=short
-	@echo ""
+	@echo "🧪 Validação YBY SEED (ruff + pytest)..."
+	@export PATH="$(HOME)/.local/bin:$$PATH"; \
+	uv sync --extra dev >/dev/null; \
+	uv run ruff check --fix src/yby_seed tests/test_orchestrator.py tests/test_sandbox_and_linter.py tests/test_vast_router_tco.py tests/test_mcp_and_security.py tests/test_api_and_mqtt.py; \
+	uv run ruff format src/yby_seed tests/test_orchestrator.py tests/test_sandbox_and_linter.py tests/test_vast_router_tco.py tests/test_mcp_and_security.py tests/test_api_and_mqtt.py; \
+	uv run pytest -v tests/test_orchestrator.py tests/test_sandbox_and_linter.py tests/test_vast_router_tco.py tests/test_mcp_and_security.py tests/test_api_and_mqtt.py
 	@echo "✅ Testes concluídos!"
+
+install-service:
+	@mkdir -p $(HOME)/.config/systemd/user
+	@sed -e "s|@PROJECT_ROOT@|$(PWD)|g" -e "s|@HOME@|$(HOME)|g" deploy/yby-seed.service > $(HOME)/.config/systemd/user/yby-seed.service
+	@systemctl --user daemon-reload
+	@echo "✅ Unidade user instalada: systemctl --user enable --now yby-seed.service"
+
+curator:
+	@export PATH="$(HOME)/.local/bin:$$PATH"; uv run python -m src.yby_seed.daemon.dataset_curator
 
 # Verifica qualidade do código
 lint:
@@ -93,6 +105,24 @@ format:
 	@echo "🎨 Formatando código..."
 	@$(VENV)/bin/black src/ tests/
 	@echo "✅ Código formatado!"
+
+up:
+	$(DOCKER_COMPOSE) up -d
+
+down:
+	$(DOCKER_COMPOSE) down
+
+logs:
+	$(DOCKER_COMPOSE) logs -f
+
+status:
+	$(DOCKER_COMPOSE) ps
+
+sandbox-image:
+	docker build -t yby-sandbox-python:3.12 -f docker/sandbox/Dockerfile .
+
+api:
+	uv run uvicorn src.yby_seed.main:app --host 127.0.0.1 --port 8088
 
 # Inicia todos os serviços
 run:

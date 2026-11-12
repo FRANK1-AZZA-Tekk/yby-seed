@@ -1,0 +1,37 @@
+# YBY SEED — LiteLLM (Docker). Config canônica em ./config/
+model_list:
+  - model_name: yby-local
+    litellm_params:
+      model: ollama/qwen2.5-coder:7b-instruct-q4_K_M
+      api_base: http://host.docker.internal:11434
+
+  - model_name: yby-cloud-coder
+    litellm_params:
+      model: openrouter/qwen/qwen-2.5-coder-32b-instruct
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: yby-cloud-fast
+    litellm_params:
+      model: openrouter/deepseek/deepseek-chat
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  - model_name: nomic-embed-text
+    litellm_params:
+      model: ollama/nomic-embed-text
+      api_base: http://host.docker.internal:11434
+
+router_settings:
+  fallbacks:
+    - yby-local: [yby-cloud-coder, yby-cloud-fast]
+
+litellm_settings:
+  cache: true
+  cache_params:
+    type: redis
+    host: redis
+    port: 6379
+  max_budget: 3.50
+  budget_duration: 30d
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

@@ -1,10 +1,73 @@
+# YBY SEED — stack local (otimizado para ~16 GB RAM)
 services:
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: yby-qdrant
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: yby-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: yby_brain
+      POSTGRES_USER: yby
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yby_local_dev}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yby -d yby_brain"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 1536m
+
+  redis:
+    image: redis:7-alpine
+    container_name: yby-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    mem_limit: 600m
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: yby-mosquitto
     restart: unless-stopped
     ports:
-      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:1883:1883"
     volumes:
-      - ./data/qdrant:/qdrant/storage
-    mem_limit: 1g
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./data/mosquitto:/mosquitto/data
+    mem_limit: 128m
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: yby-litellm
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-local-dev-key}
+    volumes:
+      - ./config/litellm_config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:4000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    mem_limit: 768m
