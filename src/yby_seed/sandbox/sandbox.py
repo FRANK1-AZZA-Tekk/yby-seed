@@ -16,6 +16,7 @@ from src.yby_seed.sandbox.hardware_linter import analyze_hardware
 from src.yby_seed.sandbox.runners import select_runner
 
 logger = logging.getLogger(__name__)
+MAX_LOG_BYTES = 65_536
 
 
 @dataclass
@@ -62,6 +63,10 @@ def _run_docker(
         result = container.wait(timeout=settings.sandbox_timeout_sec)
         stdout = container.logs(stdout=True, stderr=False).decode("utf-8", errors="replace")
         stderr = container.logs(stdout=False, stderr=True).decode("utf-8", errors="replace")
+        if len(stdout) > MAX_LOG_BYTES:
+            stdout = stdout[:MAX_LOG_BYTES] + "\n...[stdout truncado]"
+        if len(stderr) > MAX_LOG_BYTES:
+            stderr = stderr[:MAX_LOG_BYTES] + "\n...[stderr truncado]"
         ok = result.get("StatusCode", 1) == 0
         return ok, stdout, stderr
     except Exception as exc:  # noqa: BLE001

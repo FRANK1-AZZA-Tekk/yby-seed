@@ -29,8 +29,11 @@ class MqttAutonomyWorker:
         self._task: asyncio.Task[None] | None = None
         self._client: mqtt.Client | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._stopping = False
+        self._pending: set[asyncio.Task[None]] = set()
 
     async def start(self) -> None:
+        self._stopping = False
         self._loop = asyncio.get_running_loop()
         self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self._client.on_connect = self._on_connect
@@ -40,12 +43,17 @@ class MqttAutonomyWorker:
         self._task = asyncio.create_task(self._consume())
 
     async def stop(self) -> None:
+        self._stopping = True
         if self._task is not None:
             self._task.cancel()
             try:
                 await self._task
             except asyncio.CancelledError:
                 pass
+            self._task = None
+        if self._pending:
+            await asyncio.gather(*self._pending, return_exceptions=True)
+            self._pending.clear()
         if self._client is not None:
             self._client.loop_stop()
             self._client.disconnect()
@@ -73,9 +81,13 @@ class MqttAutonomyWorker:
         self._loop.call_soon_threadsafe(self._queue.put_nowait, (request_id, payload))
 
     async def _consume(self) -> None:
-        while True:
+        while not self._stopping:
             request_id, payload = await self._queue.get()
-            asyncio.create_task(self._handle_request(request_id, payload))
+            if self._stopping:
+                break
+            task = asyncio.create_task(self._handle_request(request_id, payload))
+            self._pending.add(task)
+            task.add_done_callback(self._pending.discard)
 
     async def _handle_request(self, request_id: str, payload: dict[str, Any]) -> None:
         gpu = await asyncio.to_thread(check_gpu_headroom)

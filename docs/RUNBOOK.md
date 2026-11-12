@@ -1,5 +1,7 @@
 # RUNBOOK — pós-PR #59 (host local)
 
+**CLI canônica:** `uv run python -m src.yby_seed.<módulo>` (não use `python -m yby_seed` sem `src.`).
+
 Referência: **Ubuntu 26.04 LTS**, **GTX 1650 4 GB VRAM**, `num_ctx` 4096 no LiteLLM/Ollama.
 
 ## Sequência

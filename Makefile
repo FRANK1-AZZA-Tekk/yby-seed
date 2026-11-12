@@ -26,10 +26,16 @@ help:
 	@echo "  make lint           - Verifica qualidade do código (flake8)"
 	@echo "  make format         - Formata código automaticamente (black)"
 	@echo ""
-	@echo "🚀 Execução:"
-	@echo "  make run            - Inicia todos os serviços (Docker)"
-	@echo "  make stop           - Para todos os serviços"
-	@echo "  make logs           - Mostra logs em tempo real"
+	@echo "🚀 Execução / host:"
+	@echo "  make bootstrap      - Prepara Ubuntu (dados, Ollama, compose, ingest)"
+	@echo "  make verify-host    - Diagnóstico GPU, Docker, LiteLLM cache"
+	@echo "  make up             - docker compose up -d"
+	@echo "  make api            - API FastAPI :8088"
+	@echo "  make run            - Alias: docker compose up -d"
+	@echo "  make stop           - docker compose down"
+	@echo "  make logs           - docker compose logs -f"
+	@echo "  make install-service - systemd user yby-seed.service"
+	@echo "  make curator        - dataset curator"
 	@echo ""
 	@echo "📚 Documentação:"
 	@echo "  make docs           - Gera documentação local (MkDocs)"
@@ -150,10 +156,6 @@ stop:
 	@echo "🛑 Parando YBY SEED..."
 	@$(DOCKER_COMPOSE) down
 	@echo "✅ Serviços parados!"
-
-# Mostra logs em tempo real
-logs:
-	@$(DOCKER_COMPOSE) logs -f
 
 # Gera documentação local
 docs:

@@ -10,6 +10,7 @@ from psycopg import AsyncConnection
 
 from src.yby_seed.config import Settings, get_settings
 from src.yby_seed.runtime import resources
+from src.yby_seed.runtime.gpu_sync import sync_inference_slot
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,8 @@ _SQL = """
 
 def _embed_query(query: str, settings: Settings) -> list[float]:
     client = resources.build_openai_client(settings)
-    response = client.embeddings.create(model=EMBED_MODEL, input=query)
+    with sync_inference_slot():
+        response = client.embeddings.create(model=EMBED_MODEL, input=query)
     return response.data[0].embedding
 
 

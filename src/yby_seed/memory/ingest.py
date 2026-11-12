@@ -14,6 +14,7 @@ from openai import OpenAI
 
 from src.yby_seed.config import get_settings
 from src.yby_seed.memory.chunking import iter_semantic_chunks
+from src.yby_seed.runtime.gpu_sync import sync_inference_slot
 
 EMBED_MODEL = "nomic-embed-text"
 
@@ -47,7 +48,8 @@ def _read_text(path: Path) -> str:
 def _embed_batch(client: OpenAI, texts: list[str]) -> list[list[float]]:
     if not texts:
         return []
-    response = client.embeddings.create(model=EMBED_MODEL, input=texts)
+    with sync_inference_slot():
+        response = client.embeddings.create(model=EMBED_MODEL, input=texts)
     return [row.embedding for row in response.data]
 
 

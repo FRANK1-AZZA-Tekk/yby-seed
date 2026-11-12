@@ -70,6 +70,16 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 
 O CLI legado (`yby.py ask`) ainda usa `src/engine/` direto; o núcleo **Vibe Coding** usa LiteLLM em `src/yby_seed/`.
 
+## Módulos `src.yby_seed` (uv)
+
+| Módulo | Comando |
+|---|---|
+| API | `make api` ou `uv run uvicorn src.yby_seed.main:app --port 8088` |
+| Ingest RAG | `uv run python -m src.yby_seed.memory.ingest --dir ./docs --domain yby_arch` |
+| Dataset synth | `uv run python -m src.yby_seed.forge.dataset_synth --count 5 --domain esp_idf` |
+| Vast router | `uv run python -m src.yby_seed.forge.vast_router finetune-qlora --dry-run` |
+| Deploy GGUF | `uv run python -m src.yby_seed.forge.deploy_model --preflight` |
+
 ## Testes
 
 ```bash

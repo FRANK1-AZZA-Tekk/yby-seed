@@ -16,7 +16,7 @@ MAX_TOKENS_ESTIMATE = 8192
 GGUF_MAGIC = b"GGUF"
 # IQ4 ~4GB é plausível na GTX 1650; acima disso provavelmente estoura VRAM.
 GGUF_WARN_BYTES = 4 * 1024**3
-GGUF_BLOCK_BYTES = int(4.5 * 1024**3)
+GGUF_BLOCK_BYTES = 4 * 1024**3
 
 CHATML_TEMPLATE = '''TEMPLATE """{{ if .System }}<|im_start|>system
 {{ .System }}
@@ -163,7 +163,10 @@ def build_modelfile_content(
     temperature: float = 0.1,
 ) -> str:
     resolved = gguf_path.expanduser().resolve()
-    system = (system_prompt or yby_coder_system_prompt()).strip().replace('"', '\\"')
+    raw_system = (system_prompt or yby_coder_system_prompt()).strip()
+    system = (
+        raw_system.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "")
+    )
     lines = [
         f"FROM {resolved}",
         f"PARAMETER num_ctx {num_ctx}",

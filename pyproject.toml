@@ -1,7 +1,7 @@
 [project]
 name = "yby-seed"
 version = "0.1.0"
-description = "YBY SEED — orquestrador local-first (Function Over Form)"
+description = "YBY SEED — orquestrador local-first (Function Over Form). CLI: uv run python -m src.yby_seed.<módulo>"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

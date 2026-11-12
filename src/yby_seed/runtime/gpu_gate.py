@@ -3,17 +3,25 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
-from typing import AsyncIterator
+import threading
+from contextlib import asynccontextmanager, contextmanager
+from typing import AsyncIterator, Iterator
 
-# Compartilhado entre HTTP (`POST /v1/seed/generate`) e MQTT autônomo.
-_INFERENCE_SEMAPHORE = asyncio.Semaphore(1)
+# Compartilhado entre HTTP, MQTT, dataset_synth, ingest e MCP embeddings.
+_INFERENCE_LOCK = threading.Lock()
+
+
+@contextmanager
+def sync_inference_slot() -> Iterator[None]:
+    with _INFERENCE_LOCK:
+        yield
 
 
 @asynccontextmanager
 async def inference_slot() -> AsyncIterator[None]:
-    await _INFERENCE_SEMAPHORE.acquire()
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _INFERENCE_LOCK.acquire)
     try:
         yield
     finally:
-        _INFERENCE_SEMAPHORE.release()
+        _INFERENCE_LOCK.release()

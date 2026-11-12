@@ -28,8 +28,8 @@ _engine: SeedEngine | None = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await resources.startup()
     global _engine
+    await resources.startup()
     _engine = SeedEngine(client=resources.build_openai_client())
     worker = MqttAutonomyWorker(engine=_engine)
     await worker.start()
@@ -37,6 +37,7 @@ async def lifespan(app: FastAPI):
     yield
     await worker.stop()
     await resources.shutdown()
+    _engine = None
     logger.info("YBY SEED: worker MQTT encerrado")
 
 

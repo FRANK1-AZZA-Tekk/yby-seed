@@ -16,6 +16,7 @@ from src.yby_seed.config import Settings, get_settings
 from src.yby_seed.forge import vast_router
 from src.yby_seed.memory.retriever import EMBED_MODEL
 from src.yby_seed.runtime import resources
+from src.yby_seed.runtime.gpu_sync import sync_inference_slot
 from src.yby_seed.telemetry import read_gpu_stats
 
 AUDIT_PATH = Path("data/mcp/audit.jsonl")
@@ -73,7 +74,8 @@ async def search_knowledge_base(query: str, domain: str | None = None) -> dict[s
     """Consulta pgvector e devolve chunks ranqueados."""
     settings = get_settings()
     client = OpenAI(base_url=settings.litellm_base_url, api_key=settings.litellm_api_key)
-    vector = client.embeddings.create(model=EMBED_MODEL, input=query).data[0].embedding
+    with sync_inference_slot():
+        vector = client.embeddings.create(model=EMBED_MODEL, input=query).data[0].embedding
 
     sql = """
         SELECT source_file, domain, content
