@@ -23,6 +23,7 @@ BAD_ASSISTANT = "```yaml\nhardware_check:\n  board: x\n```\n```c\nbroken\n```"
 @pytest.mark.asyncio
 async def test_rejected_candidates_not_persisted(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     out = tmp_path / "validated_pairs.jsonl"
+
     def settings_fn() -> Settings:
         return Settings(datasets_path=out)
 
@@ -56,6 +57,7 @@ async def test_rejected_candidates_not_persisted(tmp_path, monkeypatch: pytest.M
 @pytest.mark.asyncio
 async def test_dedup_skips_duplicate_hash(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     out = tmp_path / "validated_pairs.jsonl"
+
     def settings_fn() -> Settings:
         return Settings(datasets_path=out)
 

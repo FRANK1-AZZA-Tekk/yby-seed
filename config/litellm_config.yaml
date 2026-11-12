@@ -6,6 +6,12 @@ model_list:
       api_base: http://host.docker.internal:11434
       num_ctx: 4096
 
+  - model_name: yby-tuned
+    litellm_params:
+      model: ollama/yby-seed-coder:latest
+      api_base: http://host.docker.internal:11434
+      num_ctx: 4096
+
   - model_name: yby-cloud-coder
     litellm_params:
       model: openrouter/qwen/qwen-2.5-coder-32b-instruct
@@ -23,6 +29,7 @@ model_list:
 
 router_settings:
   fallbacks:
+    - yby-tuned: [yby-local, yby-cloud-coder, yby-cloud-fast]
     - yby-local: [yby-cloud-coder, yby-cloud-fast]
 
 litellm_settings:

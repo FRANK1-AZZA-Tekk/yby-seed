@@ -98,9 +98,7 @@ def test_register_gguf_calls_ollama_create(tmp_path: Path) -> None:
     assert args[0:3] == ["ollama", "create", "yby-seed-coder:latest"]
 
 
-def test_verify_gguf_blocks_oversized(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_verify_gguf_blocks_oversized(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(deploy_model, "GGUF_BLOCK_BYTES", 16)
     gguf = tmp_path / "huge.gguf"
     gguf.write_bytes(b"GGUF" + b"\x00" * 32)

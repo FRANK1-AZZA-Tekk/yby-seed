@@ -57,3 +57,30 @@ def test_search_offers_empty_without_sdk() -> None:
 def test_build_mission_bundle_quantize() -> None:
     bundle = build_mission_bundle("quantize")
     assert bundle.exists()
+
+
+def test_finetune_aborts_before_vast_when_preflight_fails() -> None:
+    fake_report = type(
+        "Report",
+        (),
+        {
+            "ok": False,
+            "valid_count": 0,
+            "min_samples": 20,
+            "summary_errors": lambda self: ["arquivo não encontrado"],
+        },
+    )()
+
+    with (
+        patch(
+            "src.yby_seed.forge.vast_router.preflight_dataset",
+            return_value=fake_report,
+        ),
+        patch("src.yby_seed.forge.vast_router.search_top_offers") as search_mock,
+        patch("src.yby_seed.forge.vast_router.build_mission_bundle") as bundle_mock,
+    ):
+        plan = run_mission("finetune-qlora", max_usd=1.8, dry_run=False)
+
+    assert plan["status"] == "aborted_preflight_dataset"
+    search_mock.assert_not_called()
+    bundle_mock.assert_not_called()

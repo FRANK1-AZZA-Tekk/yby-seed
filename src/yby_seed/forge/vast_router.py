@@ -7,9 +7,11 @@ import json
 import logging
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from src.yby_seed.config import get_settings
+from src.yby_seed.forge.deploy_model import preflight_dataset
 from src.yby_seed.forge.packaging import MISSION_ENTRYPOINTS, build_mission_bundle
 
 logger = logging.getLogger(__name__)
@@ -162,7 +164,25 @@ def run_mission(
     *,
     max_usd: float,
     dry_run: bool,
+    min_samples: int = 20,
+    dataset_path: Path | None = None,
 ) -> dict[str, Any]:
+    if mission == "finetune-qlora":
+        settings = get_settings()
+        jsonl_path = dataset_path if dataset_path is not None else settings.datasets_path
+        report = preflight_dataset(jsonl_path, min_samples=min_samples)
+        if not report.ok:
+            return {
+                "mission": mission,
+                "max_usd_hour": max_usd,
+                "dry_run": dry_run,
+                "status": "aborted_preflight_dataset",
+                "dataset_path": str(jsonl_path),
+                "valid_count": report.valid_count,
+                "min_samples": report.min_samples,
+                "preflight_errors": report.summary_errors(),
+            }
+
     offers = search_top_offers(mission, max_usd)
     bundle_path = build_mission_bundle(mission)
     entrypoint = MISSION_ENTRYPOINTS[mission]["command"]
@@ -233,13 +253,31 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--max-usd", type=float, default=None, help="Teto horário TCO (USD)")
     parser.add_argument("--dry-run", action="store_true", help="Simula custos sem criar instância")
+    parser.add_argument(
+        "--min-samples",
+        type=int,
+        default=20,
+        help="Mínimo de amostras válidas (finetune-qlora)",
+    )
+    parser.add_argument(
+        "--jsonl",
+        type=Path,
+        default=None,
+        help="Dataset ChatML (finetune-qlora; padrão: data/datasets/validated_pairs.jsonl)",
+    )
     args = parser.parse_args(argv)
 
     profile = MISSION_PROFILES[args.mission]
     max_usd = args.max_usd if args.max_usd is not None else profile["default_max_usd"]
 
     try:
-        plan = run_mission(args.mission, max_usd=max_usd, dry_run=args.dry_run)
+        plan = run_mission(
+            args.mission,
+            max_usd=max_usd,
+            dry_run=args.dry_run,
+            min_samples=args.min_samples,
+            dataset_path=args.jsonl,
+        )
     except RuntimeError as exc:
         print(str(exc), file=sys.stderr)
         return 1
