@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.yby_seed.config import get_settings
+from src.yby_seed.forge.packaging import build_mission_bundle
 
 MISSION_PROFILES = {
     "rag-embed": {
@@ -99,7 +100,7 @@ def search_top_offers(mission: str, max_usd: float) -> list[OfferTCO]:
     return offers[:3]
 
 
-def build_onstart_script(mission: str) -> str:
+def build_onstart_script(mission: str, *, bundle_path: str, entrypoint: str) -> str:
     profile = MISSION_PROFILES[mission]
     models_dir = "./data/models"
     return f"""#!/bin/bash
@@ -110,9 +111,13 @@ trap 'vastai destroy instance "$CONTAINER_ID" --api-key "$CONTAINER_API_KEY"' EX
 timeout 7200 bash -lc '
   echo "[yby-forge] missão {profile["label"]}: {profile["onstart_note"]}"
   tailscale up --auth-key="${{TS_EPHEMERAL_KEY:-}}" --reset --accept-routes=false || true
-  mkdir -p {models_dir}
-  # pipeline específico da missão executado aqui (embed / qlora / quantize)
-  scp -o StrictHostKeyChecking=no /artifacts/* "${{YBY_SCP_TARGET:-user@tailscale-ip}}:{models_dir}/" || true
+  mkdir -p /workspace/input /workspace/output {models_dir}
+  scp -o StrictHostKeyChecking=no "${{YBY_FORGE_BUNDLE_SRC:-{bundle_path}}}" /workspace/input/yby-forge-bundle.tar.zst
+  tar --zstd -xf /workspace/input/yby-forge-bundle.tar.zst -C /workspace/input || \\
+    tar -xzf /workspace/input/yby-forge-bundle.tar.zst -C /workspace/input
+  cd /workspace/input
+  {entrypoint}
+  scp -o StrictHostKeyChecking=no /workspace/output/* "${{YBY_SCP_TARGET:-user@tailscale-ip}}:{models_dir}/" || true
 '
 """
 
@@ -124,7 +129,11 @@ def run_mission(
     dry_run: bool,
 ) -> dict[str, Any]:
     offers = search_top_offers(mission, max_usd)
-    onstart = build_onstart_script(mission)
+    bundle_path = build_mission_bundle(mission)
+    from src.yby_seed.forge.packaging import MISSION_ENTRYPOINTS
+
+    entrypoint = MISSION_ENTRYPOINTS[mission]["command"]
+    onstart = build_onstart_script(mission, bundle_path=str(bundle_path), entrypoint=entrypoint)
     plan = {
         "mission": mission,
         "max_usd_hour": max_usd,
@@ -138,6 +147,7 @@ def run_mission(
             }
             for offer in offers
         ],
+        "bundle_path": str(bundle_path),
         "onstart_preview": onstart[:400] + ("..." if len(onstart) > 400 else ""),
     }
     if dry_run or not offers:

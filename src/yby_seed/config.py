@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     mqtt_port: int = 1883
     mqtt_topic_validated: str = "yby/seed/code/validated"
     mqtt_topic_agents_trace: str = "yby/seed/agents/trace"
+    mqtt_max_concurrent_jobs: int = 1
 
     datasets_path: Path = Path("data/datasets/validated_pairs.jsonl")
     models_dir: Path = Path("data/models")

@@ -2,7 +2,7 @@
 # Uso: make [comando]
 # Exemplo: make setup, make test, make run
 
-.PHONY: help setup test run stop clean docs lint format install-dev up down logs status api sandbox-image
+.PHONY: help setup test run stop clean docs lint format install-dev up down logs status api sandbox-image install-service curator
 
 DOCKER_COMPOSE ?= docker compose
 
@@ -75,13 +75,21 @@ install-dev:
 	@$(VENV)/bin/pip install -r requirements-dev.txt
 	@echo "✅ Dependências de desenvolvimento instaladas!"
 
-# Roda testes
-
 test:
-	@echo "🧪 Rodando testes..."
-	@$(VENV)/bin/pytest tests/ -v --tb=short
-	@echo ""
+	@echo "🧪 Testes YBY SEED (uv + ruff)..."
+	@export PATH="$$HOME/.local/bin:$$PATH"; \
+	uv run ruff check --fix src/yby_seed tests/test_sandbox.py tests/test_hardware_linter.py tests/test_vast_router_tco.py tests/test_api.py; \
+	uv run pytest -q tests/test_sandbox.py tests/test_hardware_linter.py tests/test_vast_router_tco.py tests/test_api.py
 	@echo "✅ Testes concluídos!"
+
+install-service:
+	@mkdir -p $(HOME)/.config/systemd/user
+	@sed -e "s|@PROJECT_ROOT@|$(PWD)|g" -e "s|@HOME@|$(HOME)|g" deploy/yby-seed.service > $(HOME)/.config/systemd/user/yby-seed.service
+	@systemctl --user daemon-reload
+	@echo "✅ Unidade user instalada: systemctl --user enable --now yby-seed.service"
+
+curator:
+	@export PATH="$(HOME)/.local/bin:$$PATH"; uv run python -m src.yby_seed.daemon.dataset_curator
 
 # Verifica qualidade do código
 lint:

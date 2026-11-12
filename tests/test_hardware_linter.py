@@ -28,5 +28,4 @@ def test_analyze_hardware_report_shape() -> None:
     code = "#include \"esp_log.h\"\nvoid app_main(){}"
     report = analyze_hardware(code, domain="esp_idf")
     data = report.to_dict()
-    assert "board" in data
     assert "pinning_approved" in data

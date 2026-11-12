@@ -4,22 +4,37 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from src.yby_seed.agents import mission_progress_queues
+from src.yby_seed.daemon.mqtt_listener import MqttAutonomyWorker
 from src.yby_seed.engine import SeedEngine
 from src.yby_seed.forge import vast_router
 from src.yby_seed.mcp.server import mount_mcp_on_fastapi
 from src.yby_seed.models import ForgeDryRunRequest, GenerateRequest, GenerateResponse
 from src.yby_seed.telemetry import collect_telemetry
 
+logger = logging.getLogger(__name__)
 UI_INDEX = Path(__file__).resolve().parent / "ui" / "index.html"
-
-app = FastAPI(title="YBY SEED", version="0.1.0")
 _engine = SeedEngine()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    worker = MqttAutonomyWorker()
+    await worker.start()
+    logger.info("YBY SEED: worker MQTT autônomo ativo")
+    yield
+    await worker.stop()
+    logger.info("YBY SEED: worker MQTT encerrado")
+
+
+app = FastAPI(title="YBY SEED", version="0.1.0", lifespan=lifespan)
 mount_mcp_on_fastapi(app)
 
 
