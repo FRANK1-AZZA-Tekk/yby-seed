@@ -241,6 +241,7 @@ def build_engine() -> HybridEngine:
     return engine_from_env(
         confirm_fn=_confirm_cloud,
         has_tty_fn=lambda: sys.stdin.isatty() and sys.stdout.isatty(),
+        budget_warn_fn=lambda msg: click.echo(msg, err=True),
     )
 
 

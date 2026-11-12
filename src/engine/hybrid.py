@@ -7,7 +7,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-from src.engine.budget import CloudBudget, CODE_BLOCKED_BUDGET, CODE_BLOCKED_LOCAL_ONLY, CODE_BLOCKED_NO_TTY
+from src.engine.budget import (
+    BudgetEvaluation,
+    CloudBudget,
+    CODE_BLOCKED_BUDGET,
+    CODE_BLOCKED_LOCAL_ONLY,
+    CODE_BLOCKED_NO_TTY,
+)
 from src.engine.cache import ResponseCache
 from src.engine.cloud_usage_log import (
     CloudUsageLog,
@@ -69,6 +75,7 @@ class HybridEngine:
         budget: CloudBudget | None = None,
         confirm_fn: Callable[[str], bool] | None = None,
         has_tty_fn: Callable[[], bool] | None = None,
+        budget_warn_fn: Callable[[str], None] | None = None,
     ) -> None:
         self.config = config
         self.ollama = ollama
@@ -85,6 +92,12 @@ class HybridEngine:
             self.has_tty_fn = has_tty_fn or (
                 lambda: sys.stdin.isatty() and sys.stdout.isatty()
             )
+        if budget_warn_fn is not None:
+            self.budget_warn_fn = budget_warn_fn
+        elif confirm_fn is not None:
+            self.budget_warn_fn = lambda msg: print(msg, file=sys.stderr)
+        else:
+            self.budget_warn_fn = lambda _msg: None
         self._cloud_session_confirmed = False
 
     def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
@@ -260,6 +273,10 @@ class HybridEngine:
         if cache_hit:
             return None
 
+        warn = _budget_warn_message(evaluation)
+        if warn:
+            self.budget_warn_fn(warn)
+
         self.cloud_log.append(
             {
                 "timestamp": utc_timestamp(),
@@ -364,6 +381,12 @@ class HybridEngine:
         return result
 
 
+def _budget_warn_message(evaluation: BudgetEvaluation) -> str | None:
+    if evaluation.allowed and evaluation.reason.startswith("Aviso:"):
+        return evaluation.reason
+    return None
+
+
 def _blocked_event(code: str) -> str:
     if code == CODE_BLOCKED_LOCAL_ONLY:
         return EVENT_BLOCKED_LOCAL_ONLY
@@ -380,6 +403,7 @@ def engine_from_env(
     has_tty_fn: Callable[[], bool] | None = None,
     cloud_log: CloudUsageLog | None = None,
     budget: CloudBudget | None = None,
+    budget_warn_fn: Callable[[str], None] | None = None,
 ) -> HybridEngine:
     """Monta o motor com os clientes HTTP reais e a configuração do ambiente."""
 
@@ -412,4 +436,5 @@ def engine_from_env(
         budget=budget,
         confirm_fn=confirm_fn,
         has_tty_fn=has_tty_fn,
+        budget_warn_fn=budget_warn_fn,
     )

@@ -14,6 +14,7 @@ from src.engine.cloud_usage_log import (
     EVENT_CANCELLED,
     EVENT_COMPLETED,
     EVENT_BLOCKED_LOCAL_ONLY,
+    utc_timestamp,
 )
 from src.engine.cache import ResponseCache
 from src.engine.hybrid import HybridEngine
@@ -193,6 +194,53 @@ def test_log_perm_0600(tmp_path) -> None:
     )
     mode = stat.S_IMODE(os.stat(log.path).st_mode)
     assert mode == 0o600
+
+
+def test_aviso_orcamento_no_stderr_antes_confirmacao(tmp_path) -> None:
+    log = CloudUsageLog(tmp_path / "cloud_usage.jsonl")
+    log.append(
+        {
+            "timestamp": utc_timestamp(),
+            "provider": "openrouter",
+            "model": "m",
+            "purpose": "seed",
+            "input_tokens_estimate": 100_000,
+            "output_tokens_estimate": 60_000,
+            "result": EVENT_COMPLETED,
+        }
+    )
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log.path),
+            "YBY_CLOUD_REQUIRE_CONFIRM": "1",
+            "YBY_CLOUD_ALLOW_NO_TTY": "1",
+            "YBY_CLOUD_MONTHLY_TOKEN_LIMIT": "200000",
+            "YBY_CLOUD_WARN_TOKEN_LIMIT": "150000",
+        }
+    )
+    order: list[str] = []
+
+    def confirm(_msg: str) -> bool:
+        order.append("confirm")
+        return True
+
+    engine = HybridEngine(
+        _config(cache_ttl_seconds=0),
+        FakeOllama(),
+        FakeCloud(api_key="k"),
+        cache=ResponseCache(ttl_seconds=0),
+        cloud_log=log,
+        budget=budget,
+        confirm_fn=confirm,
+        has_tty_fn=lambda: True,
+        budget_warn_fn=lambda msg: order.append(f"warn:{msg}"),
+    )
+    reply = engine.reply("oi", explicit_heavy=True)
+    assert reply.provider == "cloud"
+    assert len(order) >= 2
+    assert order[0].startswith("warn:Aviso:")
+    assert order[1] == "confirm"
 
 
 def test_log_rejeita_prompt_no_evento(tmp_path) -> None:
