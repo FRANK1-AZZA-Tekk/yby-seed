@@ -27,6 +27,7 @@ dev = [
 ]
 forge = ["vastai>=0.3.0"]
 pdf = ["pypdf>=5.0.0"]
+hardware = ["pyserial>=3.5"]
 
 [build-system]
 requires = ["hatchling"]

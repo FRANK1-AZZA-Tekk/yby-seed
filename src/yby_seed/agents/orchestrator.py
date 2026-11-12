@@ -14,11 +14,13 @@ from openai import OpenAI
 from src.yby_seed.agents.roles import ArchitectAgent, AuditorAgent, BuilderAgent
 from src.yby_seed.agents.state import MissionState, MissionStatus
 from src.yby_seed.config import Settings, get_settings
+from src.yby_seed.memory.ledger import MissionTimer, record_mission_completion
 from src.yby_seed.models import GenerateRequest, GenerateResponse, StructuredCode
 from src.yby_seed.persistence import append_dataset, publish_validated_code
 from src.yby_seed.sandbox import execute_validated
 
 mission_progress_queues: dict[str, asyncio.Queue[dict[str, Any]]] = {}
+last_successful_mission: MissionState | None = None
 
 
 class MissionOrchestrator:
@@ -42,7 +44,6 @@ class MissionOrchestrator:
         mission_id = str(uuid.uuid4())
         queue = self._progress_queue or asyncio.Queue()
         mission_progress_queues[mission_id] = queue
-
         state = MissionState(
             mission_id=mission_id,
             user_intent=request.prompt,
@@ -61,6 +62,7 @@ class MissionOrchestrator:
         request: GenerateRequest,
         queue: asyncio.Queue[dict[str, Any]],
     ) -> GenerateResponse:
+        timer = MissionTimer()
         state.status = MissionStatus.ARCHITECTING
         await self._emit(queue, state, "architect", "Consultando pgvector e planejando…")
         try:
@@ -111,6 +113,16 @@ class MissionOrchestrator:
             if ok:
                 state.status = MissionStatus.SUCCESS
                 await self._emit(queue, state, "success", "Código validado.")
+                global last_successful_mission
+                last_successful_mission = state.model_copy(deep=True)
+                board = ""
+                if last_report and isinstance(last_report.get("hardware"), dict):
+                    board = str(last_report["hardware"].get("board", ""))
+                await record_mission_completion(
+                    state,
+                    latency_ms=timer.elapsed_ms(),
+                    board=board,
+                )
                 system_prompt = request.system_prompt or "YBY SEED multiagent"
                 dataset_saved = append_dataset(
                     self.settings.datasets_path,

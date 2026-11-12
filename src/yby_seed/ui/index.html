@@ -43,11 +43,27 @@
       <h2 class="text-xs uppercase text-offwhite/60 mb-2">Orçamento / Dataset</h2>
       <div id="budget-line" class="text-sm">—</div>
     </div>
+    <div class="card rounded-lg p-3 md:col-span-2">
+      <h2 class="text-xs uppercase text-offwhite/60 mb-2">Economia · GTX 1650 vs OpenRouter</h2>
+      <div id="economy-line" class="text-sm">Local — % · Nuvem — %</div>
+    </div>
+    <div class="card rounded-lg p-3">
+      <h2 class="text-xs uppercase text-offwhite/60 mb-2">USB / Serial</h2>
+      <ul id="ports-line" class="text-xs space-y-1 max-h-24 overflow-auto">—</ul>
+    </div>
   </section>
 
   <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <section class="lg:col-span-2 card rounded-xl p-5">
       <h2 class="text-lg text-silicon mb-4">Vibe Coding</h2>
+      <label class="block text-xs text-offwhite/60 mb-1" for="board">Placa alvo (export)</label>
+      <select id="board" class="w-full mb-3 bg-obsidian border border-gray-700 rounded px-3 py-2 text-sm">
+        <option value="seeed_xiao_esp32s3">seeed_xiao_esp32s3</option>
+        <option value="esp32_s3_devkitc1" selected>esp32_s3_devkitc1</option>
+        <option value="esp32_p4_c6">esp32_p4_c6</option>
+        <option value="waveshare_modbus_rtu">waveshare_modbus_rtu</option>
+      </select>
+
       <label class="block text-xs text-offwhite/60 mb-1" for="domain">Domínio</label>
       <select id="domain" class="w-full mb-3 bg-obsidian border border-gray-700 rounded px-3 py-2 text-sm">
         <option value="python_fastapi">Python / FastAPI</option>
@@ -63,6 +79,7 @@
         <button id="btn-generate" class="bg-silicon text-obsidian px-4 py-2 rounded text-sm font-semibold">Gerar e validar</button>
         <button id="btn-copy" class="border border-gray-600 px-4 py-2 rounded text-sm" disabled>Copiar código</button>
         <button id="btn-forge" class="border border-silicon text-silicon px-4 py-2 rounded text-sm">Forge dry-run</button>
+        <button id="btn-export" class="border border-gray-600 px-4 py-2 rounded text-sm" disabled>Exportar Projeto (.zip)</button>
       </div>
 
       <ol id="steps" class="text-xs space-y-1 mb-4 text-offwhite/70">
@@ -95,6 +112,7 @@
     const steps = document.querySelectorAll('#steps li');
     const output = document.getElementById('output');
     let latestCode = '';
+    let sandboxApproved = false;
 
     function setStep(active) {
       steps.forEach((el) => {
@@ -145,12 +163,41 @@
         `OpenRouter $${spend.spent_usd ?? 0} / $${spend.budget_usd ?? 3.5} · pares: ${data.validated_pairs ?? 0}`;
     }
 
+    async function refreshEconomy() {
+      try {
+        const res = await fetch('/v1/seed/stats');
+        const s = await res.json();
+        document.getElementById('economy-line').textContent =
+          `Local ${s.local_pct}% (${s.local_missions}) · OpenRouter ${s.cloud_pct}% (${s.cloud_missions}) · economia ~$${s.estimated_savings_usd}`;
+      } catch (_) {}
+    }
+
+    async function refreshPorts() {
+      try {
+        const res = await fetch('/v1/seed/hardware/ports');
+        const body = await res.json();
+        const list = document.getElementById('ports-line');
+        list.innerHTML = '';
+        (body.devices || []).forEach((d) => {
+          const li = document.createElement('li');
+          li.textContent = `${d.path} · ${d.chipset}` + (d.suggested_board ? ` → ${d.suggested_board}` : '');
+          list.appendChild(li);
+        });
+        if (!list.children.length) list.textContent = 'Nenhuma porta detectada';
+      } catch (_) {}
+    }
+
     const es = new EventSource('/v1/seed/telemetry');
     es.onmessage = (ev) => {
       try { renderTelemetry(JSON.parse(ev.data)); } catch (_) {}
     };
+    refreshEconomy();
+    refreshPorts();
+    setInterval(refreshPorts, 8000);
 
     document.getElementById('btn-generate').addEventListener('click', async () => {
+      sandboxApproved = false;
+      document.getElementById('btn-export').disabled = true;
       const prompt = document.getElementById('prompt').value.trim();
       const domain = document.getElementById('domain').value;
       if (!prompt) return;
@@ -168,7 +215,10 @@
       const body = await res.json();
       setStep(body.success ? 4 : 3);
       latestCode = body.code || '';
+      sandboxApproved = body.success === true;
+      document.getElementById('btn-export').disabled = !sandboxApproved;
       document.getElementById('btn-copy').disabled = !latestCode;
+      if (sandboxApproved) refreshEconomy();
       renderHardwareReport(domain, body.validation_report || null);
 
       output.textContent = [
@@ -184,6 +234,23 @@
       if (!latestCode) return;
       await navigator.clipboard.writeText(latestCode);
       output.textContent = 'Código copiado para a área de transferência.\n\n' + latestCode;
+    });
+
+    document.getElementById('btn-export').addEventListener('click', async () => {
+      if (!sandboxApproved) return;
+      const target_board = document.getElementById('board').value;
+      const res = await fetch('/v1/seed/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_board }),
+      });
+      if (!res.ok) {
+        output.textContent = 'Export falhou: ' + (await res.text());
+        return;
+      }
+      const body = await res.json();
+      window.location.href = body.download_url;
+      output.textContent = `Export pronto: ${body.export_path}\nBaixando ${body.archive_name}…`;
     });
 
     document.getElementById('btn-forge').addEventListener('click', async () => {

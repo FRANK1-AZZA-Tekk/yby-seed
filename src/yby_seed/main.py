@@ -8,15 +8,33 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 
 from src.yby_seed.agents import mission_progress_queues
+from src.yby_seed.agents.orchestrator import last_successful_mission
+from src.yby_seed.agents.state import MissionState, MissionStatus
 from src.yby_seed.daemon.mqtt_listener import MqttAutonomyWorker
 from src.yby_seed.engine import SeedEngine
+from src.yby_seed.exporter import (
+    export_validated_project,
+    scan_serial_devices,
+    serial_devices_to_json,
+)
+from src.yby_seed.exporter.project_builder import EXPORT_ROOT
 from src.yby_seed.forge import vast_router
 from src.yby_seed.mcp.server import mount_mcp_on_fastapi
-from src.yby_seed.models import ForgeDryRunRequest, GenerateRequest, GenerateResponse
+from src.yby_seed.memory.ledger import get_economy_stats
+from src.yby_seed.models import (
+    EconomyStatsResponse,
+    ExportRequest,
+    ExportResponse,
+    ForgeDryRunRequest,
+    GenerateRequest,
+    GenerateResponse,
+    HardwarePortsResponse,
+    SerialPortInfo,
+)
 from src.yby_seed.runtime import resources
 from src.yby_seed.telemetry import collect_telemetry
 
@@ -88,6 +106,58 @@ async def mission_events(mission_id: str) -> StreamingResponse:
                 break
 
     return StreamingResponse(generator(), media_type="text/event-stream")
+
+
+@app.get("/v1/seed/hardware/ports", response_model=HardwarePortsResponse)
+async def hardware_ports() -> HardwarePortsResponse:
+    devices = await scan_serial_devices()
+    return HardwarePortsResponse(
+        devices=[SerialPortInfo(**item) for item in serial_devices_to_json(devices)]
+    )
+
+
+@app.post("/v1/seed/export", response_model=ExportResponse)
+async def export_project(body: ExportRequest) -> ExportResponse:
+    if body.mission:
+        state = MissionState.model_validate(body.mission)
+    elif last_successful_mission is not None:
+        state = last_successful_mission
+    else:
+        raise HTTPException(status_code=409, detail="nenhuma_missao_validada")
+
+    if state.status != MissionStatus.SUCCESS or state.generated_code is None:
+        raise HTTPException(status_code=400, detail="missao_nao_exportavel")
+
+    folder, archive_name = await asyncio.to_thread(
+        export_validated_project,
+        state,
+        body.target_board,
+    )
+    return ExportResponse(
+        export_path=str(folder),
+        archive_name=archive_name,
+        download_url=f"/v1/seed/export/{archive_name}",
+    )
+
+
+@app.get("/v1/seed/export/{archive_name}")
+async def download_export(archive_name: str) -> FileResponse:
+    if ".." in archive_name or "/" in archive_name:
+        raise HTTPException(status_code=400, detail="nome_invalido")
+    path = EXPORT_ROOT / archive_name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="arquivo_nao_encontrado")
+    return FileResponse(
+        path,
+        media_type="application/zip",
+        filename=archive_name,
+    )
+
+
+@app.get("/v1/seed/stats", response_model=EconomyStatsResponse)
+async def seed_stats() -> EconomyStatsResponse:
+    payload = await get_economy_stats()
+    return EconomyStatsResponse(**payload)
 
 
 @app.post("/v1/seed/forge/dry-run")
