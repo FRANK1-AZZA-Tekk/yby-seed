@@ -58,22 +58,38 @@ def _ollama_runtime_tuning() -> tuple[str, int]:
     return keep_alive, num_ctx
 
 
+def _ollama_num_predict_from_env() -> int | None:
+    raw = os.environ.get("YBY_OLLAMA_NUM_PREDICT", "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 def build_ollama_generate_payload(
     prompt: str,
     *,
     model: str,
     system: str,
+    num_predict: int | None = None,
 ) -> dict[str, Any]:
-    """Corpo JSON de `POST /api/generate` com keep_alive e num_ctx."""
+    """Corpo JSON de `POST /api/generate` com keep_alive, num_ctx e num_predict opcional."""
 
     keep_alive, num_ctx = _ollama_runtime_tuning()
+    options: dict[str, Any] = {"num_ctx": num_ctx}
+    effective_predict = num_predict if num_predict is not None else _ollama_num_predict_from_env()
+    if effective_predict is not None:
+        options["num_predict"] = effective_predict
     return {
         "model": model,
         "prompt": prompt,
         "system": system,
         "stream": False,
         "keep_alive": keep_alive,
-        "options": {"num_ctx": num_ctx},
+        "options": options,
     }
 
 
