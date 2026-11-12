@@ -124,6 +124,9 @@ sandbox-image:
 api:
 	uv run uvicorn src.yby_seed.main:app --host 127.0.0.1 --port 8088
 
+verify-host:
+	@export PATH="$(HOME)/.local/bin:$$PATH"; uv run python scripts/verify_host.py
+
 # Inicia todos os serviços
 run:
 	@echo "🚀 Iniciando YBY SEED..."
