@@ -2,7 +2,7 @@
 # Uso: make [comando]
 # Exemplo: make setup, make test, make run
 
-.PHONY: help setup test run stop clean docs lint format install-dev up down logs status api sandbox-image install-service curator
+.PHONY: help setup bootstrap test run stop clean docs lint format install-dev up down logs status api sandbox-image install-service curator
 
 DOCKER_COMPOSE ?= docker compose
 
@@ -41,6 +41,10 @@ help:
 	@echo "  - Use 'make' seguido do comando desejado"
 	@echo "  - Exemplo: 'make setup' instala tudo que precisa"
 	@echo "  - Use 'make help' para ver esta ajuda novamente"
+
+bootstrap:
+	@chmod +x scripts/bootstrap_ubuntu.sh
+	@./scripts/bootstrap_ubuntu.sh
 
 # Instala dependências e configura ambiente
 setup:
