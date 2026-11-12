@@ -2,7 +2,9 @@
 # Uso: make [comando]
 # Exemplo: make setup, make test, make run
 
-.PHONY: help setup test run stop clean docs lint format install-dev
+.PHONY: help setup bootstrap test run stop clean docs lint format install-dev up down logs status api sandbox-image install-service curator
+
+DOCKER_COMPOSE ?= docker compose
 
 # Variáveis
 PYTHON := python3
@@ -21,13 +23,19 @@ help:
 	@echo ""
 	@echo "🧪 Testes:"
 	@echo "  make test           - Roda todos os testes"
-	@echo "  make lint           - Verifica qualidade do código (flake8)"
-	@echo "  make format         - Formata código automaticamente (black)"
+	@echo "  make lint           - Ruff (lint)"
+	@echo "  make format         - Ruff (format)"
 	@echo ""
-	@echo "🚀 Execução:"
-	@echo "  make run            - Inicia todos os serviços (Docker)"
-	@echo "  make stop           - Para todos os serviços"
-	@echo "  make logs           - Mostra logs em tempo real"
+	@echo "🚀 Execução / host:"
+	@echo "  make bootstrap      - Prepara Ubuntu (dados, Ollama, compose, ingest)"
+	@echo "  make verify-host    - Diagnóstico GPU, Docker, LiteLLM cache"
+	@echo "  make up             - docker compose up -d"
+	@echo "  make api            - API FastAPI :8088"
+	@echo "  make run            - Alias: docker compose up -d"
+	@echo "  make stop           - docker compose down"
+	@echo "  make logs           - docker compose logs -f"
+	@echo "  make install-service - systemd user yby-seed.service"
+	@echo "  make curator        - dataset curator"
 	@echo ""
 	@echo "📚 Documentação:"
 	@echo "  make docs           - Gera documentação local (MkDocs)"
@@ -39,6 +47,10 @@ help:
 	@echo "  - Use 'make' seguido do comando desejado"
 	@echo "  - Exemplo: 'make setup' instala tudo que precisa"
 	@echo "  - Use 'make help' para ver esta ajuda novamente"
+
+bootstrap:
+	@chmod +x scripts/bootstrap_ubuntu.sh
+	@./scripts/bootstrap_ubuntu.sh
 
 # Instala dependências e configura ambiente
 setup:
@@ -73,13 +85,23 @@ install-dev:
 	@$(VENV)/bin/pip install -r requirements-dev.txt
 	@echo "✅ Dependências de desenvolvimento instaladas!"
 
-# Roda testes
-
 test:
-	@echo "🧪 Rodando testes..."
-	@$(VENV)/bin/pytest tests/ -v --tb=short
-	@echo ""
+	@echo "🧪 Validação global (ruff + pytest)..."
+	@export PATH="$(HOME)/.local/bin:$$PATH"; \
+	uv sync --extra dev >/dev/null; \
+	uv run ruff check --fix .; \
+	uv run ruff format .; \
+	uv run pytest -v
 	@echo "✅ Testes concluídos!"
+
+install-service:
+	@mkdir -p $(HOME)/.config/systemd/user
+	@sed -e "s|@PROJECT_ROOT@|$(PWD)|g" -e "s|@HOME@|$(HOME)|g" deploy/yby-seed.service > $(HOME)/.config/systemd/user/yby-seed.service
+	@systemctl --user daemon-reload
+	@echo "✅ Unidade user instalada: systemctl --user enable --now yby-seed.service"
+
+curator:
+	@export PATH="$(HOME)/.local/bin:$$PATH"; uv run python -m src.yby_seed.daemon.dataset_curator
 
 # Verifica qualidade do código
 lint:
@@ -93,6 +115,27 @@ format:
 	@echo "🎨 Formatando código..."
 	@$(VENV)/bin/black src/ tests/
 	@echo "✅ Código formatado!"
+
+up:
+	$(DOCKER_COMPOSE) up -d
+
+down:
+	$(DOCKER_COMPOSE) down
+
+logs:
+	$(DOCKER_COMPOSE) logs -f
+
+status:
+	$(DOCKER_COMPOSE) ps
+
+sandbox-image:
+	docker build -t yby-sandbox-python:3.12 -f docker/sandbox/Dockerfile .
+
+api:
+	uv run uvicorn src.yby_seed.main:app --host 127.0.0.1 --port 8088
+
+verify-host:
+	@export PATH="$(HOME)/.local/bin:$$PATH"; uv run python scripts/verify_host.py
 
 # Inicia todos os serviços
 run:
@@ -113,10 +156,6 @@ stop:
 	@echo "🛑 Parando YBY SEED..."
 	@$(DOCKER_COMPOSE) down
 	@echo "✅ Serviços parados!"
-
-# Mostra logs em tempo real
-logs:
-	@$(DOCKER_COMPOSE) logs -f
 
 # Gera documentação local
 docs:

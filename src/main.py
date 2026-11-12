@@ -17,6 +17,7 @@ Comandos:
     gate    - Só decide; não executa
     note    - Grava nota no vault
     recall  - Busca no vault
+    skill   - Exocórtex: skill → dry-run → confirmação → ação
 """
 
 import sys
@@ -28,6 +29,7 @@ from loguru import logger
 from src.actions.runner import DEFAULT_TIMEOUT, run_command
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.memory.vault import VaultError, vault_from_env
+from src.orchestration.exocortex import run_exocortex
 from src.platform.hub import main as hub_main
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
 from src.voice.config import voice_config_from_env
@@ -102,12 +104,17 @@ def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
     help="Força a nuvem, mesmo num pedido curto.",
 )
 @click.option(
+    "--skill",
+    is_flag=True,
+    help="Tenta resolver via skill (exocórtex) antes do ask conversacional.",
+)
+@click.option(
     "--voice/--no-voice",
     default=False,
     help="Grava até Enter, pergunta ao motor e fala a resposta (Piper).",
 )
 @click.argument("pergunta", nargs=-1, required=False)
-def ask(heavy: bool, voice: bool, pergunta: tuple[str, ...]) -> None:
+def ask(heavy: bool, skill: bool, voice: bool, pergunta: tuple[str, ...]) -> None:
     """Responde um pedido em texto. Com --voice, usa microfone e TTS local."""
 
     if voice:
@@ -123,6 +130,19 @@ def ask(heavy: bool, voice: bool, pergunta: tuple[str, ...]) -> None:
         )
         raise SystemExit(1)
 
+    if skill:
+        outcome = run_exocortex(
+            texto,
+            input_fn=lambda: click.prompt("Executar proposta? s/n", prompt_suffix=" "),
+            output_fn=click.echo,
+            record_vault_fn=_optional_vault_note,
+        )
+        if outcome.mode == "skill":
+            if outcome.stdout:
+                click.echo(outcome.stdout, nl=False)
+            click.echo(f"decision_id={outcome.decision_id} skill={outcome.skill_name}")
+            raise SystemExit(0 if outcome.approved else 1)
+
     resposta = build_engine().reply(texto, explicit_heavy=heavy)
     if resposta.notice:
         click.echo(resposta.notice, err=True)
@@ -132,6 +152,29 @@ def ask(heavy: bool, voice: bool, pergunta: tuple[str, ...]) -> None:
     motivo = "; ".join(resposta.reasons)
     click.echo(f"modelo: {resposta.provider} {resposta.model} ({motivo})", err=True)
     click.echo(resposta.text)
+
+
+@cli.command("skill")
+@click.option("--yes", is_flag=True, help="Confirma execução sem perguntar (automação/cron).")
+@click.argument("intencao", nargs=-1, required=True)
+def skill_cmd(yes: bool, intencao: tuple[str, ...]) -> None:
+    """Interpreta intenção, escolhe skill, mostra dry-run e executa após confirmação."""
+
+    texto = " ".join(intencao).strip()
+    outcome = run_exocortex(
+        texto,
+        auto_yes=yes,
+        input_fn=lambda: click.prompt("Executar proposta? s/n", prompt_suffix=" "),
+        output_fn=click.echo,
+        record_vault_fn=_optional_vault_note,
+    )
+    if outcome.mode == "conversation":
+        click.echo("Nenhuma skill casou. Use: yby ask --skill ou yby ask", err=True)
+        raise SystemExit(2)
+    if outcome.stdout:
+        click.echo(outcome.stdout, nl=False)
+    click.echo(f"decision_id={outcome.decision_id} executado={outcome.executed}")
+    raise SystemExit(0 if outcome.approved else 1)
 
 
 @cli.command("listen")
@@ -230,6 +273,15 @@ def recall(consulta: str) -> None:
         click.echo(f"{hit.score:.2f} {hit.name}")
 
 
+def _optional_vault_note(title: str, body: str) -> None:
+    load_dotenv(override=False)
+    try:
+        path = vault_from_env().write_note(title, body)
+        click.echo(f"vault: {path}", err=True)
+    except VaultError as exc:
+        click.echo(f"vault (ignorado): {exc}", err=True)
+
+
 def _confirm_cloud(message: str) -> bool:
     answer = click.prompt(message, default="n", show_default=False).strip().casefold()
     return answer in {"s", "sim", "y", "yes"}
@@ -264,7 +316,7 @@ def _voice_turn(*, heavy: bool) -> None:
     except VoiceError as exc:
         click.echo(str(exc), err=True)
         click.echo(
-            "Texto continua disponível: python yby.py ask \"sua pergunta\"",
+            'Texto continua disponível: python yby.py ask "sua pergunta"',
             err=True,
         )
         raise SystemExit(1) from exc

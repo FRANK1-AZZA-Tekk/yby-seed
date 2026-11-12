@@ -18,16 +18,17 @@ Backpressure:
 Licença: MIT
 """
 
-from fastapi import FastAPI, Request, WebSocket, HTTPException
-from asyncio import Queue
-from typing import List, Dict, Any
 import asyncio
-from datetime import datetime
 import logging
+from asyncio import Queue
+from datetime import datetime
+from typing import Any, Dict, List
 
-from .lancedb_client import LanceDBClient
+from fastapi import FastAPI, HTTPException, Request, WebSocket
+
 from .auth import check_token
 from .config import settings
+from .lancedb_client import LanceDBClient
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,17 +36,14 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="YBY SEED Gateway",
     description="Gateway IoT para wearables ESP32-S3 com IA local",
-    version="1.1.0"
+    version="1.1.0",
 )
 
 # Backpressure queue (max 1000 mensagens)
 mqtt_queue: Queue = Queue(maxsize=1000)
 
 # LanceDB client (memory-mapped, cache limitado)
-db_client = LanceDBClient(
-    db_path=settings.LANCEDB_PATH,
-    index_cache_size=128
-)
+db_client = LanceDBClient(db_path=settings.LANCEDB_PATH, index_cache_size=128)
 
 # WebSocket clients (para dashboard em tempo real)
 websocket_clients: List[WebSocket] = []
@@ -61,14 +59,15 @@ def _guard(headers) -> None:
 async def startup_event():
     """Inicializar DB e iniciar MQTT listener"""
     logger.info("🚀 Inicializando YBY SEED Gateway...")
-    
+
     # Inicializar tabelas LanceDB
     await db_client.init_tables()
-    
+
     # Iniciar MQTT listener em background
     from .mqtt_listener import mqtt_listener
+
     asyncio.create_task(mqtt_listener(mqtt_queue))
-    
+
     logger.info("✅ Gateway inicializado")
 
 
@@ -93,16 +92,16 @@ async def receive_telemetry(data: Dict[str, Any], request: Request):
         for field in required_fields:
             if field not in data:
                 raise HTTPException(status_code=400, detail=f"Campo obrigatório: {field}")
-        
+
         # Enfileirar para processamento assíncrono
         await mqtt_queue.put(data)
-        
+
         return {
             "status": "queued",
             "queue_size": mqtt_queue.qsize(),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
-    
+
     except Exception as e:
         logger.error(f"❌ Erro ao receber telemetria: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -118,16 +117,16 @@ async def websocket_telemetry(websocket: WebSocket):
 
     await websocket.accept()
     websocket_clients.append(websocket)
-    
+
     try:
         while True:
             # Aguardar mensagens da queue
             data = await mqtt_queue.get()
             await websocket.send_json(data)
-    
+
     except Exception as e:
         logger.error(f"❌ Erro WebSocket: {e}")
-    
+
     finally:
         websocket_clients.remove(websocket)
         await websocket.close()
@@ -140,7 +139,7 @@ async def health_check():
         "status": "healthy",
         "queue_size": mqtt_queue.qsize(),
         "websocket_clients": len(websocket_clients),
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 
@@ -150,12 +149,8 @@ async def get_metrics(device_id: str, request: Request, limit: int = 100):
     _guard(request.headers)
     try:
         metrics = await db_client.get_metrics(device_id, limit=limit)
-        return {
-            "device_id": device_id,
-            "count": len(metrics),
-            "data": metrics
-        }
-    
+        return {"device_id": device_id, "count": len(metrics), "data": metrics}
+
     except Exception as e:
         logger.error(f"❌ Erro ao recuperar métricas: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -167,12 +162,8 @@ async def search_vectors(query: str, request: Request, top_k: int = 5):
     _guard(request.headers)
     try:
         results = await db_client.search(query, top_k=top_k)
-        return {
-            "query": query,
-            "top_k": top_k,
-            "results": results
-        }
-    
+        return {"query": query, "top_k": top_k, "results": results}
+
     except Exception as e:
         logger.error(f"❌ Erro ao buscar vetores: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -182,10 +173,10 @@ async def search_vectors(query: str, request: Request, top_k: int = 5):
 @app.on_event("startup")
 async def start_worker():
     """Worker que consome mensagens da queue em batch"""
-    
+
     async def worker():
         logger.info("👷 Worker iniciado")
-        
+
         while True:
             # Aguardar batch de 10 mensagens (otimizar throughput)
             batch = []
@@ -193,31 +184,27 @@ async def start_worker():
                 for _ in range(10):
                     data = await asyncio.wait_for(mqtt_queue.get(), timeout=1.0)
                     batch.append(data)
-            
+
             except asyncio.TimeoutError:
                 # Timeout: processar batch parcial
                 pass
-            
+
             if batch:
                 try:
                     # Processar batch em thread pool (evitar bloquear event loop)
-                    await asyncio.get_event_loop().run_in_executor(
-                        None,
-                        process_batch,
-                        batch
-                    )
+                    await asyncio.get_event_loop().run_in_executor(None, process_batch, batch)
                     logger.info(f"✅ Batch processado: {len(batch)} mensagens")
-                
+
                 except Exception as e:
                     logger.error(f"❌ Erro ao processar batch: {e}")
-    
+
     asyncio.create_task(worker())
 
 
 def process_batch(batch: List[Dict[str, Any]]):
     """
     Processar batch de telemetria (CPU-bound, roda em thread pool).
-    
+
     - Extrair features
     - Gerar embeddings
     - Armazenar em LanceDB
@@ -226,20 +213,22 @@ def process_batch(batch: List[Dict[str, Any]]):
         try:
             # Extrair features
             features = extract_features(data)
-            
+
             # Gerar embedding (modelo local via Ollama)
             embedding = generate_embedding(features)
-            
+
             # Armazenar em LanceDB
-            db_client.insert({
-                "device_id": data["device_id"],
-                "timestamp": data["timestamp"],
-                "metrics": data["metrics"],
-                "context": data.get("context", {}),
-                "features": features,
-                "vector": embedding
-            })
-        
+            db_client.insert(
+                {
+                    "device_id": data["device_id"],
+                    "timestamp": data["timestamp"],
+                    "metrics": data["metrics"],
+                    "context": data.get("context", {}),
+                    "features": features,
+                    "vector": embedding,
+                }
+            )
+
         except Exception as e:
             logger.error(f"❌ Erro ao processar mensagem: {e}")
 
@@ -247,7 +236,7 @@ def process_batch(batch: List[Dict[str, Any]]):
 def extract_features(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Extrair features relevantes da telemetria para RAG.
-    
+
     Features:
     - Média móvel de batimentos (últimos 5 minutos)
     - Tendência de SpO2 (subindo/descendo)
@@ -255,22 +244,22 @@ def extract_features(data: Dict[str, Any]) -> Dict[str, Any]:
     - Padrão de sono (se aplicável)
     """
     metrics = data["metrics"]
-    
+
     features = {
         "heart_rate_avg": metrics.get("heart_rate", 0),
         "spo2_trend": "stable",  # Calcular com histórico
         "activity_level": "unknown",  # Calcular com acelerômetro
         "battery_low": metrics.get("battery", 100) < 20,
-        "steps_today": metrics.get("steps", 0)
+        "steps_today": metrics.get("steps", 0),
     }
-    
+
     return features
 
 
 def generate_embedding(features: Dict[str, Any]) -> List[float]:
     """
     Gerar embedding de features (modelo local via Ollama).
-    
+
     Retorna: vetor de 384 dimensões (all-MiniLM-L6-v2)
     """
     # TODO: Implementar com Ollama embeddings

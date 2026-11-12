@@ -1,0 +1,88 @@
+---
+description: Regras arquiteturais obrigatórias do YBY SEED (FRANK1-AZZA-Tekk)
+globs:
+alwaysApply: true
+---
+
+# YBY SEED — arquitetura obrigatória
+
+Repositório: **YBY SEED** (`FRANK1-AZZA-Tekk/yby-seed`). Estas regras prevalecem sobre conveniência ou estética quando houver conflito.
+
+## 1. Filosofia — Function Over Form
+
+- Prioridade absoluta: **baixa latência**, **local-first**, **determinismo**, **zero bloatware** e **soberania de dados offline**.
+- Cada dependência, serviço em background e chamada de rede precisa de justificativa técnica explícita.
+- Preferir caminhos síncronos previsíveis e cache local a abstrações “mágicas” ou orquestração pesada.
+- Cloud é exceção documentada (ver também `yby-economy.mdc` e decisões em `docs/DECISIONS.md`).
+
+## 2. Hardware alvo local
+
+Plataforma de referência para limites de projeto e testes:
+
+| Recurso | Especificação |
+|---|---|
+| SO | Desktop Ubuntu 26.04 LTS |
+| CPU | AMD Ryzen 5 4600G |
+| RAM | 16 GB |
+| GPU | NVIDIA GTX 1650 (**máx. 4 GB VRAM**) |
+| Disco | SSD NVMe 1 TB |
+
+**Obrigatório:**
+
+- Nenhum modelo, container ou pipeline de inferência pode assumir mais que **4 GB VRAM** na GTX 1650.
+- Otimizar footprint de **RAM** (batch pequeno, streams, liberação imediata de buffers grandes, sem reter estado desnecessário).
+- Medições e defaults de config devem ser plausíveis nesse hardware, não em máquinas de desenvolvimento superdimensionadas.
+
+## 3. Stack Python
+
+- **Python 3.12+** apenas.
+- Gerenciamento de projeto e execução **exclusivamente via `uv`** (`pyproject.toml` como fonte da verdade de dependências).
+- **Ruff** para formatação e linting (estrito; não introduzir Black/isort paralelos sem decisão explícita).
+- APIs HTTP assíncronas com **FastAPI** e modelos/schemas com **Pydantic v2** (não Pydantic v1).
+- Núcleo ativo: `src/engine`, `src/safety`, `src/actions`, `src/memory`, `src/voice`, plataforma — não expandir legado em `src/` sem pedido explícito (`AGENTS.md`).
+
+## 4. Infraestrutura e dados
+
+Componentes canônicos do ecossistema (integração progressiva; não acoplar tudo no CLI mínimo sem necessidade):
+
+| Componente | Papel |
+|---|---|
+| **PostgreSQL** + **pgvector** | persistência e busca vetorial |
+| **Redis** | cache semântico e estado de curta duração |
+| **Mosquitto (MQTT)** | barramento de eventos entre serviços e dispositivos |
+| **LiteLLM** | proxy cognitivo unificado (config canônica na raiz; ver `docs/DEV.md`) |
+| **Docker** | sandboxes isoladas para código/execução não confiável |
+
+- Conexões e segredos via variáveis de ambiente (`.env` local; nunca commitar credenciais).
+- Offline-first: caminhos críticos do usuário devem degradar com mensagens claras, não falhar em silêncio.
+
+## 5. Domínio de saída (Vibe Coding)
+
+O sistema transforma **intenções em português** em artefatos **determinísticos e validados**:
+
+1. **Python** — automação, glue, serviços e testes.
+2. **Automação industrial** — **Modbus RTU** (timeouts, CRC, endereçamento explícito; sem “código de exemplo” não testável).
+3. **Firmware embarcado** — **C++** para **ESP-IDF v5.3**, **PlatformIO**, UI com **LVGL v9**.
+
+Requisitos para código gerado:
+
+- Saída revisável, idempotente onde fizer sentido, e passível de validação estática (`src/security/ast_guard.py` e testes).
+- Proibir padrões opacos, dependências ocultas e side effects não declarados em automação e firmware.
+
+## 6. Qualidade antes de entregar
+
+Antes de considerar uma alteração concluída:
+
+```bash
+uv run ruff check --fix .
+uv run pytest -q
+```
+
+- Escrever **testes unitários enxutos** em **pytest** para comportamento novo ou corrigido (sem testes cosméticos).
+- Diff mínimo; não refatorar fora do escopo da tarefa.
+
+## Convivência com outras regras
+
+- `yby-economy.mdc`: custo, modelos locais e escopo de exploração do repo.
+- `AGENTS.md` / `docs/DEV.md`: mapa de pastas, CLI e legado.
+- Em conflito entre economia de tokens e **determinismo/soberania offline**, prevalecem as regras deste arquivo para decisões de arquitetura e stack.

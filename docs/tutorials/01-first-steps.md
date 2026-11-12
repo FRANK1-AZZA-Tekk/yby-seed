@@ -159,23 +159,25 @@ Agora vem a parte mágica! Vamos criar uma automação **falando em português**
 import requests
 from datetime import datetime, timedelta
 
+
 def get_weather_tomorrow(city="Sao Paulo"):
     """Consulta previsão do tempo para amanhã"""
     url = "http://api.openweathermap.org/data/2.5/forecast"
     params = {"q": city, "appid": "SUA_API_KEY", "units": "metric"}
-    
+
     response = requests.get(url, params=params)
     data = response.json()
-    
+
     # Filtra dados para amanhã
     tomorrow = datetime.now() + timedelta(days=1)
     tomorrow_str = tomorrow.strftime("%Y-%m-%d")
-    
+
     for item in data["list"]:
         if item["dt_txt"].startswith(tomorrow_str):
             return item
-    
+
     return None
+
 
 # Verifica se vai chover
 weather = get_weather_tomorrow()

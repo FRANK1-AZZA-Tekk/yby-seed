@@ -1,0 +1,18 @@
+[Unit]
+Description=YBY SEED — API FastAPI (Function Over Form)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=@PROJECT_ROOT@
+Environment=PATH=@HOME@/.local/bin:/usr/bin
+EnvironmentFile=-@PROJECT_ROOT@/.env
+ExecStart=@HOME@/.local/bin/uv run uvicorn src.yby_seed.main:app --host 127.0.0.1 --port 8088
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+MemoryMax=12G
+
+[Install]
+WantedBy=default.target

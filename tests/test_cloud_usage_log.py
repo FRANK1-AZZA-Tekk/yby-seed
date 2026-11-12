@@ -9,13 +9,13 @@ import stat
 import pytest
 
 from src.engine.budget import CloudBudget
+from src.engine.cache import ResponseCache
 from src.engine.cloud_usage_log import (
-    CloudUsageLog,
+    EVENT_BLOCKED_LOCAL_ONLY,
     EVENT_CANCELLED,
     EVENT_COMPLETED,
-    EVENT_BLOCKED_LOCAL_ONLY,
+    CloudUsageLog,
 )
-from src.engine.cache import ResponseCache
 from src.engine.hybrid import HybridEngine
 from src.engine.providers import CascadingCloudProvider, CloudProvider, ProviderError
 from tests.test_engine import FakeCloud, FakeOllama, _config
@@ -173,9 +173,10 @@ def test_ollama_falha_exige_confirmacao(tmp_path) -> None:
     reply = engine.reply("oi")
     assert asks["n"] == 1
     assert reply.provider == "none"
-    assert json.loads(log.path.read_text(encoding="utf-8").strip().splitlines()[-1])[
-        "result"
-    ] == EVENT_CANCELLED
+    assert (
+        json.loads(log.path.read_text(encoding="utf-8").strip().splitlines()[-1])["result"]
+        == EVENT_CANCELLED
+    )
 
 
 def test_log_perm_0600(tmp_path) -> None:

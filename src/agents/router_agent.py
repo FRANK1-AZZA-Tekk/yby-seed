@@ -8,14 +8,16 @@ Uso:
     # Output: {"agent": "planning", "intent": "backup_automation"}
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
+
 from loguru import logger
+
 from src.core.ollama_client import OllamaClient
 
 
 class RouterAgent:
     """Agente de roteamento baseado em Llama 3.2 3B"""
-    
+
     SYSTEM_PROMPT = """
 Você é um Router Agent que classifica intenções de usuários.
 
@@ -42,66 +44,62 @@ Formato de saída (JSON):
     "requires_interview": true | false
 }
 """
-    
+
     def __init__(self, ollama: OllamaClient):
         self.ollama = ollama
         self.model = "qwen2.5-coder:3b"
         logger.info("🎯 Router Agent inicializado")
-    
+
     def classify(self, user_command: str) -> Dict[str, Any]:
         """Classifica intenção do usuário"""
-        
+
         logger.info(f"🔍 Classificando: {user_command[:50]}...")
-        
+
         prompt = f"""
 Comando do usuário: "{user_command}"
 
 Classifique a intenção e retorne APENAS o JSON:
 """
-        
+
         response = self.ollama.generate(
             model=self.model,
             prompt=prompt,
             system=self.SYSTEM_PROMPT,
-            options={
-                "temperature": 0.1,
-                "num_predict": 256,
-                "top_p": 0.9
-            }
+            options={"temperature": 0.1, "num_predict": 256, "top_p": 0.9},
         )
-        
+
         # Parse JSON da resposta
         import json
         import re
-        
+
         # Extrai JSON da resposta (pode ter texto antes/depois)
-        json_match = re.search(r'\{[^}]+\}', response, re.DOTALL)
-        
+        json_match = re.search(r"\{[^}]+\}", response, re.DOTALL)
+
         if json_match:
             try:
                 result = json.loads(json_match.group())
                 logger.info(f"✅ Classificado: {result}")
                 return result
-            
+
             except json.JSONDecodeError:
                 logger.warning("⚠️  JSON inválido, usando fallback")
-        
+
         # Fallback
         return {
             "agent": "planning",
             "intent": "unknown",
             "confidence": 0.5,
-            "requires_interview": True
+            "requires_interview": True,
         }
-    
+
     def should_use_voice_interview(self, intent: str) -> bool:
         """Decide se usa entrevista por voz (complexidade alta)"""
-        
+
         voice_interview_intents = [
             "backup_automation",
             "api_integration",
             "data_processing",
-            "notification_system"
+            "notification_system",
         ]
-        
+
         return intent in voice_interview_intents

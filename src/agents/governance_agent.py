@@ -14,8 +14,8 @@ Regras Determinísticas:
 Licença: MIT
 """
 
-from typing import Dict, Any, Tuple
 import logging
+from typing import Any, Dict, Tuple
 
 from src.security.ast_guard import validate_code_ast
 
@@ -27,24 +27,24 @@ class GovernanceAgent:
     """
     Agente de governança e segurança.
     """
-    
+
     def __init__(self):
         self.action_approval_required = [
             "delete_files",
             "drop_table",
             "execute_shell",
             "send_email_bulk",
-            "api_write"
+            "api_write",
         ]
-    
+
     def check(self, code: str, action: str = "execute") -> Tuple[bool, str]:
         """
         Validar código.
-        
+
         Args:
             code: Código Python para validar
             action: Ação pretendida (ex: "execute", "delete", "send_email")
-        
+
         Returns:
             (is_allowed, reason)
         """
@@ -62,40 +62,40 @@ class GovernanceAgent:
 
         logger.info("Código validado")
         return True, "Aprovado"
-    
+
     def require_human_approval(self, action: str, context: Dict[str, Any]) -> bool:
         """
         Verificar se ação exige aprovação humana.
-        
+
         Args:
             action: Ação pretendida
             context: Contexto da ação
-        
+
         Returns:
             True se exige aprovação
         """
         # Ações críticas sempre exigem aprovação
         if action in self.action_approval_required:
             return True
-        
+
         # Contexto de risco (ex: produção, dados sensíveis)
         if context.get("environment") == "production":
             return True
-        
+
         if context.get("data_sensitive", False):
             return True
-        
+
         return False
-    
+
     def generate_approval_request(self, action: str, code: str, context: Dict[str, Any]) -> str:
         """
         Gerar solicitação de aprovação humana.
-        
+
         Args:
             action: Ação pretendida
             code: Código a ser executado
             context: Contexto
-        
+
         Returns:
             Mensagem de solicitação
         """
@@ -110,9 +110,9 @@ class GovernanceAgent:
 ```
 
 **Contexto:**
-- Ambiente: {context.get('environment', 'unknown')}
-- Dados sensíveis: {context.get('data_sensitive', False)}
-- Impacto: {context.get('impact', 'unknown')}
+- Ambiente: {context.get("environment", "unknown")}
+- Dados sensíveis: {context.get("data_sensitive", False)}
+- Impacto: {context.get("impact", "unknown")}
 
 **Aprovar?** (sim/não)
 """
@@ -125,22 +125,22 @@ governance_agent = GovernanceAgent()
 
 if __name__ == "__main__":
     # Teste
-    safe_code = '''
+    safe_code = """
 import json
 import zipfile
 
 def backup(source, dest):
     with zipfile.ZipFile(dest, 'w') as zipf:
         zipf.write(source)
-'''
-    
-    dangerous_code = '''
+"""
+
+    dangerous_code = """
 import os
 os.system("rm -rf /")
-'''
-    
+"""
+
     is_allowed, reason = governance_agent.check(safe_code, "backup")
     print(f"Safe code: {is_allowed} - {reason}")
-    
+
     is_allowed, reason = governance_agent.check(dangerous_code, "execute")
     print(f"Dangerous code: {is_allowed} - {reason}")

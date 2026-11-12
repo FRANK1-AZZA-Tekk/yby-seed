@@ -22,13 +22,14 @@ import sqlite3, json, time
 from datetime import datetime
 import paho.mqtt.client as mqtt
 
+
 class BufferedMQTT:
-    def __init__(self, db_path='/sdcard/yby_buffer.db'):
+    def __init__(self, db_path="/sdcard/yby_buffer.db"):
         self.db = sqlite3.connect(db_path)
         self.setup_db()
         self.mqtt_client = mqtt.Client()
         self.connected = False
-        
+
     def setup_db(self):
         self.db.execute("""
             CREATE TABLE IF NOT EXISTS outbound_queue (
@@ -42,8 +43,8 @@ class BufferedMQTT:
             )
         """)
         self.db.commit()
-    
-    def publish(self, topic, payload, priority='normal'):
+
+    def publish(self, topic, payload, priority="normal"):
         """Publica MQTT ou salva na fila se offline"""
         if self.connected:
             try:
@@ -53,21 +54,22 @@ class BufferedMQTT:
             except Exception as e:
                 print(f"❌ Falha ao publicar: {e}")
                 self.connected = False
-        
+
         # Salva na fila
         self.db.execute(
             "INSERT INTO outbound_queue (topic, payload, priority, created_at) VALUES (?, ?, ?, ?)",
-            (topic, json.dumps(payload), priority, datetime.now().isoformat())
+            (topic, json.dumps(payload), priority, datetime.now().isoformat()),
         )
         self.db.commit()
         print(f"💾 Bufferizado: {topic} (priority: {priority})")
-    
+
     def flush_queue(self, max_batch_size=10, rate_limit_ms=500):
         """Tenta enviar fila quando online, com rate limit"""
         if not self.connected:
             return
-        
-        cursor = self.db.execute("""
+
+        cursor = self.db.execute(
+            """
             SELECT id, topic, payload, priority
             FROM outbound_queue
             WHERE sent_at IS NULL
@@ -79,35 +81,37 @@ class BufferedMQTT:
                 END,
                 created_at ASC
             LIMIT ?
-        """, (max_batch_size,))
-        
+        """,
+            (max_batch_size,),
+        )
+
         pending = cursor.fetchall()
-        
+
         for msg_id, topic, payload, priority in pending:
             try:
                 self.mqtt_client.publish(topic, payload)
-                
+
                 # Marca como enviado
                 self.db.execute(
                     "UPDATE outbound_queue SET sent_at = ? WHERE id = ?",
-                    (datetime.now().isoformat(), msg_id)
+                    (datetime.now().isoformat(), msg_id),
                 )
                 self.db.commit()
-                
+
                 print(f"🚀 Flush: {topic}")
-                
+
                 # Rate limit para não DDoSar servidor
                 time.sleep(rate_limit_ms / 1000.0)
-                
+
             except Exception as e:
                 print(f"❌ Erro no flush: {e}")
                 # Incrementa retry count
                 self.db.execute(
                     "UPDATE outbound_queue SET retry_count = retry_count + 1 WHERE id = ?",
-                    (msg_id,)
+                    (msg_id,),
                 )
                 self.db.commit()
-    
+
     def check_connection(self):
         """Verifica se MQTT está alcançável"""
         try:
@@ -130,21 +134,21 @@ buffer = BufferedMQTT()
 while True:
     # Verifica conexão a cada 30s
     buffer.check_connection()
-    
+
     # Tenta flush da fila
     if buffer.connected:
         buffer.flush_queue(max_batch_size=10, rate_limit_ms=500)
-    
+
     # Captura áudio
     audio_data = capture_audio()
-    
+
     # Publica (ou bufferiza se offline)
     buffer.publish(
         "yby/mobile/audio",
         {"audio": audio_data, "timestamp": datetime.now().isoformat()},
-        priority="high"
+        priority="high",
     )
-    
+
     time.sleep(5)
 ```
 
@@ -330,36 +334,46 @@ import subprocess
 SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 ALERT_CHAR_UUID = "beb5483e-36e1-4688-b7f5-ea0774bb5b5f"
 
+
 def notification_handler(sender, data):
     try:
         payload = json.loads(data.decode())
-        
-        if payload.get('type') == 'emergency':
-            bpm = payload.get('bpm')
-            message = payload.get('message')
-            
+
+        if payload.get("type") == "emergency":
+            bpm = payload.get("bpm")
+            message = payload.get("message")
+
             # Notificação push offline
-            subprocess.run([
-                "termux-notification",
-                "--title", "⚠️ EMERGÊNCIA YBY",
-                "--content", f"{message}: BPM {bpm}",
-                "--led", "red",
-                "--vibrate", "1000",
-                "--sound", "alert"
-            ])
-            
+            subprocess.run(
+                [
+                    "termux-notification",
+                    "--title",
+                    "⚠️ EMERGÊNCIA YBY",
+                    "--content",
+                    f"{message}: BPM {bpm}",
+                    "--led",
+                    "red",
+                    "--vibrate",
+                    "1000",
+                    "--sound",
+                    "alert",
+                ]
+            )
+
             print(f"🚨 Notificação de emergência: BPM {bpm}")
-        
+
     except Exception as e:
         print(f"❌ Erro ao processar notificação BLE: {e}")
+
 
 async def connect_and_listen(device_address):
     async with BleakClient(device_address) as client:
         print(f"✅ Conectado ao BLE: {device_address}")
         await client.start_notify(ALERT_CHAR_UUID, notification_handler)
-        
+
         while True:
             await asyncio.sleep(1)
+
 
 WATCH_ADDRESS = "XX:XX:XX:XX:XX:XX"
 asyncio.run(connect_and_listen(WATCH_ADDRESS))
@@ -385,11 +399,12 @@ Quando usuário fala **"Lembre que corri 5km"** offline:
 import sqlite3
 from datetime import datetime
 
+
 class OfflineCommands:
-    def __init__(self, db_path='/sdcard/yby_commands.db'):
+    def __init__(self, db_path="/sdcard/yby_commands.db"):
         self.db = sqlite3.connect(db_path)
         self.setup_db()
-    
+
     def setup_db(self):
         self.db.execute("""
             CREATE TABLE IF NOT EXISTS offline_commands (
@@ -402,27 +417,28 @@ class OfflineCommands:
             )
         """)
         self.db.commit()
-    
+
     def add_command(self, command_text, audio_path=None):
         self.db.execute(
             "INSERT INTO offline_commands (command_text, audio_path, created_at) VALUES (?, ?, ?)",
-            (command_text, audio_path, datetime.now().isoformat())
+            (command_text, audio_path, datetime.now().isoformat()),
         )
         self.db.commit()
         print(f"💾 Comando offline salvo: '{command_text}'")
-    
+
     def get_pending_commands(self):
         cursor = self.db.execute(
             "SELECT id, command_text, audio_path FROM offline_commands WHERE status='pending' ORDER BY created_at"
         )
         return cursor.fetchall()
-    
+
     def mark_processed(self, command_id):
         self.db.execute(
             "UPDATE offline_commands SET status='processed', processed_at=? WHERE id=?",
-            (datetime.now().isoformat(), command_id)
+            (datetime.now().isoformat(), command_id),
         )
         self.db.commit()
+
 
 # Uso
 commands = OfflineCommands()

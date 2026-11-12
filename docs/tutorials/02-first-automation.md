@@ -68,54 +68,60 @@ from pathlib import Path
 STEPS_FILE = "steps_data.json"
 DAILY_GOAL = 10000
 
+
 def load_steps():
     """Carrega passos do arquivo"""
     if not Path(STEPS_FILE).exists():
         return {"steps": 0, "date": datetime.now().strftime("%Y-%m-%d")}
-    
+
     with open(STEPS_FILE, "r") as f:
         return json.load(f)
+
 
 def save_steps(data):
     """Salva passos no arquivo"""
     with open(STEPS_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
+
 def check_goal(current_steps):
     """Verifica se meta foi atingida"""
     return current_steps >= DAILY_GOAL
+
 
 def send_notification(message):
     """Envia notificação"""
     print(f"🔔 NOTIFICAÇÃO: {message}")
 
+
 def main():
     """Função principal"""
     print("👟 Monitor de Passos Diários")
     print(f"🎯 Meta: {DAILY_GOAL} passos\n")
-    
+
     # Carrega passos
     data = load_steps()
     current_steps = data["steps"]
-    
+
     # Simula leitura (substitua por dados reais do wearable)
     new_steps = int(input("Quantos passos você deu hoje? "))
     current_steps += new_steps
     data["steps"] = current_steps
-    
+
     # Salva dados
     save_steps(data)
-    
+
     # Exibe progresso
     print(f"\n📊 Progresso: {current_steps}/{DAILY_GOAL} passos")
     print(f"📈 Faltam: {max(0, DAILY_GOAL - current_steps)} passos\n")
-    
+
     # Verifica meta
     if check_goal(current_steps):
         send_notification("🎉 Parabéns! Você atingiu sua meta de passos hoje!")
     else:
         remaining = DAILY_GOAL - current_steps
         send_notification(f"💪 Você está a {remaining} passos da sua meta!")
+
 
 if __name__ == "__main__":
     main()
@@ -178,6 +184,7 @@ Substitua a função `send_notification`:
 ```python
 import subprocess
 
+
 def send_notification(message):
     """Envia notificação do Ubuntu"""
     subprocess.run(["notify-send", "Monitor de Passos", message])
@@ -189,6 +196,7 @@ Se tiver um wearable (ex: Xiaomi Mi Band), use a biblioteca `miband`:
 
 ```python
 from miband import MiBand
+
 
 def get_real_steps():
     """Lê passos reais do wearable"""
@@ -213,21 +221,22 @@ from pathlib import Path
 STEPS_FILE = "steps_data.json"
 DAILY_GOAL = 10000
 
+
 # 3. Funções
-def load_steps():
-    ...
+def load_steps(): ...
 
-def save_steps(data):
-    ...
 
-def check_goal(current_steps):
-    ...
+def save_steps(data): ...
 
-def send_notification(message):
-    ...
 
-def main():
-    ...
+def check_goal(current_steps): ...
+
+
+def send_notification(message): ...
+
+
+def main(): ...
+
 
 # 4. Ponto de entrada
 if __name__ == "__main__":

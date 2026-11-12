@@ -1,6 +1,6 @@
 # Especificações de Hardware - YBY SEED MVP
 
-> Decisão D4 (2026-11-11): o único modelo local é `qwen2.5-coder:3b`. Modelos 7B não cabem na GTX 1650 e saíram do v1.
+> **Atualização (2026-11):** dois perfis na mesma GTX 1650 4 GB — CLI `ask` usa **3B**; stack LiteLLM/`yby_seed` usa **7B Q3_K_M** com `num_ctx: 4096` e `gpu_gate` (um modelo por vez). Ver D4 e D12 em [DECISIONS.md](DECISIONS.md).
 
 ## PC Desktop (Núcleo de Inferência)
 
@@ -18,7 +18,8 @@
 
 | Modelo | Quantização | VRAM Necessária | Cabe na GTX 1650? |
 |---|---|---|---|
-| **Qwen2.5-Coder 3B** | Q4_K_M | ~2.5GB | Sim. É o único modelo local do v1 |
+| **Qwen2.5-Coder 3B** | Q4_K_M | ~2.5GB | Sim — CLI `yby ask` |
+| **Qwen2.5-Coder 7B** | Q3_K_M | ~3.5GB | Sim — alias `yby-local` (Docker / Vibe Coding) |
 
 ### Estratégias de Otimização
 

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YBY SEED</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#0A0C0E',
+            offwhite: '#E6EDF3',
+            silicon: '#00E676',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { background: #0A0C0E; color: #E6EDF3; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .card { border: 1px solid #1f2933; background: #111418; }
+    .step-active { border-color: #00E676; color: #00E676; }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+  <header class="mb-6">
+    <h1 class="text-2xl font-semibold text-silicon tracking-tight">YBY SEED · Function Over Form</h1>
+    <p class="text-sm text-offwhite/70 mt-1">Hub local — Vibe Coding determinístico</p>
+  </header>
+
+  <section id="telemetry" class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-8">
+    <div class="card rounded-lg p-3">
+      <h2 class="text-xs uppercase text-offwhite/60 mb-2">GPU</h2>
+      <div id="gpu-line" class="text-sm">—</div>
+    </div>
+    <div class="card rounded-lg p-3 md:col-span-2">
+      <h2 class="text-xs uppercase text-offwhite/60 mb-2">Infra</h2>
+      <div id="infra-line" class="text-sm flex flex-wrap gap-2">—</div>
+    </div>
+    <div class="card rounded-lg p-3">
+      <h2 class="text-xs uppercase text-offwhite/60 mb-2">Orçamento / Dataset</h2>
+      <div id="budget-line" class="text-sm">—</div>
+    </div>
+    <div class="card rounded-lg p-3 md:col-span-2">
+      <h2 class="text-xs uppercase text-offwhite/60 mb-2">Economia · GTX 1650 vs OpenRouter</h2>
+      <div id="economy-line" class="text-sm">Local — % · Nuvem — %</div>
+    </div>
+    <div class="card rounded-lg p-3">
+      <h2 class="text-xs uppercase text-offwhite/60 mb-2">USB / Serial</h2>
+      <ul id="ports-line" class="text-xs space-y-1 max-h-24 overflow-auto">—</ul>
+    </div>
+  </section>
+
+  <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <section class="lg:col-span-2 card rounded-xl p-5">
+      <h2 class="text-lg text-silicon mb-4">Vibe Coding</h2>
+      <label class="block text-xs text-offwhite/60 mb-1" for="board">Placa alvo (export)</label>
+      <select id="board" class="w-full mb-3 bg-obsidian border border-gray-700 rounded px-3 py-2 text-sm">
+        <option value="seeed_xiao_esp32s3">seeed_xiao_esp32s3</option>
+        <option value="esp32_s3_devkitc1" selected>esp32_s3_devkitc1</option>
+        <option value="esp32_p4_c6">esp32_p4_c6</option>
+        <option value="waveshare_modbus_rtu">waveshare_modbus_rtu</option>
+      </select>
+
+      <label class="block text-xs text-offwhite/60 mb-1" for="domain">Domínio</label>
+      <select id="domain" class="w-full mb-3 bg-obsidian border border-gray-700 rounded px-3 py-2 text-sm">
+        <option value="python_fastapi">Python / FastAPI</option>
+        <option value="esp_idf">ESP-IDF C++</option>
+        <option value="lvgl_v9">LVGL v9</option>
+        <option value="modbus_rtu">Modbus RTU</option>
+      </select>
+
+      <label class="block text-xs text-offwhite/60 mb-1" for="prompt">Comando em português</label>
+      <textarea id="prompt" rows="5" class="w-full mb-3 bg-obsidian border border-gray-700 rounded px-3 py-2 text-sm" placeholder="Ex.: criar endpoint FastAPI healthcheck com teste pytest"></textarea>
+
+      <div class="flex flex-wrap gap-2 mb-4">
+        <button id="btn-generate" class="bg-silicon text-obsidian px-4 py-2 rounded text-sm font-semibold">Gerar e validar</button>
+        <button id="btn-copy" class="border border-gray-600 px-4 py-2 rounded text-sm" disabled>Copiar código</button>
+        <button id="btn-forge" class="border border-silicon text-silicon px-4 py-2 rounded text-sm">Forge dry-run</button>
+        <button id="btn-export" class="border border-gray-600 px-4 py-2 rounded text-sm" disabled>Exportar Projeto (.zip)</button>
+      </div>
+
+      <ol id="steps" class="text-xs space-y-1 mb-4 text-offwhite/70">
+        <li data-step="1">① LiteLLM (yby-local + fallback)</li>
+        <li data-step="2">② Extração estruturada (Pydantic)</li>
+        <li data-step="3">③ Sandbox Docker + hardware_linter</li>
+        <li data-step="4">④ MQTT + dataset ChatML</li>
+      </ol>
+
+      <div id="hw-report" class="hidden mb-3 rounded border border-gray-700 p-3 text-xs">
+        <h3 class="text-silicon mb-1">Relatório pinagem / Modbus</h3>
+        <div id="hw-report-body" class="text-offwhite/80"></div>
+      </div>
+
+      <pre id="output" class="bg-obsidian border border-gray-800 rounded p-3 text-xs overflow-auto min-h-[220px] whitespace-pre-wrap">Aguardando…</pre>
+    </section>
+
+    <aside class="card rounded-xl p-5">
+      <h3 class="text-sm text-silicon mb-2">Notas</h3>
+      <ul class="text-xs text-offwhite/70 space-y-2 list-disc pl-4">
+        <li>Telemetria via SSE a cada 2s.</li>
+        <li>Teto OpenRouter: US$ 3,50 / 30d.</li>
+        <li>Sandbox: rede off, 512MB, 30s.</li>
+      </ul>
+      <div id="forge-result" class="mt-4 text-xs text-offwhite/80"></div>
+    </aside>
+  </main>
+
+  <script>
+    const steps = document.querySelectorAll('#steps li');
+    const output = document.getElementById('output');
+    let latestCode = '';
+    let sandboxApproved = false;
+
+    function setStep(active) {
+      steps.forEach((el) => {
+        el.classList.toggle('step-active', Number(el.dataset.step) <= active);
+      });
+    }
+
+    const EMBEDDED_DOMAINS = new Set(['esp_idf', 'lvgl_v9', 'modbus_rtu']);
+
+    function renderHardwareReport(domain, report) {
+      const wrap = document.getElementById('hw-report');
+      const body = document.getElementById('hw-report-body');
+      if (!EMBEDDED_DOMAINS.has(domain) || !report || !report.hardware) {
+        wrap.classList.add('hidden');
+        return;
+      }
+      const hw = report.hardware;
+      const approved = hw.pinning_approved === true && report.pinning_modbus_approved !== false;
+      body.innerHTML = [
+        `<p class="mb-1">Placa: <span class="text-silicon">${hw.board || 'n/d'}</span></p>`,
+        `<p>GPIO: ${hw.gpio_ok ? 'OK' : 'Falha'} · Modbus: ${hw.modbus_ok ? 'OK' : 'Falha'}</p>`,
+        `<p class="${approved ? 'text-silicon' : 'text-red-400'}">${approved ? 'Pinagem/Modbus aprovados' : 'Revisar pinagem/Modbus'}</p>`,
+        hw.gpio_issues?.length ? `<p>GPIO: ${hw.gpio_issues.join('; ')}</p>` : '',
+        hw.modbus_issues?.length ? `<p>Modbus: ${hw.modbus_issues.join('; ')}</p>` : '',
+        report.validation_summary ? `<p class="mt-1">${report.validation_summary}</p>` : '',
+      ].filter(Boolean).join('');
+      wrap.classList.remove('hidden');
+    }
+
+    function renderTelemetry(data) {
+      const gpu = data.gpu || {};
+      document.getElementById('gpu-line').textContent = gpu.available
+        ? `${gpu.name}: ${gpu.vram_used_mb}/${gpu.vram_total_mb} MB · ${gpu.temperature_c}°C`
+        : 'GPU indisponível (nvidia-smi)';
+
+      const infra = data.containers || {};
+      const infraEl = document.getElementById('infra-line');
+      infraEl.innerHTML = '';
+      Object.entries(infra).forEach(([k, v]) => {
+        const badge = document.createElement('span');
+        badge.className = 'px-2 py-0.5 rounded border text-xs ' + (v === 'up' || v === 'running' ? 'border-silicon text-silicon' : 'border-gray-600');
+        badge.textContent = `${k}: ${v}`;
+        infraEl.appendChild(badge);
+      });
+
+      const spend = data.openrouter || {};
+      document.getElementById('budget-line').textContent =
+        `OpenRouter $${spend.spent_usd ?? 0} / $${spend.budget_usd ?? 3.5} · pares: ${data.validated_pairs ?? 0}`;
+    }
+
+    async function refreshEconomy() {
+      try {
+        const res = await fetch('/v1/seed/stats');
+        const s = await res.json();
+        document.getElementById('economy-line').textContent =
+          `Local ${s.local_pct}% (${s.local_missions}) · OpenRouter ${s.cloud_pct}% (${s.cloud_missions}) · economia ~$${s.estimated_savings_usd}`;
+      } catch (_) {}
+    }
+
+    async function refreshPorts() {
+      try {
+        const res = await fetch('/v1/seed/hardware/ports');
+        const body = await res.json();
+        const list = document.getElementById('ports-line');
+        list.innerHTML = '';
+        (body.devices || []).forEach((d) => {
+          const li = document.createElement('li');
+          li.textContent = `${d.path} · ${d.chipset}` + (d.suggested_board ? ` → ${d.suggested_board}` : '');
+          list.appendChild(li);
+        });
+        if (!list.children.length) list.textContent = 'Nenhuma porta detectada';
+      } catch (_) {}
+    }
+
+    const es = new EventSource('/v1/seed/telemetry');
+    es.onmessage = (ev) => {
+      try { renderTelemetry(JSON.parse(ev.data)); } catch (_) {}
+    };
+    refreshEconomy();
+    refreshPorts();
+    setInterval(refreshPorts, 8000);
+
+    document.getElementById('btn-generate').addEventListener('click', async () => {
+      sandboxApproved = false;
+      document.getElementById('btn-export').disabled = true;
+      const prompt = document.getElementById('prompt').value.trim();
+      const domain = document.getElementById('domain').value;
+      if (!prompt) return;
+
+      setStep(1);
+      output.textContent = 'Enviando ao LiteLLM…';
+      setStep(2);
+      setStep(3);
+
+      const res = await fetch('/v1/seed/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, domain }),
+      });
+      const body = await res.json();
+      setStep(body.success ? 4 : 3);
+      latestCode = body.code || '';
+      sandboxApproved = body.success === true;
+      document.getElementById('btn-export').disabled = !sandboxApproved;
+      document.getElementById('btn-copy').disabled = !latestCode;
+      if (sandboxApproved) refreshEconomy();
+      renderHardwareReport(domain, body.validation_report || null);
+
+      output.textContent = [
+        `success: ${body.success} (tentativas: ${body.attempts})`,
+        body.filename ? `arquivo: ${body.filename}` : '',
+        body.stdout ? `\n[stdout]\n${body.stdout}` : '',
+        body.stderr ? `\n[stderr]\n${body.stderr}` : '',
+        latestCode ? `\n[código]\n${latestCode}` : '',
+      ].filter(Boolean).join('\n');
+    });
+
+    document.getElementById('btn-copy').addEventListener('click', async () => {
+      if (!latestCode) return;
+      await navigator.clipboard.writeText(latestCode);
+      output.textContent = 'Código copiado para a área de transferência.\n\n' + latestCode;
+    });
+
+    document.getElementById('btn-export').addEventListener('click', async () => {
+      if (!sandboxApproved) return;
+      const target_board = document.getElementById('board').value;
+      const res = await fetch('/v1/seed/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_board }),
+      });
+      if (!res.ok) {
+        output.textContent = 'Export falhou: ' + (await res.text());
+        return;
+      }
+      const body = await res.json();
+      window.location.href = body.download_url;
+      output.textContent = `Export pronto: ${body.export_path}\nBaixando ${body.archive_name}…`;
+    });
+
+    document.getElementById('btn-forge').addEventListener('click', async () => {
+      const res = await fetch('/v1/seed/forge/dry-run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mission: 'rag-embed' }),
+      });
+      const body = await res.json();
+      document.getElementById('forge-result').textContent = JSON.stringify(body, null, 2);
+    });
+  </script>
+</body>
+</html>

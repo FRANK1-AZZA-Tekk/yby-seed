@@ -73,35 +73,40 @@ import csv
 import json
 from pathlib import Path
 
+
 def read_csv(filepath: str) -> list:
     """Lê arquivo CSV e retorna lista de dicts"""
-    
-    with open(filepath, 'r', encoding='utf-8') as f:
+
+    with open(filepath, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         return list(reader)
 
+
 def read_json(filepath: str) -> dict:
     """Lê arquivo JSON"""
-    
-    with open(filepath, 'r', encoding='utf-8') as f:
+
+    with open(filepath, "r", encoding="utf-8") as f:
         return json.load(f)
+
 
 def write_csv(data: list, filepath: str):
     """Escreve lista de dicts em CSV"""
-    
+
     if not data:
         return
-    
-    with open(filepath, 'w', encoding='utf-8', newline='') as f:
+
+    with open(filepath, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=data[0].keys())
         writer.writeheader()
         writer.writerows(data)
 
+
 def write_json(data: dict, filepath: str):
     """Escreve dict em JSON"""
-    
-    with open(filepath, 'w', encoding='utf-8') as f:
+
+    with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
 
 if __name__ == "__main__":
     # Exemplo de uso
@@ -116,8 +121,9 @@ if __name__ == "__main__":
 ```python
 def filter_data(data: list, column: str, value) -> list:
     """Filtra dados por coluna e valor"""
-    
+
     return [row for row in data if row[column] == str(value)]
+
 
 # Uso
 clientes_sp = filter_data(data, "cidade", "São Paulo")
@@ -128,16 +134,18 @@ clientes_sp = filter_data(data, "cidade", "São Paulo")
 ```python
 from collections import defaultdict
 
+
 def group_by(data: list, column: str) -> dict:
     """Agrupa dados por coluna"""
-    
+
     grouped = defaultdict(list)
-    
+
     for row in data:
         key = row[column]
         grouped[key].append(row)
-    
+
     return dict(grouped)
+
 
 # Uso
 por_cidade = group_by(data, "cidade")
@@ -148,16 +156,17 @@ por_cidade = group_by(data, "cidade")
 ```python
 def calculate_stats(data: list, column: str) -> dict:
     """Calcula estatísticas de coluna numérica"""
-    
+
     values = [float(row[column]) for row in data if row[column]]
-    
+
     return {
         "count": len(values),
         "sum": sum(values),
         "mean": sum(values) / len(values) if values else 0,
         "min": min(values) if values else 0,
-        "max": max(values) if values else 0
+        "max": max(values) if values else 0,
     }
+
 
 # Uso
 stats = calculate_stats(data, "valor")
@@ -178,7 +187,7 @@ print(f"Média: R$ {stats['mean']:.2f}")
 #!/usr/bin/env python3
 import csv
 
-with open("clientes.csv", 'r') as f:
+with open("clientes.csv", "r") as f:
     reader = csv.DictReader(f)
     rows = list(reader)
 
@@ -199,11 +208,11 @@ import csv
 
 data = []
 
-with open("clientes.csv", 'r') as f:
+with open("clientes.csv", "r") as f:
     reader = csv.DictReader(f)
     data = list(reader)
 
-clientes_sp = [row for row in data if row['cidade'] == 'São Paulo']
+clientes_sp = [row for row in data if row["cidade"] == "São Paulo"]
 
 print(f"📍 {len(clientes_sp)} clientes em SP")
 ```
@@ -223,11 +232,11 @@ import json
 
 data = []
 
-with open("vendas.csv", 'r') as f:
+with open("vendas.csv", "r") as f:
     reader = csv.DictReader(f)
     data = list(reader)
 
-with open("vendas.json", 'w') as f:
+with open("vendas.json", "w") as f:
     json.dump(data, f, indent=2)
 
 print("✅ Convertido: vendas.csv → vendas.json")
@@ -242,7 +251,7 @@ try:
     data = read_csv(filepath)
 except UnicodeDecodeError:
     # Tenta encoding alternativo
-    with open(filepath, 'r', encoding='latin-1') as f:
+    with open(filepath, "r", encoding="latin-1") as f:
         data = list(csv.DictReader(f))
 ```
 

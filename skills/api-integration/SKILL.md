@@ -78,27 +78,30 @@ from pathlib import Path
 API_BASE_URL = "https://api.exemplo.com"
 API_KEY = "SUA_API_KEY_AQUI"  # Configurar em .env
 
+
 def fetch_data(endpoint: str, params: dict = None) -> dict:
     """Busca dados da API"""
-    
+
     url = f"{API_BASE_URL}/{endpoint}"
     headers = {"Authorization": f"Bearer {API_KEY}"}
-    
+
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
-    
+
     return response.json()
+
 
 def send_data(endpoint: str, data: dict) -> dict:
     """Envia dados para API"""
-    
+
     url = f"{API_BASE_URL}/{endpoint}"
     headers = {"Authorization": f"Bearer {API_KEY}"}
-    
+
     response = requests.post(url, headers=headers, json=data)
     response.raise_for_status()
-    
+
     return response.json()
+
 
 if __name__ == "__main__":
     # Exemplo de uso
@@ -114,16 +117,13 @@ if __name__ == "__main__":
 API_KEY = "SUA_API_KEY"
 BASE_URL = "http://api.openweathermap.org/data/2.5"
 
+
 def get_weather(city: str) -> dict:
-    params = {
-        "q": city,
-        "appid": API_KEY,
-        "units": "metric",
-        "lang": "pt_br"
-    }
-    
+    params = {"q": city, "appid": API_KEY, "units": "metric", "lang": "pt_br"}
+
     response = requests.get(f"{BASE_URL}/weather", params=params)
     return response.json()
+
 
 # Uso
 weather = get_weather("Sao Paulo")
@@ -136,12 +136,14 @@ print(f"Temperatura: {weather['main']['temp']}°C")
 BOT_TOKEN = "SEU_BOT_TOKEN"
 CHAT_ID = "SEU_CHAT_ID"
 
+
 def send_telegram_message(text: str):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     data = {"chat_id": CHAT_ID, "text": text}
-    
+
     response = requests.post(url, json=data)
     return response.json()
+
 
 # Uso
 send_telegram_message("Olá do YBY SEED!")
@@ -153,24 +155,25 @@ send_telegram_message("Olá do YBY SEED!")
 import requests
 from requests.exceptions import HTTPError, Timeout, ConnectionError
 
+
 def safe_request(url: str, **kwargs):
     try:
         response = requests.get(url, timeout=10, **kwargs)
         response.raise_for_status()
         return response.json()
-    
+
     except HTTPError as e:
         print(f"❌ Erro HTTP {e.response.status_code}: {e}")
         return None
-    
+
     except Timeout:
         print("⏰ Timeout na requisição")
         return None
-    
+
     except ConnectionError:
         print("🔌 Erro de conexão")
         return None
-    
+
     except Exception as e:
         print(f"❌ Erro inesperado: {e}")
         return None
@@ -218,13 +221,11 @@ import requests
 BOT_TOKEN = "SEU_TOKEN"
 CHAT_ID = "SEU_CHAT_ID"
 
+
 def notify_backup_complete(backup_name: str):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    data = {
-        "chat_id": CHAT_ID,
-        "text": f"✅ Backup concluído: {backup_name}"
-    }
-    
+    data = {"chat_id": CHAT_ID, "text": f"✅ Backup concluído: {backup_name}"}
+
     requests.post(url, json=data)
 ```
 
@@ -242,7 +243,7 @@ if response.status_code == 401:
 
 ```python
 if response.status_code == 429:
-    retry_after = int(response.headers.get('Retry-After', 60))
+    retry_after = int(response.headers.get("Retry-After", 60))
     print(f"⏰ Rate limit atingido, aguarde {retry_after}s")
     time.sleep(retry_after)
 ```

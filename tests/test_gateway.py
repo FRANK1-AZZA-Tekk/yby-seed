@@ -1,31 +1,52 @@
-"""Testes do gateway (FastAPI + MQTT + LanceDB).
+"""Gateway FastAPI (yby_seed) — determinístico, sem Ollama/MQTT reais."""
 
-Estes testes dependem de serviços externos (Ollama, PostgreSQL, MQTT, LanceDB).
-Por enquanto, estão marcados como skip até que fixtures reais sejam implementadas.
-"""
+from contextlib import ExitStack
+from unittest.mock import AsyncMock, patch
 
-import pytest
+from fastapi.testclient import TestClient
 
-
-@pytest.mark.skip(reason="Gateway depende de Ollama/PostgreSQL/MQTT - fixtures pendentes")
-@pytest.mark.integration
-def test_gateway_recebe_comando_e_retorna_id(sample_user_command, mock_mqtt_client, mock_lancedb):
-    """Gateway deve receber comando e retornar ID de tarefa."""
-    # TODO: Implementar testes reais quando fixtures estiverem prontas
-    pass
+from src.yby_seed.daemon.mqtt_listener import MqttAutonomyWorker
+from src.yby_seed.main import app
+from src.yby_seed.models import GenerateResponse
 
 
-@pytest.mark.skip(reason="Gateway depende de Ollama/PostgreSQL/MQTT - fixtures pendentes")
-@pytest.mark.integration
-def test_gateway_publica_no_mqtt(mock_mqtt_client):
-    """Gateway deve publicar mensagem no tópico MQTT correto."""
-    # TODO: Implementar testes reais quando fixtures estiverem prontas
-    pass
+def _enter_gateway_patches(stack: ExitStack) -> None:
+    stack.enter_context(patch.object(MqttAutonomyWorker, "start", AsyncMock()))
+    stack.enter_context(patch.object(MqttAutonomyWorker, "stop", AsyncMock()))
+    stack.enter_context(
+        patch("src.yby_seed.runtime.resources.open_pg_pool", new=AsyncMock(return_value=None))
+    )
 
 
-@pytest.mark.skip(reason="Gateway depende de Ollama/PostgreSQL/MQTT - fixtures pendentes")
-@pytest.mark.integration
-def test_gateway_armazena_no_lancedb(mock_lancedb):
-    """Gateway deve armazenar embeddings no LanceDB."""
-    # TODO: Implementar testes reais quando fixtures estiverem prontas
-    pass
+def test_health_routes_respond() -> None:
+    with ExitStack() as stack:
+        _enter_gateway_patches(stack)
+        with TestClient(app) as client:
+            home = client.get("/")
+            assert home.status_code == 200
+            assert "YBY" in home.text or "seed" in home.text.lower()
+
+
+def test_generate_endpoint_accepts_payload() -> None:
+    mock_response = GenerateResponse(
+        success=True,
+        attempts=1,
+        code="def ping():\n    return True\n",
+        filename="ping.py",
+        language="python",
+    )
+    with ExitStack() as stack:
+        _enter_gateway_patches(stack)
+        stack.enter_context(
+            patch(
+                "src.yby_seed.engine.SeedEngine.generate",
+                new=AsyncMock(return_value=mock_response),
+            )
+        )
+        with TestClient(app) as client:
+            response = client.post(
+                "/v1/seed/generate",
+                json={"prompt": "ping", "domain": "python_fastapi"},
+            )
+    assert response.status_code == 200
+    assert response.json()["success"] is True

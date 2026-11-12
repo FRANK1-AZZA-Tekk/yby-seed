@@ -67,7 +67,7 @@ learning_agent.log_execution(
     slots={"source": "/home/user/docs", "dest": "/backup"},
     code="import zipfile; ...",
     result={"success": True},
-    feedback="success"
+    feedback="success",
 )
 
 # Aprender com feedback
@@ -114,11 +114,9 @@ from src.agents.bayesian_teaching import bayesian_teaching
 bayesian_teaching.update("backup_automation_success", "success")
 
 # Obter melhor estratégia
-best = bayesian_teaching.get_best_strategy([
-    "backup_automation_success",
-    "notification_success",
-    "api_integration_success"
-])
+best = bayesian_teaching.get_best_strategy(
+    ["backup_automation_success", "notification_success", "api_integration_success"]
+)
 
 # Simular convergência
 iterations = bayesian_teaching.converge("notification_success", target_confidence=0.95)
@@ -180,12 +178,7 @@ auto_cleanup.run_all()
 from src.core.auto_improvement import auto_improvement
 
 # Obter métricas atuais
-current_metrics = {
-    "cpu_percent": 92,
-    "ram_percent": 88,
-    "disk_percent": 75,
-    "latency_ms": 1200
-}
+current_metrics = {"cpu_percent": 92, "ram_percent": 88, "disk_percent": 75, "latency_ms": 1200}
 
 # Analisar gargalos
 bottlenecks = auto_improvement.analyze_bottlenecks(current_metrics)

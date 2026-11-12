@@ -38,7 +38,7 @@ yby.py → engine | safety → actions | memory | voice | platform | security/as
 | `src/security/ast_guard.py` | bloqueia código gerado perigoso |
 | `tests/` | suíte que o CI roda |
 | `config/safety-allowlist.txt` | allowlist da porta |
-| `litellm_config.yaml` | config LiteLLM **canônica** na raiz (ver [DEV.md](DEV.md)) |
+| `config/litellm_config.yaml` | config LiteLLM **canônica** (Docker; ver [DEV.md](DEV.md)) |
 
 O resto de `src/` existe e ainda não entra no `ask`. Mobile e firmware saíram da árvore; ver [archive/FORA-DO-V1.md](archive/FORA-DO-V1.md). Mapa interno: [src/README.md](../src/README.md).
 

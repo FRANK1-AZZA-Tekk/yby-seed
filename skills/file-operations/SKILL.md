@@ -3,7 +3,7 @@ name: file-operations
 version: 1.0.0
 min_agent_version: 2.0.0
 last_updated: 2026-10-08
-description: Operações com arquivos: ler, escrever, copiar, mover, renomear, deletar, listar, buscar por padrão, organizar, limpar, gerenciar arquivos e pastas, manipular documentos
+description: "Operações com arquivos: ler, escrever, copiar, mover, renomear, deletar, listar, buscar por padrão, organizar, limpar, gerenciar arquivos e pastas, manipular documentos"
 compatibility: ubuntu, python-3.11+, os, shutil, pathlib, fnmatch
 license: MIT
 authors:
@@ -78,98 +78,112 @@ import fnmatch
 
 # Operações Básicas
 
+
 def read_file(filepath: str) -> str:
     """Lê arquivo de texto"""
-    
-    with open(filepath, 'r', encoding='utf-8') as f:
+
+    with open(filepath, "r", encoding="utf-8") as f:
         return f.read()
+
 
 def write_file(filepath: str, content: str):
     """Escreve em arquivo de texto"""
-    
-    with open(filepath, 'w', encoding='utf-8') as f:
+
+    with open(filepath, "w", encoding="utf-8") as f:
         f.write(content)
+
 
 def copy_file(source: str, dest: str):
     """Copia arquivo"""
-    
+
     shutil.copy2(source, dest)
     print(f"📋 Copiado: {source} → {dest}")
 
+
 def move_file(source: str, dest: str):
     """Move arquivo"""
-    
+
     shutil.move(source, dest)
     print(f"➡️  Movido: {source} → {dest}")
 
+
 def rename_file(old_name: str, new_name: str):
     """Renomeia arquivo"""
-    
+
     os.rename(old_name, new_name)
     print(f"🏷️  Renomeado: {old_name} → {new_name}")
 
+
 def delete_file(filepath: str):
     """Deleta arquivo"""
-    
+
     os.remove(filepath)
     print(f"🗑️  Deletado: {filepath}")
 
+
 # Operações em Lote
+
 
 def copy_files_pattern(source_dir: str, dest_dir: str, pattern: str):
     """Copia arquivos por padrão"""
-    
+
     Path(dest_dir).mkdir(parents=True, exist_ok=True)
-    
+
     for file in Path(source_dir).glob(pattern):
         if file.is_file():
             shutil.copy2(file, Path(dest_dir) / file.name)
             print(f"📋 Copiado: {file.name}")
 
+
 def move_files_extension(source_dir: str, dest_dir: str, extension: str):
     """Move arquivos por extensão"""
-    
+
     Path(dest_dir).mkdir(parents=True, exist_ok=True)
-    
+
     for file in Path(source_dir).glob(f"*.{extension}"):
         if file.is_file():
             shutil.move(file, Path(dest_dir) / file.name)
             print(f"➡️  Movido: {file.name}")
 
+
 def delete_files_older_than(directory: str, days: int):
     """Deleta arquivos mais antigos que N dias"""
-    
+
     from datetime import datetime, timedelta
-    
+
     cutoff = datetime.now() - timedelta(days=days)
-    
+
     for file in Path(directory).iterdir():
         if file.is_file():
             mtime = datetime.fromtimestamp(file.stat().st_mtime)
-            
+
             if mtime < cutoff:
                 file.unlink()
                 print(f"🗑️  Deletado: {file.name}")
 
+
 # Listagem e Busca
+
 
 def list_files(directory: str, pattern: str = "*") -> list:
     """Lista arquivos por padrão"""
-    
+
     return [str(f) for f in Path(directory).glob(pattern) if f.is_file()]
+
 
 def find_files_by_size(directory: str, min_size_mb: float = 0) -> list:
     """Encontra arquivos por tamanho mínimo"""
-    
+
     min_size_bytes = min_size_mb * 1024 * 1024
-    
+
     large_files = []
-    
+
     for file in Path(directory).rglob("*"):
         if file.is_file() and file.stat().st_size > min_size_bytes:
             large_files.append(str(file))
-    
+
     return large_files
+
 
 if __name__ == "__main__":
     # Exemplo de uso
@@ -200,12 +214,13 @@ def backup_pdfs(source_dir: str, backup_dir: str):
 ```python
 def rename_files_add_prefix(directory: str, prefix: str, pattern: str = "*"):
     """Adiciona prefixo a arquivos"""
-    
+
     for file in Path(directory).glob(pattern):
         if file.is_file():
             new_name = file.parent / f"{prefix}{file.name}"
             file.rename(new_name)
             print(f"🏷️  Renomeado: {file.name} → {new_name.name}")
+
 
 # Uso
 rename_files_add_prefix("/fotos", "2026_", "*.jpg")
@@ -216,16 +231,17 @@ rename_files_add_prefix("/fotos", "2026_", "*.jpg")
 ```python
 def organize_files_by_extension(directory: str):
     """Organiza arquivos em pastas por extensão"""
-    
+
     for file in Path(directory).iterdir():
         if file.is_file():
-            ext = file.suffix.lstrip('.') or "sem_extensao"
+            ext = file.suffix.lstrip(".") or "sem_extensao"
             ext_folder = Path(directory) / ext
-            
+
             ext_folder.mkdir(exist_ok=True)
             file.rename(ext_folder / file.name)
-            
+
             print(f"📁 Movido: {file.name} → {ext}/")
+
 
 # Uso
 organize_files_by_extension("/downloads")
@@ -260,25 +276,25 @@ def safe_copy_file(source: str, dest: str) -> bool:
 ```python
 def safe_delete_file(filepath: str, dry_run: bool = True):
     """Deleta arquivo com segurança (dry-run opcional)"""
-    
+
     if not Path(filepath).exists():
         print(f"⚠️  Arquivo não existe: {filepath}")
         return
-    
+
     if dry_run:
         print(f"🔍 [DRY-RUN] Deletaria: {filepath}")
         return
-    
+
     # Confirmação para arquivos grandes
     file_size = Path(filepath).stat().st_size / (1024 * 1024)  # MB
-    
+
     if file_size > 100:  # > 100MB
         confirm = input(f"⚠️  Tem certeza que quer deletar {filepath} ({file_size:.1f} MB)? [y/N]: ")
-        
-        if confirm.lower() != 'y':
+
+        if confirm.lower() != "y":
             print("❌ Cancelado")
             return
-    
+
     # Deleta
     Path(filepath).unlink()
     print(f"✅ Deletado: {filepath}")
@@ -373,15 +389,16 @@ print("✅ Arquivos temporários removidos")
 ```python
 def is_file_in_use(filepath: str) -> bool:
     """Verifica se arquivo está em uso"""
-    
+
     try:
         # Tenta abrir para escrita
-        with open(filepath, 'a'):
+        with open(filepath, "a"):
             pass
         return False
-    
+
     except (IOError, PermissionError):
         return True
+
 
 # Uso
 if is_file_in_use("arquivo.txt"):
@@ -395,16 +412,17 @@ else:
 ```python
 import shutil
 
+
 def check_disk_space(path: str, required_gb: float = 1.0) -> bool:
     """Verifica se há espaço suficiente"""
-    
+
     total, used, free = shutil.disk_usage(path)
-    free_gb = free / (1024 ** 3)
-    
+    free_gb = free / (1024**3)
+
     if free_gb < required_gb:
         print(f"⚠️  Espaço insuficiente: {free_gb:.1f} GB livres (precisa de {required_gb} GB)")
         return False
-    
+
     return True
 ```
 

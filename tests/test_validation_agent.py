@@ -11,7 +11,7 @@ def validator():
     return ValidationAgent()
 
 
-CODIGO_VALIDO = '''
+CODIGO_VALIDO = """
 import os
 
 def main():
@@ -19,14 +19,14 @@ def main():
 
 if __name__ == "__main__":
     main()
-'''
+"""
 
-CODIGO_SINTAXE_INVALIDA = '''
+CODIGO_SINTAXE_INVALIDA = """
 def main()
     print("erro")
-'''
+"""
 
-CODIGO_PERIGOSO = '''
+CODIGO_PERIGOSO = """
 import os
 
 def main():
@@ -34,14 +34,14 @@ def main():
 
 if __name__ == "__main__":
     main()
-'''
+"""
 
-CODIGO_SEM_ESTRUTURA = '''
+CODIGO_SEM_ESTRUTURA = """
 import os
 
 def main():
     print("sem entrypoint")
-'''
+"""
 
 
 def test_codigo_valido(validator):
@@ -86,9 +86,6 @@ def test_sugestoes_para_codigo_valido(validator):
 
 def test_sugestoes_para_eval(validator):
     """Erro de eval deve sugerir ast.literal_eval."""
-    sugestao = validator.suggest_fixes(
-        CODIGO_PERIGOSO,
-        ["⚠️  Padrão perigoso detectado: eval("]
-    )
+    sugestao = validator.suggest_fixes(CODIGO_PERIGOSO, ["⚠️  Padrão perigoso detectado: eval("])
 
     assert "ast.literal_eval" in sugestao

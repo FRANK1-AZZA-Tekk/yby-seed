@@ -82,43 +82,47 @@ SMTP_PASS = "SUA_SENHA_OU_APP_PASSWORD"
 TELEGRAM_BOT_TOKEN = "SEU_BOT_TOKEN"
 TELEGRAM_CHAT_ID = "SEU_CHAT_ID"
 
+
 def send_email(to_email: str, subject: str, body: str):
     """Envia email via SMTP"""
-    
+
     msg = MIMEMultipart()
-    msg['From'] = SMTP_USER
-    msg['To'] = to_email
-    msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
-    
+    msg["From"] = SMTP_USER
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+
     server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
     server.starttls()
     server.login(SMTP_USER, SMTP_PASS)
     server.send_message(msg)
     server.quit()
-    
+
     print(f"✅ Email enviado para {to_email}")
+
 
 def send_telegram(text: str, chat_id: str = None):
     """Envia mensagem para Telegram"""
-    
+
     if not chat_id:
         chat_id = TELEGRAM_CHAT_ID
-    
+
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     data = {"chat_id": chat_id, "text": text}
-    
+
     response = requests.post(url, json=data)
     response.raise_for_status()
-    
+
     print("✅ Mensagem enviada no Telegram")
+
 
 def send_system_notification(title: str, message: str):
     """Envia notificação do sistema (Ubuntu)"""
-    
+
     subprocess.run(["notify-send", title, message])
-    
+
     print(f"🔔 Notificação: {title}")
+
 
 if __name__ == "__main__":
     # Exemplo de uso
@@ -132,15 +136,15 @@ if __name__ == "__main__":
 ```python
 def send_email_gmail(to_email: str, subject: str, body: str):
     """Envia email via Gmail"""
-    
+
     import smtplib
     from email.mime.text import MIMEText
-    
+
     msg = MIMEText(body)
-    msg['Subject'] = subject
-    msg['From'] = "seu_email@gmail.com"
-    msg['To'] = to_email
-    
+    msg["Subject"] = subject
+    msg["From"] = "seu_email@gmail.com"
+    msg["To"] = to_email
+
     server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
     server.login("seu_email@gmail.com", "SUA_SENHA")
     server.send_message(msg)
@@ -185,13 +189,14 @@ def send_slack_message(text: str, webhook_url: str):
 ```python
 def notify_on_success(task_name: str):
     """Notifica ao concluir tarefa"""
-    
+
     send_system_notification("✅ Sucesso", f"{task_name} concluído!")
     send_telegram(f"✅ {task_name} concluído com sucesso!")
 
+
 def notify_on_failure(task_name: str, error: str):
     """Notifica ao falhar tarefa"""
-    
+
     send_system_notification("❌ Erro", f"{task_name} falhou")
     send_telegram(f"❌ {task_name} falhou:\n{error}")
     send_email("admin@empresa.com", f"Erro: {task_name}", error)
@@ -228,12 +233,13 @@ subprocess.run(["notify-send", "Backup", "✅ Backup concluído!"])
 import smtplib
 from email.mime.text import MIMEText
 
+
 def send_daily_report():
     msg = MIMEText("Relatório de vendas diário:\n- Total: R$ 15.000\n- Pedidos: 45")
-    msg['Subject'] = "Relatório Diário de Vendas"
-    msg['From'] = "sistema@empresa.com"
-    msg['To'] = "gerente@empresa.com"
-    
+    msg["Subject"] = "Relatório Diário de Vendas"
+    msg["From"] = "sistema@empresa.com"
+    msg["To"] = "gerente@empresa.com"
+
     server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
     server.login("sistema@empresa.com", "SENHA")
     server.send_message(msg)
@@ -256,10 +262,7 @@ temperature = 32  # Simulação
 
 if temperature > 30:
     url = "https://api.telegram.org/botTOKEN/sendMessage"
-    data = {
-        "chat_id": "CHAT_ID",
-        "text": f"⚠️ Alerta: Temperatura alta ({temperature}°C)"
-    }
+    data = {"chat_id": "CHAT_ID", "text": f"⚠️ Alerta: Temperatura alta ({temperature}°C)"}
     requests.post(url, json=data)
 ```
 
@@ -301,20 +304,21 @@ from datetime import datetime, timedelta
 
 last_notification = {}
 
+
 def notify_with_cooldown(channel: str, message: str, cooldown_minutes: int = 5):
     now = datetime.now()
-    
+
     # Verifica cooldown
     if channel in last_notification:
         elapsed = now - last_notification[channel]
         if elapsed < timedelta(minutes=cooldown_minutes):
             print(f"⏰ Aguardando cooldown ({cooldown_minutes} min)")
             return
-    
+
     # Envia notificação
     if channel == "telegram":
         send_telegram(message)
-    
+
     last_notification[channel] = now
 ```
 

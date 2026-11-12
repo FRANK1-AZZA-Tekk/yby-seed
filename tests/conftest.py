@@ -7,9 +7,9 @@ Regras:
 - Foco em testes unitários dos agentes e lógica pura.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 
 # ============================================================================
 # FIXTURES GERAIS

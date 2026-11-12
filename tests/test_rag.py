@@ -1,31 +1,16 @@
-"""Testes do RAG (LanceDB + AST Chunking + Context Pruning).
+"""RAG — chunking e contratos offline (sem embeddings reais)."""
 
-Estes testes dependem de embeddings reais e LanceDB configurado.
-Por enquanto, estão marcados como skip até que fixtures reais sejam implementadas.
-"""
-
-import pytest
+from src.yby_seed.memory.chunking import iter_semantic_chunks
 
 
-@pytest.mark.skip(reason="RAG depende de embeddings reais - fixtures pendentes")
-@pytest.mark.integration
-def test_rag_chunking_ast(sample_skill_manifest, mock_lancedb):
-    """RAG deve fazer chunking do código em AST."""
-    # TODO: Implementar testes reais quando fixtures estiverem prontas
-    pass
+def test_rag_chunking_preserves_code_fence_block() -> None:
+    text = "Intro\n\n```python\nprint('ok')\n```\n\nFim."
+    chunks = list(iter_semantic_chunks(text))
+    assert any(c.startswith("```") for c in chunks)
+    assert any("Intro" in c for c in chunks)
 
 
-@pytest.mark.skip(reason="RAG depende de embeddings reais - fixtures pendentes")
-@pytest.mark.integration
-def test_rag_context_pruning(sample_user_command, mock_lancedb):
-    """RAG deve reduzir tokens injetados via Context Pruning."""
-    # TODO: Implementar testes reais quando fixtures estiverem prontas
-    pass
-
-
-@pytest.mark.skip(reason="RAG depende de embeddings reais - fixtures pendentes")
-@pytest.mark.integration
-def test_rag_recupera_contexto_relevante(sample_user_command, mock_lancedb):
-    """RAG deve recuperar contexto relevante para o comando."""
-    # TODO: Implementar testes reais quando fixtures estiverem prontas
-    pass
+def test_rag_chunking_preserves_short_document() -> None:
+    text = "documento único"
+    chunks = list(iter_semantic_chunks(text))
+    assert chunks == ["documento único"]

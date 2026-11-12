@@ -15,16 +15,12 @@ AGENTES = [
     "src.agents.execution_agent",
     "src.agents.governance_agent",
     "src.agents.learning_agent",
-    "src.agents.interview_agent",
     "src.agents.bayesian_teaching",
 ]
 
 
 def _importar(modulo: str):
-    try:
-        return importlib.import_module(modulo)
-    except ImportError as exc:
-        pytest.skip(f"dependência ausente para {modulo}: {exc}")
+    return importlib.import_module(modulo)
 
 
 @pytest.mark.parametrize("modulo", AGENTES)
@@ -39,7 +35,6 @@ def test_agente_tem_classe_principal(modulo):
     """Cada módulo de agente deve expor pelo menos uma classe."""
     mod = _importar(modulo)
     classes = [
-        obj for name, obj in vars(mod).items()
-        if isinstance(obj, type) and not name.startswith("_")
+        obj for name, obj in vars(mod).items() if isinstance(obj, type) and not name.startswith("_")
     ]
     assert len(classes) > 0, f"{modulo} não expõe nenhuma classe"

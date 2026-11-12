@@ -22,12 +22,14 @@ def router(ollama_mock):
 
 def test_classifica_backup_automation(router, ollama_mock):
     """Comando de backup deve rotear para planning."""
-    ollama_mock.generate.return_value = json.dumps({
-        "agent": "planning",
-        "intent": "backup_automation",
-        "confidence": 0.95,
-        "requires_interview": True
-    })
+    ollama_mock.generate.return_value = json.dumps(
+        {
+            "agent": "planning",
+            "intent": "backup_automation",
+            "confidence": 0.95,
+            "requires_interview": True,
+        }
+    )
 
     resultado = router.classify("Crie um script de backup")
 
@@ -38,12 +40,14 @@ def test_classifica_backup_automation(router, ollama_mock):
 
 def test_classifica_chat_question(router, ollama_mock):
     """Pergunta simples deve rotear para execution."""
-    ollama_mock.generate.return_value = json.dumps({
-        "agent": "execution",
-        "intent": "chat_question",
-        "confidence": 0.9,
-        "requires_interview": False
-    })
+    ollama_mock.generate.return_value = json.dumps(
+        {
+            "agent": "execution",
+            "intent": "chat_question",
+            "confidence": 0.9,
+            "requires_interview": False,
+        }
+    )
 
     resultado = router.classify("O que é backup?")
 
