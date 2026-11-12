@@ -73,6 +73,7 @@ class MissionOrchestrator:
         artifact: StructuredCode | None = None
         last_stdout = ""
         last_stderr = ""
+        last_report: dict | None = None
 
         for attempt in range(1, self.settings.max_generation_attempts + 1):
             state.attempt_count = attempt
@@ -91,13 +92,18 @@ class MissionOrchestrator:
 
             state.status = MissionStatus.VALIDATING
             await self._emit(queue, state, "sandbox", "Validando no Docker (sem rede)…")
-            ok, last_stdout, last_stderr = execute_validated(
+            validation = execute_validated(
                 language=artifact.language,
                 code=artifact.code,
                 filename=artifact.filename,
                 tests=artifact.tests,
                 settings=self.settings,
+                domain=request.domain,
             )
+            ok = validation.success
+            last_stdout = validation.stdout
+            last_stderr = validation.stderr
+            last_report = validation.report
             state.last_stdout = last_stdout
             state.last_stderr = last_stderr
             state.validation_logs.append(f"[sandbox] ok={ok} stderr={last_stderr[:500]}")
@@ -123,6 +129,7 @@ class MissionOrchestrator:
                     stderr=last_stderr,
                     dataset_saved=dataset_saved,
                     mqtt_published=mqtt_published,
+                    validation_report=last_report,
                 )
 
             state.status = MissionStatus.AUDITING
@@ -142,6 +149,7 @@ class MissionOrchestrator:
             language=artifact.language if artifact else None,
             stdout=last_stdout,
             stderr=last_stderr,
+            validation_report=last_report,
         )
 
     async def _emit(

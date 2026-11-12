@@ -35,6 +35,7 @@ class GenerateResponse(BaseModel):
     stderr: str = ""
     dataset_saved: bool = False
     mqtt_published: bool = False
+    validation_report: dict | None = None
 
 
 class ForgeDryRunRequest(BaseModel):

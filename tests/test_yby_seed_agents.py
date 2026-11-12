@@ -37,7 +37,10 @@ async def test_orchestrator_success_flow() -> None:
         patch.object(BuilderAgent, "run", AsyncMock(side_effect=builder_side_effect)),
         patch(
             "src.yby_seed.agents.orchestrator.execute_validated",
-            return_value=(True, "ok", ""),
+            return_value=__import__(
+                "src.yby_seed.sandbox",
+                fromlist=["ValidationResult"],
+            ).ValidationResult(True, "ok", "", {}),
         ),
         patch("src.yby_seed.agents.orchestrator.append_dataset", return_value=True),
         patch("src.yby_seed.agents.orchestrator.publish_validated_code", return_value=True),

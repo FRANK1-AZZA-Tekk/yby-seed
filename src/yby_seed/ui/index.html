@@ -68,9 +68,14 @@
       <ol id="steps" class="text-xs space-y-1 mb-4 text-offwhite/70">
         <li data-step="1">① LiteLLM (yby-local + fallback)</li>
         <li data-step="2">② Extração estruturada (Pydantic)</li>
-        <li data-step="3">③ Sandbox Docker (ruff/pytest ou g++)</li>
+        <li data-step="3">③ Sandbox Docker + hardware_linter</li>
         <li data-step="4">④ MQTT + dataset ChatML</li>
       </ol>
+
+      <div id="hw-report" class="hidden mb-3 rounded border border-gray-700 p-3 text-xs">
+        <h3 class="text-silicon mb-1">Relatório pinagem / Modbus</h3>
+        <div id="hw-report-body" class="text-offwhite/80"></div>
+      </div>
 
       <pre id="output" class="bg-obsidian border border-gray-800 rounded p-3 text-xs overflow-auto min-h-[220px] whitespace-pre-wrap">Aguardando…</pre>
     </section>
@@ -95,6 +100,28 @@
       steps.forEach((el) => {
         el.classList.toggle('step-active', Number(el.dataset.step) <= active);
       });
+    }
+
+    const EMBEDDED_DOMAINS = new Set(['esp_idf', 'lvgl_v9', 'modbus_rtu']);
+
+    function renderHardwareReport(domain, report) {
+      const wrap = document.getElementById('hw-report');
+      const body = document.getElementById('hw-report-body');
+      if (!EMBEDDED_DOMAINS.has(domain) || !report || !report.hardware) {
+        wrap.classList.add('hidden');
+        return;
+      }
+      const hw = report.hardware;
+      const approved = hw.pinning_approved === true && report.pinning_modbus_approved !== false;
+      body.innerHTML = [
+        `<p class="mb-1">Placa: <span class="text-silicon">${hw.board || 'n/d'}</span></p>`,
+        `<p>GPIO: ${hw.gpio_ok ? 'OK' : 'Falha'} · Modbus: ${hw.modbus_ok ? 'OK' : 'Falha'}</p>`,
+        `<p class="${approved ? 'text-silicon' : 'text-red-400'}">${approved ? 'Pinagem/Modbus aprovados' : 'Revisar pinagem/Modbus'}</p>`,
+        hw.gpio_issues?.length ? `<p>GPIO: ${hw.gpio_issues.join('; ')}</p>` : '',
+        hw.modbus_issues?.length ? `<p>Modbus: ${hw.modbus_issues.join('; ')}</p>` : '',
+        report.validation_summary ? `<p class="mt-1">${report.validation_summary}</p>` : '',
+      ].filter(Boolean).join('');
+      wrap.classList.remove('hidden');
     }
 
     function renderTelemetry(data) {
@@ -142,6 +169,7 @@
       setStep(body.success ? 4 : 3);
       latestCode = body.code || '';
       document.getElementById('btn-copy').disabled = !latestCode;
+      renderHardwareReport(domain, body.validation_report || null);
 
       output.textContent = [
         `success: ${body.success} (tentativas: ${body.attempts})`,
