@@ -22,6 +22,8 @@ def test_litellm_fallback_chain_no_self_reference() -> None:
     assert "yby-local: [yby-cloud-coder" in text
     assert "num_ctx: 4096" in text
     assert "max_budget: 3.50" in text
+    assert "qwen2.5-coder:7b-instruct-q3_K_M" in text
+    assert "qwen2.5-coder:7b-instruct-q3_K_M" in text
     assert "yby-tuned: [yby-tuned" not in text
 
 

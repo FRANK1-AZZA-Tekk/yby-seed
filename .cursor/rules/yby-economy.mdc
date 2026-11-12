@@ -7,7 +7,7 @@ alwaysApply: true
 # Economia de execução
 
 - Priorize execução local e o menor escopo funcional.
-- Use Ollama local `qwen2.5-coder:7b-instruct-q4_K_M` (Q4, 4 GB VRAM) com **uma inferência por vez** (`gpu_gate`).
+- Use Ollama local `qwen2.5-coder:7b-instruct-q3_K_M` (Q3, ~3,5 GB VRAM c/ `num_ctx: 4096`) com **uma inferência por vez** (`gpu_gate`). Priorize `yby-tuned` (`IQ4_XS` ~3,85 GB) só quando o modelo afinado existir.
 - Não explore o repositório além dos arquivos da tarefa.
 - Não refatore, documente ou crie dependências sem aprovação.
 - Use nuvem apenas se a tarefa exigir ou se o usuário autorizar.

@@ -18,7 +18,7 @@ OLLAMA_URL = os.environ.get("YBY_OLLAMA_BASE_URL", "http://127.0.0.1:11434")
 LITELLM_URL = os.environ.get("LITELLM_BASE_URL", "http://127.0.0.1:4000")
 LITELLM_KEY = os.environ.get("LITELLM_MASTER_KEY", "local-dev-key")
 
-REQUIRED_MODELS = {"qwen2.5-coder:7b-instruct-q4_K_M", "nomic-embed-text"}
+REQUIRED_MODELS = {"qwen2.5-coder:7b-instruct-q3_K_M", "nomic-embed-text"}
 
 CONTAINERS = (
     ("yby-postgres", 5432),

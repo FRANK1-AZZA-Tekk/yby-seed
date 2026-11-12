@@ -46,3 +46,23 @@ CREATE INDEX IF NOT EXISTS idx_mission_ledger_created_at
 
 CREATE INDEX IF NOT EXISTS idx_mission_ledger_mission_id
     ON mission_ledger (mission_id);
+
+-- FTS híbrido (RRF): coluna gerada + GIN (idempotente em bases existentes)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'knowledge_chunks'
+          AND column_name = 'tsv'
+    ) THEN
+        ALTER TABLE knowledge_chunks
+            ADD COLUMN tsv tsvector
+            GENERATED ALWAYS AS (to_tsvector('simple', content)) STORED;
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_tsv
+    ON knowledge_chunks
+    USING GIN (tsv);

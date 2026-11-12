@@ -46,6 +46,11 @@ def build_mcp_server() -> MCPServer:
         """Simula missão Vast.ai sem gastar saldo (dry-run)."""
         return tools.simulate_vast_forge(task)
 
+    @server.tool(name="get_repo_map")
+    def get_repo_map(repo_path: str, domain: str | None = None) -> dict[str, Any]:
+        """Mapa compacto de símbolos Python/C++ e manifesto GPIO."""
+        return tools.get_repo_map(repo_path, domain=domain)
+
     return server
 
 

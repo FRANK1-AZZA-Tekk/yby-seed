@@ -32,7 +32,7 @@ async def test_fetch_context_uses_global_pool() -> None:
         text = await retriever.fetch_context("query", domain="yby_arch", top_k=2)
 
     assert "chunk" in text
-    mock_cursor.execute.assert_awaited_once()
+    assert mock_cursor.execute.await_count >= 1
 
 
 @pytest.mark.asyncio

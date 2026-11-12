@@ -14,6 +14,7 @@ from openai import OpenAI
 
 from src.yby_seed.config import Settings, get_settings
 from src.yby_seed.forge import vast_router
+from src.yby_seed.mcp.repo_map import build_repo_map
 from src.yby_seed.memory.retriever import EMBED_MODEL
 from src.yby_seed.runtime import resources
 from src.yby_seed.runtime.gpu_sync import sync_inference_slot
@@ -187,6 +188,15 @@ def publish_mqtt_command(topic: str, payload: dict[str, Any]) -> dict[str, Any]:
 
     _audit("publish_mqtt_command", result)
     return result
+
+
+def get_repo_map(repo_path: str, domain: str | None = None) -> dict[str, Any]:
+    """Mapa AST/heurístico de símbolos do projeto (path autorizado)."""
+    settings = get_settings()
+    root = _resolve_safe_path(repo_path, settings)
+    payload = build_repo_map(root, domain=domain)
+    _audit("get_repo_map", {"repo_path": str(root), "file_count": payload.get("file_count", 0)})
+    return payload
 
 
 def simulate_vast_forge(task: str) -> dict[str, Any]:

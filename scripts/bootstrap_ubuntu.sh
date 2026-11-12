@@ -51,7 +51,7 @@ if command -v ollama >/dev/null 2>&1; then
       ollama pull "$model" || echo "[warn] pull $model falhou"
     fi
   }
-  pull_if_missing "qwen2.5-coder:7b-instruct-q4_K_M"
+  pull_if_missing "qwen2.5-coder:7b-instruct-q3_K_M"
   pull_if_missing "nomic-embed-text"
 else
   echo "[warn] ollama não encontrado — pule pull de modelos; instale em https://ollama.com"

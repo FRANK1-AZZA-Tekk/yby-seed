@@ -17,6 +17,26 @@ from src.yby_seed.sandbox.runners import select_runner
 
 logger = logging.getLogger(__name__)
 MAX_LOG_BYTES = 65_536
+PREFERRED_SANDBOX_IMAGE = "yby-sandbox:latest"
+FALLBACK_SANDBOX_IMAGE = "python:3.12-slim"
+
+
+def resolve_sandbox_python_image(settings: Settings) -> str:
+    """Prefere imagem quente yby-sandbox:latest se existir localmente."""
+    configured = settings.sandbox_python_image
+    if shutil.which("docker") is None:
+        return configured or FALLBACK_SANDBOX_IMAGE
+    try:
+        client = resources.get_docker_client_sync()
+    except Exception:  # noqa: BLE001
+        return configured or FALLBACK_SANDBOX_IMAGE
+    for image in (PREFERRED_SANDBOX_IMAGE, configured, FALLBACK_SANDBOX_IMAGE):
+        try:
+            client.images.get(image)
+            return image
+        except Exception:  # noqa: BLE001
+            continue
+    return FALLBACK_SANDBOX_IMAGE
 
 
 @dataclass
@@ -119,7 +139,10 @@ def execute_validated(
     with tempfile.TemporaryDirectory(prefix="yby-sandbox-") as tmp:
         work = Path(tmp)
         command = runner.build(work, code, filename, tests)
-        ok, stdout, stderr = _run_docker(command.image, command.shell_cmd, work, settings)
+        image = command.image
+        if language == "python":
+            image = resolve_sandbox_python_image(settings)
+        ok, stdout, stderr = _run_docker(image, command.shell_cmd, work, settings)
         report["docker"] = {"ok": ok}
         report["pinning_modbus_approved"] = report.get("hardware", {}).get("pinning_approved", True)
 

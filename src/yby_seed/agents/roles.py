@@ -51,6 +51,15 @@ Responda SOMENTE JSON:
   "tests": "pytest opcional"
 }"""
 
+SURGICAL_PATCH_HINT = """
+Em retentativas (sandbox falhou), prefira patch cirúrgico no campo "code":
+<<<<<<< SEARCH
+trecho exato do código atual
+=======
+trecho corrigido
+>>>>>>> REPLACE
+Se não for possível casar blocos, reescreva o arquivo inteiro no JSON como antes."""
+
 AUDITOR_SYSTEM = """Você é o AuditorAgent do YBY SEED.
 Analise stderr do sandbox, identifique causa raiz e proponha correção CIRÚRGICA.
 Responda SOMENTE JSON:
@@ -124,6 +133,10 @@ class BuilderAgent:
         )
         if state.auditor_guidance:
             user_content += f"\nCorreção do Auditor:\n{state.auditor_guidance}\n"
+        if state.attempt_count >= 2 and state.generated_code:
+            user_content += (
+                f"\nCódigo atual:\n{state.generated_code.code[:8000]}\n{SURGICAL_PATCH_HINT}\n"
+            )
 
         payload = await asyncio.get_running_loop().run_in_executor(
             None,

@@ -13,6 +13,10 @@ from openai import OpenAI
 
 from src.yby_seed.agents.roles import ArchitectAgent, AuditorAgent, BuilderAgent
 from src.yby_seed.agents.state import MissionState, MissionStatus
+from src.yby_seed.agents.surgical_patch import (
+    apply_search_replace_blocks,
+    parse_search_replace_blocks,
+)
 from src.yby_seed.config import Settings, get_settings
 from src.yby_seed.memory.ledger import MissionTimer, record_mission_completion
 from src.yby_seed.models import GenerateRequest, GenerateResponse, StructuredCode
@@ -82,8 +86,24 @@ class MissionOrchestrator:
             state.status = MissionStatus.BUILDING
             await self._emit(queue, state, "builder", f"Gerando código (tentativa {attempt})…")
             try:
+                prev_code = artifact.code if artifact is not None else None
                 state = await self._builder.run(state)
                 artifact = state.generated_code
+                if (
+                    artifact is not None
+                    and attempt >= 2
+                    and prev_code
+                    and "<<<<<<< SEARCH" in artifact.code
+                ):
+                    blocks = parse_search_replace_blocks(artifact.code)
+                    if blocks:
+                        patched, applied, patch_errors = apply_search_replace_blocks(
+                            prev_code, blocks
+                        )
+                        if applied > 0:
+                            artifact = artifact.model_copy(update={"code": patched})
+                            state.generated_code = artifact
+                        state.validation_logs.extend(patch_errors)
             except Exception as exc:  # noqa: BLE001
                 last_stderr = str(exc)
                 state.validation_logs.append(last_stderr)

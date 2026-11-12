@@ -26,6 +26,7 @@ def test_mcp_tool_schemas_present() -> None:
         "check_gpu_headroom",
         "publish_mqtt_command",
         "simulate_vast_forge",
+        "get_repo_map",
     }
     assert expected.issubset(tool_names)
 
