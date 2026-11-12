@@ -21,13 +21,16 @@ INFRA_CONTAINERS = {
 
 
 def _run(cmd: list[str], timeout: float = 4.0) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=False,
-    )
+    try:
+        return subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        return subprocess.CompletedProcess(cmd, 127, "", str(exc))
 
 
 def read_gpu_stats() -> dict[str, Any]:

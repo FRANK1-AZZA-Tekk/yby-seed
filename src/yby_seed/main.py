@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from src.yby_seed.agents import mission_progress_queues
 from src.yby_seed.engine import SeedEngine
 from src.yby_seed.forge import vast_router
+from src.yby_seed.mcp.server import mount_mcp_on_fastapi
 from src.yby_seed.models import ForgeDryRunRequest, GenerateRequest, GenerateResponse
 from src.yby_seed.telemetry import collect_telemetry
 
@@ -19,6 +20,7 @@ UI_INDEX = Path(__file__).resolve().parent / "ui" / "index.html"
 
 app = FastAPI(title="YBY SEED", version="0.1.0")
 _engine = SeedEngine()
+mount_mcp_on_fastapi(app)
 
 
 @app.get("/", response_class=HTMLResponse)
