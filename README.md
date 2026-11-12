@@ -7,7 +7,14 @@ PC Hub local-first para automações e IA. As decisões de 2026-11-11 estão em 
 
 ## Status
 
-Fase atual: **Fase 0 — Consolidação**. A plataforma decidida é o servidor de casa sempre ligado (o PC Hub, Ubuntu). Mobile e firmware ficaram fora do v1.
+Fase atual: **Consolidação + exocórtex CLI**. O repositório tem **dois caminhos** oficiais (ver [docs/DEV.md](docs/DEV.md)):
+
+| Caminho | Entrada | Modelo típico |
+|---|---|---|
+| **CLI v1** | `yby.py ask` / `yby skill` | Ollama `qwen2.5-coder:3b` (leve, sem Docker) |
+| **Vibe Coding** | `make api` → `:8088` | LiteLLM `yby-tuned` → `yby-local` (**7B Q3_K_M**, GTX 1650 + Docker) |
+
+Mobile e firmware ficam fora do v1.
 
 ## O que é
 
@@ -18,7 +25,8 @@ YBY SEED é o exocórtex pessoal nesse servidor:
 - A memória é um vault Obsidian em Markdown, com índice local. `python yby.py note` grava e `python yby.py recall` busca. O Syncthing sincroniza a pasta com o servidor de casa. O `ask` ainda não grava nota sozinho.
 - Comandos de terminal seguem a allowlist em `config/safety-allowlist.txt` (leitura, git, scripts em `scripts/` e `examples/`). O resto pede sim ou não. `python yby.py run "..."` passa pela porta e, se permitido, executa com timeout. `python yby.py gate "..."` só decide; não executa.
 - Voz opcional: `python yby.py listen` (ou `ask --voice`) grava até Enter, transcreve com faster-whisper e fala a resposta com Piper. Deps em `requirements-voice.txt`.
-- O único modelo local é `qwen2.5-coder:3b`.
+- No **CLI** (`ask`), o modelo local padrão é `qwen2.5-coder:3b`.
+- No **stack Docker** (`src/yby_seed`), use `qwen2.5-coder:7b-instruct-q3_K_M` via LiteLLM (`config/litellm_config.yaml`).
 - O gateway HTTP, se for usado, escuta em `127.0.0.1` e exige `GATEWAY_TOKEN`.
 - Código gerado passa pela guarda AST em `src/security/ast_guard.py`.
 
@@ -29,6 +37,8 @@ O MVP funciona sem Docker:
 ```text
 yby.py ask → Ollama (qwen2.5-coder:3b) → resposta
                 ↘ OpenRouter free → Grok, se o pedido for pesado ou explícito
+yby.py skill → SkillManager → dry-run → confirmação → allowlist → ledger
+make api     → yby_seed (7B Q3 via LiteLLM, sandbox Docker)
 ```
 
 ## Início rápido

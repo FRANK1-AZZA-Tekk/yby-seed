@@ -160,6 +160,16 @@ async def seed_stats() -> EconomyStatsResponse:
     return EconomyStatsResponse(**payload)
 
 
+@app.get("/v1/seed/exocortex/recent")
+async def exocortex_recent(limit: int = 20) -> dict:
+    """Últimos eventos do ledger JSONL do CLI (`yby skill`)."""
+    from src.orchestration.ledger import read_recent_events
+
+    capped = max(1, min(limit, 100))
+    events = await asyncio.to_thread(read_recent_events, limit=capped)
+    return {"events": events, "limit": capped}
+
+
 @app.post("/v1/seed/forge/dry-run")
 async def forge_dry_run(body: ForgeDryRunRequest) -> dict:
     profile = vast_router.MISSION_PROFILES[body.mission]

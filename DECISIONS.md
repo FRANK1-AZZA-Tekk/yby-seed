@@ -26,7 +26,15 @@ Substitui a redação intermediária em que Grok era o destino automático e Ope
 
 Padrão local e único modelo local: `qwen2.5-coder:3b`, o vencedor dos benchmarks yby-seed-local. Cabe na GTX 1650 de 4 GB. Modelos 7B não entram no v1.
 
-Substitui `llama3.2:3b` e as recomendações antigas de Qwen 7B. O alias `yby-local` do LiteLLM aponta para esse modelo.
+Substitui `llama3.2:3b` e as recomendações antigas de Qwen 7B no **CLI**.
+
+**Nota D12 (2026-11-12):** o alias LiteLLM `yby-local` no stack Docker (`src/yby_seed`) usa `qwen2.5-coder:7b-instruct-q3_K_M` com `num_ctx: 4096` e semáforo VRAM — não contradiz o 3B do `ask`, são **entradas diferentes**.
+
+## D12 — Exocórtex CLI e dual stack (2026-11-12)
+
+- **CLI v1:** `yby skill` / `ask --skill` → `SkillManager` → dry-run → confirmação → `src/actions` (allowlist) → ledger JSONL `data/exocortex_ledger.jsonl`.
+- **API Vibe Coding:** `src/yby_seed` (agentes, sandbox, export) — não substitui o CLI; ponte opcional `GET /v1/seed/exocortex/recent`.
+- **`process-manager/`:** prototipo não canônico até redesign com allowlist.
 
 ## D5 — MVP sem Docker no núcleo
 

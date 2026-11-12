@@ -81,16 +81,16 @@ class Skill:
     def should_activate(self, user_command: str) -> bool:
         """Verifica se skill deve ser ativada para este comando"""
 
-        # Verifica se descrição da skill é relevante para comando
-        description_lower = self.metadata.description.lower()
         command_lower = user_command.lower()
-
-        # Palavras-chave da descrição
-        keywords = description_lower.split()
-
-        matches = sum(1 for kw in keywords if kw in command_lower and len(kw) > 3)
-
-        # Ativa se pelo menos 2 palavras-chave match
+        corpus = " ".join(
+            (
+                self.metadata.description,
+                self.instructions.get("quando_usar", ""),
+                self.instructions.get("instruções_passo_a_passo", ""),
+            )
+        ).lower()
+        keywords = {w for w in corpus.replace(",", " ").split() if len(w) > 3}
+        matches = sum(1 for kw in keywords if kw in command_lower)
         return matches >= 2
 
     def get_instructions(self) -> str:
