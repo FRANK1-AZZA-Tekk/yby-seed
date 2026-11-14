@@ -1,0 +1,14 @@
+[
+  {
+    "action": "tool",
+    "name": "echo_json",
+    "arguments": { "message": "demo P0" }
+  },
+  {
+    "action": "finish",
+    "answer": {
+      "summary": "Entregável mínimo validado",
+      "source": "scripted_planner"
+    }
+  }
+]

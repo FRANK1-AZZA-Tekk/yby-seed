@@ -17,16 +17,24 @@ Comandos:
     gate    - Só decide; não executa
     note    - Grava nota no vault
     recall  - Busca no vault
+    agent   - Loop de agente P0 (opt-in; não altera o ask)
 """
 
+import json
 import sys
+from pathlib import Path
 
 import click
 from dotenv import load_dotenv
 from loguru import logger
 
 from src.actions.runner import DEFAULT_TIMEOUT, run_command
+from src.agent_loop.loop import ControlledAgentLoop
+from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
+from src.agent_loop.tools import vault_registry_or_skip
+from src.engine.config import EngineConfig
 from src.engine.hybrid import HybridEngine, engine_from_env
+from src.engine.providers import OllamaProvider
 from src.memory.vault import VaultError, vault_from_env
 from src.platform.hub import main as hub_main
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
@@ -210,6 +218,109 @@ def note(titulo: str, texto: tuple[str, ...]) -> None:
         click.echo(str(exc), err=True)
         raise SystemExit(1) from exc
     click.echo(path)
+
+
+@cli.command("agent")
+@click.argument("tarefa", nargs=-1, required=True)
+@click.option(
+    "--max-steps",
+    default=8,
+    show_default=True,
+    type=click.IntRange(1, 32),
+    help="Teto de iterações do loop.",
+)
+@click.option(
+    "--script",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="JSON com lista de passos do planner (demo sem LLM).",
+)
+@click.option(
+    "--local",
+    is_flag=True,
+    help="Planner via Ollama local (não usa nuvem neste comando).",
+)
+@click.option("--json", "as_json", is_flag=True, help="Saída estruturada em JSON.")
+def agent_cmd(
+    tarefa: tuple[str, ...],
+    max_steps: int,
+    script: Path | None,
+    local: bool,
+    as_json: bool,
+) -> None:
+    """Loop de agente controlado (P0). Fora do fluxo padrão do `ask`.
+
+    Sem --script, use --local com Ollama. Tools: echo_json, vault_search (se YBY_VAULT_PATH).
+    """
+
+    load_dotenv(override=False)
+    texto = " ".join(tarefa).strip()
+    if not texto:
+        click.echo('Informe uma tarefa. Exemplo: yby agent "resuma o vault"', err=True)
+        raise SystemExit(1)
+    if script and local:
+        click.echo("Use apenas um de --script ou --local.", err=True)
+        raise SystemExit(1)
+    if not script and not local:
+        click.echo(
+            "Informe --script <arquivo.json> (demo) ou --local (Ollama).",
+            err=True,
+        )
+        raise SystemExit(1)
+
+    registry = vault_registry_or_skip()
+    if script:
+        raw = json.loads(script.read_text(encoding="utf-8"))
+        if not isinstance(raw, list):
+            click.echo("O script deve ser um JSON array de passos.", err=True)
+            raise SystemExit(1)
+        planner = ScriptedPlanner(raw)
+    else:
+        cfg = EngineConfig.from_env()
+        planner = OllamaJsonPlanner(
+            OllamaProvider(cfg.ollama_base_url, timeout=cfg.ollama_timeout),
+            model=cfg.local_model,
+        )
+
+    loop = ControlledAgentLoop(
+        registry=registry,
+        planner=planner,
+        max_iterations=max_steps,
+    )
+    result = loop.run(texto)
+
+    if as_json:
+        payload = {
+            "status": result.status,
+            "task": result.task,
+            "iterations": result.iterations,
+            "final_answer": result.final_answer,
+            "abort_reason": result.abort_reason,
+            "steps": [
+                {
+                    "iteration": s.iteration,
+                    "kind": s.kind,
+                    "detail": s.detail,
+                    "error": s.error,
+                }
+                for s in result.steps
+            ],
+        }
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        click.echo(f"status: {result.status} ({result.iterations} passos)")
+        if result.abort_reason:
+            click.echo(f"abort: {result.abort_reason}", err=True)
+        if result.final_answer is not None:
+            click.echo(json.dumps(result.final_answer, ensure_ascii=False, indent=2))
+        for step in result.steps:
+            if step.error:
+                click.echo(f"  [{step.kind}] erro: {step.error}", err=True)
+
+    if result.status == "completed":
+        raise SystemExit(0)
+    if result.status == "aborted":
+        raise SystemExit(2)
+    raise SystemExit(1)
 
 
 @cli.command()
