@@ -29,7 +29,7 @@ from src.actions.runner import DEFAULT_TIMEOUT, run_command
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.memory.vault import VaultError, vault_from_env
 from src.platform.hub import main as hub_main
-from src.safety.policy import confirm, decide, default_policy_path, load_policy
+from src.safety.policy import decide, default_policy_path, load_policy
 from src.voice.config import voice_config_from_env
 from src.voice.session import VoiceError, listen_once
 
@@ -184,16 +184,7 @@ def gate(comando: tuple[str, ...]) -> None:
     project_root = default_policy_path().parents[1]
     decision = decide(texto, policy=policy, project_root=project_root)
     click.echo(f"{decision.action}: {decision.reason}")
-    if decision.action != "ask":
-        raise SystemExit(0 if decision.action == "run" else 1)
-
-    approved = confirm(
-        texto,
-        decision,
-        input_fn=lambda: click.prompt("s/n", prompt_suffix=" "),
-        output_fn=click.echo,
-    )
-    raise SystemExit(0 if approved else 1)
+    raise SystemExit(0 if decision.action != "refuse" else 1)
 
 
 @cli.command()
