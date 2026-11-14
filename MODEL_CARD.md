@@ -19,6 +19,8 @@ library_name: yby-seed
 
 # YBY SEED - Model Card
 
+> **Contexto v1 (2026-11):** o produto ativo é **PC Hub** — CLI `yby.py`, Ollama `qwen2.5-coder:3b`, vault e safety. Wearable/MQTT abaixo é **visão histórica**; ver [README.md](README.md) e [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## 🎯 Model Details
 
 **Model Description:** YBY SEED é uma plataforma de Natural Language Programming que traduz comandos em linguagem natural para automções Python executáveis, orquestrando wearables (ESP32), nós móveis (Termux/Android) e servidores locais (Ubuntu/Linux) via MQTT.

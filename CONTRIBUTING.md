@@ -2,7 +2,7 @@
 
 Primeiramente, obrigado por considerar contribuir com o YBY SEED! ❤️
 
-**Guia atual do v1 (PC Hub):** [docs/DEV.md](docs/DEV.md) — setup, CLI, variáveis, pastas e testes (`ruff check .` + `pytest -q`). Onde programar e o que *não* mesclar: [docs/REPOS.md](docs/REPOS.md).
+**Guia atual do v1 (PC Hub):** [docs/DEV.md](docs/DEV.md) — setup, CLI, variáveis, pastas e testes (`make check` ou `ruff check src tests` + `pytest -q`). Onde programar e o que *não* mesclar: [docs/REPOS.md](docs/REPOS.md).
 
 Este projeto e todos os participantes são regidos pelo [Código de Conduta](CODE_OF_CONDUCT.md). Ao participar, você deve uphold este código.
 

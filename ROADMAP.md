@@ -9,7 +9,7 @@ Estado alinhado ao checklist em [docs/REPOS.md](docs/REPOS.md) e às decisões [
 | 1b | Porta + execução (`safety` / `actions`) + vault | Feito |
 | 1c | Voz local (Whisper + Piper) | Feito |
 | 2 | Qualidade contínua (Ruff + Pytest no CI) | Feito |
-| **P** | **Plataforma** — hub sempre ligado (D9): serviço, boot, sync Syncthing | Em andamento (spec pronta; implementação pendente) |
+| **P** | **Plataforma** — hub sempre ligado (D9): serviço, boot, sync Syncthing | Em andamento (hub/cache/log no código; checklist operacional em [docs/PHASE-P.md](docs/PHASE-P.md)) |
 | 3+ | Skills dry-run, agentes no caminho do `ask`, gateway exposto | Depois |
 | Futuro | Mobile / ESP32 | Depois |
 

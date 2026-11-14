@@ -1,5 +1,7 @@
 # Primeiros Passos com YBY SEED
 
+> **Histórico:** este tutorial cita Node-RED/Docker. Para o v1, use [DEV.md](../DEV.md) e `python yby.py ask`.
+
 > Decisão D4 (2026-11-11): o único modelo local é `qwen2.5-coder:3b`.
 
 > **Tempo estimado:** 15 minutos  

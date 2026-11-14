@@ -1,5 +1,7 @@
 # Política de Segurança do YBY SEED
 
+> **v1 (PC Hub):** ameaça principal é **execução de shell** via `yby run` — mitigada por allowlist ([D10](DECISIONS.md)), confirmação e `src/actions`. Gateway MQTT (`src/gateway`) é legado; se ativo, trate o broker como confiável. Demais seções sobre Docker/MQTT em massa referem-se ao desenho histórico.
+
 ## 🛡️ Reportando uma Vulnerabilidade
 
 Levamos a segurança do YBY SEED muito a sério. Se você identificar uma vulnerabilidade, siga as diretrizes abaixo.

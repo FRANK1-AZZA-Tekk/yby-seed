@@ -7,7 +7,8 @@
 model_list:
   # --- Nível 1: Volume local (custo zero, privacidade) ---
   # D4 (2026-11-11): qwen2.5-coder:3b substitui llama3.2:3b.
-  # D3: o `yby ask` usa OpenRouter free como nuvem padrão e Grok como fallback.
+  # D3/D12: proxy opcional. O `ask` usa OpenRouter quando roteamento pede nuvem;
+# falha OpenRouter NÃO aciona Grok automaticamente (ver src/engine/providers.py).
   # Os aliases abaixo espelham a pirâmide de custo do proxy LiteLLM (opcional).
   - model_name: yby-local
     litellm_params:

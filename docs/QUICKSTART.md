@@ -1,5 +1,7 @@
 # 🚀 Quick Start - YBY SEED
 
+> **Atenção:** guia **histórico** (Docker + Node-RED + MQTT). O v1 ativo é **venv + Ollama**, sem Docker obrigatório. Use [README.md](../README.md) e [DEV.md](DEV.md).
+
 ## Pré-requisitos
 
 - Ubuntu 22.04+ com Docker e Docker Compose

@@ -6,10 +6,10 @@
 |---|---|
 | [REPOS.md](REPOS.md) | Onde programar; checklist de camadas; repos separados |
 | [DEV.md](DEV.md) | Setup, CLI, env, testes, pastas |
-| [PLATFORM.md](PLATFORM.md) | Hub systemd, Syncthing, nuvem OpenRouter→Grok |
+| [PLATFORM.md](PLATFORM.md) | Hub systemd, Syncthing, nuvem (OpenRouter; D12) |
 | [MEMORY.md](MEMORY.md) | Vault Obsidian |
-| [../DECISIONS.md](../DECISIONS.md) | D1–D11 (vigentes) |
-| [../ARCHITECTURE.md](../ARCHITECTURE.md) | Visão curta do PC Hub |
+| [../DECISIONS.md](../DECISIONS.md) | D1–D13 (vigentes) |
+| [../ARCHITECTURE.md](../ARCHITECTURE.md) | Arquitetura do v1 (`ask` / safety / engine) |
 | [../ROADMAP.md](../ROADMAP.md) | Fases (atualizar com o checklist em REPOS) |
 | [archive/FORA-DO-V1.md](archive/FORA-DO-V1.md) | Mobile/firmware removidos da árvore |
 | [future/](future/) | Planejamento mobile/ESP (fora do v1) |

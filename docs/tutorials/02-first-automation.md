@@ -1,5 +1,7 @@
 # Sua Primeira Automação
 
+> **Histórico:** automação MQTT abaixo não é o caminho do `ask` v1. Veja [skills/](../../skills/) e [ROADMAP.md](../../ROADMAP.md) fase 3+.
+
 > **Tempo estimado:** 20 minutos  
 > **Nível:** Iniciante
 

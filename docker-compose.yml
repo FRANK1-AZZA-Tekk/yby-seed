@@ -1,3 +1,4 @@
+# Opcional: Qdrant para RAG legado (src/rag). O núcleo v1 (yby ask) não exige Docker — D5.
 services:
   qdrant:
     image: qdrant/qdrant:latest
