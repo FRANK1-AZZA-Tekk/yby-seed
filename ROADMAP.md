@@ -177,6 +177,35 @@ Itens são **issues futuras** no sentido de planejamento; não implicam código 
 
 ---
 
+## Mapa de competências (20 eixos → trilha)
+
+Currículo genérico de “AI Agents Developer” mapeado para as fases YBY. **Não** é checklist de implementação no `yby-seed`; evita duplicar [docs/DEV.md](docs/DEV.md) e tutoriais históricos.
+
+| Eixo | Tema | Fase | Onde isso vira entrega no YBY |
+|---|---|---|---|
+| 1 | Fundamentos de programação (Python, Git, APIs, JSON) | **A** | [tests/](tests/), [docs/DEV.md](docs/DEV.md), `make check` |
+| 2 | Matemática / ML clássico | — | Estudo opcional; v1 **não** treina modelos (D4) |
+| 3 | LLMs (tokens, contexto, sampling, alucinação) | **A** | [src/engine](src/engine), [MODEL_CARD.md](MODEL_CARD.md) |
+| 4 | Provedores e APIs (Ollama, roteamento) | **A–C** | Ollama + OpenRouter; LiteLLM **opcional** |
+| 5 | Prompt e contexto (schema, injeção) | **A–B** | Structured output no entregável A; evals na C |
+| 6 | Fundamentos de agentes (loop, objetivos) | **A–B** | Backlog P0 “loop controlado” |
+| 7 | Tools e function calling | **B** | `safety`/`actions`, skills [skills/](skills/) |
+| 8 | Raciocínio (ReAct, plano, retry) | **B** | Stubs [src/agents/](src/agents/); **não** no `ask` hoje |
+| 9 | Memória (curta, longa, resumo) | **B** | [src/memory](src/memory), vault D8 |
+| 10 | RAG (chunk, embeddings, eval) | **B–C** | [src/rag/](src/rag/), Qdrant opcional, [docs/ARCHITECTURE_RAG.md](docs/ARCHITECTURE_RAG.md) |
+| 11 | Frameworks (LangGraph, etc.) | **B–C** | **yby-core** (D7); no seed, loop próprio primeiro |
+| 12 | Multi-agentes | **D** | Só após agente único instrumentado (princípio 8) |
+| 13 | MCP | **C** | Servidor YBY de escopo fechado (backlog P1) |
+| 14 | Capacidades avançadas (voz, visão, browser) | **D** | Voz: [src/voice](src/voice) (D11); visão/wearable: repos externos |
+| 15 | Avaliação e testes de agente | **C** | `pytest`, métricas neste roadmap, CI |
+| 16 | Segurança e safety | **C** | D10, [ast_guard](src/security/ast_guard.py), [SECURITY.md](SECURITY.md) |
+| 17 | Infra e deploy | **C** | Hub D9; FastAPI [src/gateway](src/gateway) legado; núcleo sem Docker (D5) |
+| 18 | Performance e custo | **C** | Cache, routing, D12, [tests/test_budget.py](tests/test_budget.py) |
+| 19 | Projetos reais (assistente, RAG, automação) | **B–D** | Entregáveis das fases A–D |
+| 20 | Carreira / portfólio | — | Fora do escopo do repositório |
+
+**Meta da trilha:** produção local confiável no PC Hub antes de wearables (fase **Futuro**).
+
 ## Relação com fases 3+ e Futuro
 
 - **Fase 3+** (tabela inicial): skills dry-run, agentes no caminho do `ask`, gateway exposto → cobertos pelo backlog P0–P2 e fases B–C desta trilha.
