@@ -1,20 +1,19 @@
 # YBY SEED
 
 [![CI](https://github.com/FRANK1-AZZA-Tekk/yby-seed/actions/workflows/ci.yml/badge.svg)](https://github.com/FRANK1-AZZA-Tekk/yby-seed/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/FRANK1-AZZA-Tekk/yby-seed/branch/main/graph/badge.svg)](https://codecov.io/gh/FRANK1-AZZA-Tekk/yby-seed)
 
 PC Hub local-first para automações e IA. As decisões de 2026-11-11 estão em [DECISIONS.md](DECISIONS.md) e substituem as anteriores no mesmo assunto.
 
 ## Status
 
-Fase atual: **Fase 0 — Consolidação**. A plataforma decidida é o servidor de casa sempre ligado (o PC Hub, Ubuntu). Mobile e firmware ficaram fora do v1.
+Fase atual: **Fase P — Plataforma** (hub systemd, vault/Syncthing) sobre o núcleo **feito** (fases 0–1c). Mobile e firmware ficaram fora do v1. Detalhe: [ROADMAP.md](ROADMAP.md).
 
 ## O que é
 
 YBY SEED é o exocórtex pessoal nesse servidor:
 
 - Conversa primeiro no Ollama, modelo `qwen2.5-coder:3b`.
-- Sobe para a nuvem só em pedido pesado ou explícito. Padrão de nuvem: OpenRouter (modelo free); se falhar ou sem chave, Grok (xAI). Ambos OpenAI-compatíveis. Cache local + limite de contexto antes da chamada.
+- Sobe para a nuvem só em pedido pesado ou explícito (`--heavy`, heurística em `src/engine/routing.py`). Destino primário: **OpenRouter** (modelo free). **Sem failover automático para Grok** se OpenRouter falhar (D12; evolução na issue #42). Cache local + limite de contexto antes da chamada.
 - A memória é um vault Obsidian em Markdown, com índice local. `python yby.py note` grava e `python yby.py recall` busca. O Syncthing sincroniza a pasta com o servidor de casa. O `ask` ainda não grava nota sozinho.
 - Comandos de terminal seguem a allowlist em `config/safety-allowlist.txt` (leitura, git, scripts em `scripts/` e `examples/`). O resto pede sim ou não. `python yby.py run "..."` passa pela porta e, se permitido, executa com timeout. `python yby.py gate "..."` só decide; não executa.
 - Voz opcional: `python yby.py listen` (ou `ask --voice`) grava até Enter, transcreve com faster-whisper e fala a resposta com Piper. Deps em `requirements-voice.txt`.
@@ -28,7 +27,7 @@ O MVP funciona sem Docker:
 
 ```text
 yby.py ask → Ollama (qwen2.5-coder:3b) → resposta
-                ↘ OpenRouter free → Grok, se o pedido for pesado ou explícito
+                ↘ OpenRouter free, se o pedido for pesado ou explícito
 ```
 
 ## Início rápido
@@ -41,7 +40,7 @@ ollama pull qwen2.5-coder:3b
 python yby.py ask "explica uma lista em Python"
 ```
 
-`ask` responde em texto. Não executa shell e não grava memória. O modelo local padrão é `qwen2.5-coder:3b`. Pedidos longos, com várias perguntas, ou com frases como "pensa mais", vão para a nuvem (OpenRouter free → Grok). `--heavy` força esse caminho. As regras e os limites estão em `src/engine/routing.py` e nas variáveis `YBY_*` de `.env.example`.
+`ask` responde em texto. Não executa shell e não grava memória. O modelo local padrão é `qwen2.5-coder:3b`. Pedidos longos, com várias perguntas, ou com frases como "pensa mais", vão para a nuvem (OpenRouter free). `--heavy` força esse caminho. As regras e os limites estão em `src/engine/routing.py` e nas variáveis `YBY_*` de `.env.example`.
 
 Voz (opcional): `pip install -r requirements-voice.txt`, instale o binário Piper, defina `YBY_PIPER_MODEL`, e rode `python yby.py listen`. STT padrão: Whisper `base` em CPU. Sem essas deps, `ask` em texto segue normal.
 

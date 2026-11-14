@@ -18,7 +18,9 @@ Ollama local primeiro. A nuvem entra quando a heurística de complexidade ou tam
 
 O provedor de nuvem é compatível com a API da OpenAI e configurável por URL, modelo e chave. Destino de nuvem padrão: **OpenRouter com modelo free** (`openrouter/free`). Se OpenRouter falhar ou não houver chave, fallback para **Grok (xAI)**. Chaves só no `.env` do servidor.
 
-Nota do dono (aprovado): OpenRouter free é o alvo de nuvem padrão; Grok é o fallback.
+Nota do dono (aprovado): OpenRouter free é o alvo de nuvem padrão; Grok é o fallback **quando** o failover automático for reativado com autorização explícita.
+
+**Implementação (código vigente):** o `ask` usa OpenRouter como nuvem **primária** quando o roteamento pede nuvem (`src/engine/providers.py`, `CascadingCloudProvider`). **Falha do OpenRouter não chama Grok automaticamente** — regra operacional em **D12** e issue **#42**. Chaves Grok (`YBY_GROK_*`) permanecem no `.env` para evolução futura, não para cascade silencioso.
 
 Substitui a redação intermediária em que Grok era o destino automático e OpenRouter só configuração alternativa. Também substitui a redação antiga "Ollama local primeiro; OpenRouter apenas como fallback."
 

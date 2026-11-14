@@ -16,7 +16,7 @@ Guia prático de comandos e pastas: [DEV.md](DEV.md).
 | Memória (vault) | `src/memory` | feito |
 | Guarda AST | `src/security/ast_guard.py` | feito |
 | Voz (STT/TTS) | `src/voice` | feito (#36) |
-| **Plataforma** | `src/platform`, `scripts/install-hub-service.sh` (D9) | **em andamento** — hub systemd, Syncthing (docs), OpenRouter→Grok, cache; não merge de outros repos |
+| **Plataforma** | `src/platform`, `scripts/install-hub-service.sh` (D9) | **em andamento** — hub systemd, Syncthing (docs), cache/cloud log; nuvem OpenRouter quando roteamento pede (D12); não merge de outros repos |
 | Agentes / RAG / gateway | `src/agents`, `src/rag`, `src/gateway`, … | no disco; **fora** do caminho do `ask` |
 
 Caminho ativo hoje:
