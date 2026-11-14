@@ -12,7 +12,8 @@
 | [../ARCHITECTURE.md](../ARCHITECTURE.md) | Arquitetura do v1 (`ask` / safety / engine) |
 | [../ROADMAP.md](../ROADMAP.md) | Fases (atualizar com o checklist em REPOS) |
 | [archive/FORA-DO-V1.md](archive/FORA-DO-V1.md) | Mobile/firmware removidos da árvore |
-| [future/](future/) | Planejamento mobile/ESP (fora do v1) |
+| [future/PLANO_ECOSISTEMA_WEARABLE.md](future/PLANO_ECOSISTEMA_WEARABLE.md) | Wearable, gateway, métricas, execução (fora do v1) |
+| [future/](future/) | Índice mobile/ESP |
 
 ## Histórico / contexto (não é o caminho do `ask`)
 
