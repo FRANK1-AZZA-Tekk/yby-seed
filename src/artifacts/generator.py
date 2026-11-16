@@ -8,6 +8,7 @@ from pathlib import Path
 
 from src.artifacts.manifest import ArtifactFile, ArtifactManifest, sha256_text
 from src.artifacts.templates import python_cli_files
+from src.artifacts.validate import validate_contents
 from src.engine.secret_gate import find_secret
 from src.plan.schemas import YbyPlan
 
@@ -33,6 +34,7 @@ def propose_scaffold(
             f"diretório existente não vazio não é sobrescrito: {target}"
         )
     contents = python_cli_files(name=name, objective=objective)
+    validate_contents(contents).raise_if_failed()
     files: list[ArtifactFile] = []
     for rel, body in sorted(contents.items()):
         if find_secret(body) is not None:
@@ -64,6 +66,7 @@ def apply_manifest(
 
     if manifest.status != "proposed":
         raise ArtifactError("só proposta pode ser aplicada")
+    validate_contents(contents).raise_if_failed()
     root = Path(manifest.target_dir)
     root.mkdir(parents=True, exist_ok=True)
 
@@ -128,3 +131,11 @@ def remove_target_tree(target: Path) -> None:
 
     if target.exists():
         shutil.rmtree(target)
+
+
+def run_generated_tests(_target: Path) -> None:
+    """Sempre bloqueado no v1 — não há isolamento de SO."""
+
+    from src.artifacts.validate import assert_execution_blocked
+
+    assert_execution_blocked("pytest/código gerado")

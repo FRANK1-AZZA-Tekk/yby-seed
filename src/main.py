@@ -50,7 +50,9 @@ from src.artifacts.generator import (
     apply_manifest,
     propose_scaffold,
     revert_applied,
+    run_generated_tests,
 )
+from src.artifacts.validate import format_report, validate_contents
 from src.plan.builder import PlanError, build_plan_from_brief, revise_plan
 from src.plan.schemas import PlanStep
 from src.plan.store import load_or_create_plan_store
@@ -641,6 +643,38 @@ def scaffold_revert(target: Path) -> None:
         click.echo(str(exc), err=True)
         raise SystemExit(1) from exc
     click.echo(f"status: {reverted.status}")
+
+
+@scaffold.command("validate")
+@click.argument("proposal", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+def scaffold_validate(proposal: Path) -> None:
+    """Validação estática da proposta. Não executa código gerado."""
+
+    try:
+        json.loads(proposal.read_text(encoding="utf-8"))
+        stash = proposal.with_suffix(".contents.json")
+        contents = json.loads(stash.read_text(encoding="utf-8"))
+        if not isinstance(contents, dict):
+            raise ArtifactError("conteúdos inválidos")
+        report = validate_contents(contents)
+        click.echo(format_report(report))
+        if not report.ok:
+            raise SystemExit(1)
+    except (OSError, json.JSONDecodeError, KeyError, ArtifactError) as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+
+
+@scaffold.command("test-generated")
+@click.argument("target", type=click.Path(exists=True, file_okay=False, path_type=Path))
+def scaffold_test_generated(target: Path) -> None:
+    """Bloqueado: sem sandbox OS não executamos código gerado."""
+
+    try:
+        run_generated_tests(target)
+    except ArtifactError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
 
 
 @cli.command()

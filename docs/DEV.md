@@ -34,6 +34,8 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 | `python yby.py scaffold propose <plan_id> <dir> --name …` | propõe scaffold Python CLI (manifesto) |
 | `python yby.py scaffold apply <proposal.json>` | aplica após aprovação (sem pip install) |
 | `python yby.py scaffold revert <dir>` | remove arquivos do manifesto |
+| `python yby.py scaffold validate <proposal.json>` | validação estática (sintaxe/testes/segredos) |
+| `python yby.py scaffold test-generated <dir>` | **sempre bloqueado** no v1 (sem sandbox OS) |
 | `python yby.py listen` | push-to-talk: Whisper → ask → Piper |
 | `python yby.py ask --voice "..."` | mesmo fluxo com prompt opcional |
 | `python yby.py hub` | keepalive do hub (Ollama); `--once` para uma checagem |

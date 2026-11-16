@@ -1,6 +1,6 @@
 # Política de Segurança do YBY SEED
 
-> **v1 (PC Hub):** ameaça principal é **execução de shell** via `yby run` — mitigada por allowlist + classificação run/ask/refuse ([D10](DECISIONS.md), [config/safety-allowlist.txt](config/safety-allowlist.txt)), confirmação interativa, `shell=False` e o mesmo argv/workdir autorizados em `src/actions`. Sem TTY, pedidos `ask` não executam. Riscos residuais: paths em comandos `[read]`, env `GIT_*`, ausência de sandbox OS. Gateway MQTT (`src/gateway`) é legado; se ativo, trate o broker como confiável. Seções Docker/MQTT em massa abaixo são desenho histórico.
+> **v1 (PC Hub):** ameaça principal é **execução de shell** via `yby run` — mitigada por allowlist + classificação run/ask/refuse ([D10](DECISIONS.md), [config/safety-allowlist.txt](config/safety-allowlist.txt)), confirmação interativa, `shell=False` e o mesmo argv/workdir autorizados em `src/actions`. Sem TTY, pedidos `ask` não executam. Riscos residuais: paths em comandos `[read]`, env `GIT_*`, ausência de sandbox OS. **Código gerado** (`yby scaffold`): validação estática obrigatória; **execução/auto-teste bloqueados** até haver isolamento OS (Lote 17). Gateway MQTT (`src/gateway`) é legado; se ativo, trate o broker como confiável. Seções Docker/MQTT em massa abaixo são desenho histórico.
 
 ## 🛡️ Reportando uma Vulnerabilidade
 

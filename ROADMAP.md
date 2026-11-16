@@ -146,7 +146,7 @@ Um lote por ciclo. **Não** implementar 14–27 de uma vez. Núcleo novo fino (`
 | **14** YBY-BRIEF | **Feito** (`yby brief start/answer/show/propose`; `src/brief/`) | Pydantic + path vault opcional; retomada; proposta só se completo | Gerar código / plano executável |
 | **15** Plano verificável | **Feito** (`yby plan from-brief/show/validate/revise`; `src/plan/`) | Contrato de etapas vs allowlist; versionado | Executar plano |
 | **16** Gerador artefatos | **Feito** (`yby scaffold propose/apply/revert`; `src/artifacts/`) | Dir novo + manifesto hashes (Python CLI) | install/deploy; Next/React sem OK |
-| 17 Validador | Fila | sintaxe/AST; bloquear run sem sandbox | `eval` |
+| **17** Validador | **Feito** (`scaffold validate` / `test-generated` bloqueado; `src/artifacts/validate.py`) | sintaxe + testes obrigatórios; sem sandbox OS → execução gerada bloqueada | `eval` / auto-pytest |
 | 18 Cursor fake | Fila | Adaptador + plano aprovado | MCP real |
 | 19 Aprendizado diário | Fila | JSONL + relatório | Auto-merge |
 | 20 Memória segura | Fila | Preferências com consentimento no vault | Vector DB novo |
