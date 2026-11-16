@@ -86,7 +86,7 @@ Schemas: `src/yby/rag/models.py`. Config: `src/yby/rag/config.py`.
 | 2 | `ingest.py` usando `RagConfig` + manifest |
 | 3 | `retrieve.py` + filtros e limite de contexto |
 | 4 | `src/yby/tools/registry.py` (search_knowledge, list_files, read_file) |
-| 5 | `src/yby/agent/loop.py` com limites e citações |
+| 5 | `src/yby/agent/` — loop Ollama + ferramentas (ver `docs/AGENT_DESIGN.md`) |
 
 ## Variáveis de ambiente
 

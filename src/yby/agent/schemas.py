@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 _JSON_FENCE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
@@ -18,9 +18,45 @@ class AgentToolStep(BaseModel):
     justification: str = Field(default="", max_length=500)
 
 
+class AgentSourceCitation(BaseModel):
+    source: str = Field(min_length=1)
+    excerpt: str = ""
+    score: float | None = None
+
+
+class AgentFinishAnswer(BaseModel):
+    text: str = Field(min_length=1)
+    sources: list[AgentSourceCitation] = Field(default_factory=list)
+    confidence: Literal["low", "medium", "high"] = "medium"
+    needs_approval: bool = False
+    warnings: list[str] = Field(default_factory=list, max_length=20)
+
+
 class AgentFinishStep(BaseModel):
     action: Literal["finish"] = "finish"
-    answer: dict[str, Any] = Field(default_factory=dict)
+    answer: AgentFinishAnswer | dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("answer", mode="before")
+    @classmethod
+    def _coerce_answer(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            return AgentFinishAnswer.model_validate(value)
+        return value
+
+
+class AgentStructuredResponse(BaseModel):
+    """Resposta final estruturada exposta ao chamador."""
+
+    answer: str = ""
+    sources: list[dict[str, Any]] = Field(default_factory=list)
+    tools_used: list[str] = Field(default_factory=list)
+    confidence: Literal["low", "medium", "high"] = "medium"
+    needs_approval: bool = False
+    warnings: list[str] = Field(default_factory=list)
+    trace_id: str
+    latency_ms: float = Field(ge=0)
+    token_usage: dict[str, Any] | None = None
+    status: str = "error"
 
 
 class AgentAbortStep(BaseModel):
