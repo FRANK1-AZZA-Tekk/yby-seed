@@ -1,17 +1,16 @@
-"""Ferramentas YBY (registro allowlisted)."""
+"""Ferramentas seguras YBY (registro local)."""
 
-from src.yby.tools.allowlist import PathNotAllowedError, assert_allowed_path, default_read_roots
-from src.yby.tools.registry import (
-    ToolDefinition,
-    ToolRegistry,
-    ToolResponse,
-    ToolRisk,
-    create_default_registry,
-)
+from src.yby.tools.base import ToolError, ToolRegistry, ToolResponse, ToolRisk
+from src.yby.tools.registry import create_default_registry
+from src.yby.tools.schemas import ListFilesArgs, ReadFileArgs, SearchKnowledgeArgs
+from src.yby.tools.security import PathNotAllowedError, assert_allowed_path, default_read_roots
 
 __all__ = [
+    "ListFilesArgs",
     "PathNotAllowedError",
-    "ToolDefinition",
+    "ReadFileArgs",
+    "SearchKnowledgeArgs",
+    "ToolError",
     "ToolRegistry",
     "ToolResponse",
     "ToolRisk",
