@@ -19,6 +19,7 @@ Comandos:
     note    - Grava nota no vault
     recall  - Busca no vault
     brief   - Entrevista YBY-BRIEF (sem gerar código/plano)
+    plan    - Plano verificável a partir de brief (não executa)
     agent   - Loop de agente P0 (opt-in; não altera o ask)
 """
 
@@ -43,6 +44,10 @@ from src.brief.interview import (
 )
 from src.brief.schemas import BRIEF_FIELDS
 from src.brief.store import load_or_create_store
+from src.plan.builder import PlanError, build_plan_from_brief, revise_plan
+from src.plan.schemas import PlanStep
+from src.plan.store import load_or_create_plan_store
+from src.plan.validate import validate_plan
 from src.conversation.explain import (
     format_cli_error,
     format_command_decision,
@@ -374,6 +379,150 @@ def brief_propose(brief_id: str, store_dir: Path | None) -> None:
         click.echo(str(exc), err=True)
         raise SystemExit(1) from exc
     click.echo(proposal)
+
+
+@cli.group("plan")
+def plan_grp() -> None:
+    """Plano verificável (YBY-PLAN). Não executa etapas."""
+
+
+@plan_grp.command("from-brief")
+@click.argument("brief_id")
+@click.option(
+    "--brief-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
+    "--dir",
+    "plan_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+def plan_from_brief(brief_id: str, brief_dir: Path | None, plan_dir: Path | None) -> None:
+    """Gera plano validado a partir de um brief completo."""
+
+    load_dotenv(override=False)
+    try:
+        brief = load_or_create_store(brief_dir).load(brief_id)
+        plan = build_plan_from_brief(brief)
+        path = load_or_create_plan_store(plan_dir).save(plan)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    except PlanError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(f"id: {plan.id}")
+    click.echo(f"version: {plan.version}")
+    click.echo(f"status: {plan.status}")
+    click.echo(f"salvo: {path}")
+    click.echo(json.dumps(plan.model_dump(), ensure_ascii=False, indent=2))
+
+
+@plan_grp.command("show")
+@click.argument("plan_id")
+@click.option("--version", type=int, default=None)
+@click.option(
+    "--dir",
+    "plan_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+def plan_show(plan_id: str, version: int | None, plan_dir: Path | None) -> None:
+    """Mostra um plano (opcionalmente uma versão)."""
+
+    load_dotenv(override=False)
+    try:
+        plan = load_or_create_plan_store(plan_dir).load(plan_id, version=version)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(json.dumps(plan.model_dump(), ensure_ascii=False, indent=2))
+
+
+@plan_grp.command("validate")
+@click.argument("plan_id")
+@click.argument("brief_id")
+@click.option(
+    "--dir",
+    "plan_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
+    "--brief-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+def plan_validate(
+    plan_id: str, brief_id: str, plan_dir: Path | None, brief_dir: Path | None
+) -> None:
+    """Revalida plano vs brief e allowlist (sem executar)."""
+
+    load_dotenv(override=False)
+    try:
+        plan = load_or_create_plan_store(plan_dir).load(plan_id)
+        brief = load_or_create_store(brief_dir).load(brief_id)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    reasons = validate_plan(plan, brief)
+    if reasons:
+        for reason in reasons:
+            click.echo(reason, err=True)
+        raise SystemExit(1)
+    click.echo("ok")
+
+
+@plan_grp.command("revise")
+@click.argument("plan_id")
+@click.argument("brief_id")
+@click.option(
+    "--dir",
+    "plan_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
+    "--brief-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
+    "--drop-step",
+    multiple=True,
+    help="Remove etapa por id e grava nova versão.",
+)
+def plan_revise(
+    plan_id: str,
+    brief_id: str,
+    plan_dir: Path | None,
+    brief_dir: Path | None,
+    drop_step: tuple[str, ...],
+) -> None:
+    """Nova versão do plano (ex.: remove etapas). Não executa."""
+
+    load_dotenv(override=False)
+    store = load_or_create_plan_store(plan_dir)
+    try:
+        plan = store.load(plan_id)
+        brief = load_or_create_store(brief_dir).load(brief_id)
+        steps: list[PlanStep] | None = None
+        if drop_step:
+            drop = set(drop_step)
+            steps = [s for s in plan.steps if s.id not in drop]
+        updated = revise_plan(plan, brief, steps=steps)
+        path = store.save(updated)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    except PlanError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(f"id: {updated.id}")
+    click.echo(f"version: {updated.version}")
+    click.echo(f"salvo: {path}")
 
 
 @cli.command()

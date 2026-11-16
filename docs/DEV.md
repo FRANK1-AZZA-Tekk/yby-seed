@@ -29,6 +29,8 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 | `python yby.py brief answer <id> <campo> ...` | preenche campo / retoma |
 | `python yby.py brief show <id> [--cloud-safe]` | mostra brief |
 | `python yby.py brief propose <id>` | proposta só se completo (não é plano) |
+| `python yby.py plan from-brief <brief_id>` | gera plano validado (não executa) |
+| `python yby.py plan show/validate/revise …` | inspeciona / revalida / nova versão |
 | `python yby.py listen` | push-to-talk: Whisper → ask → Piper |
 | `python yby.py ask --voice "..."` | mesmo fluxo com prompt opcional |
 | `python yby.py hub` | keepalive do hub (Ollama); `--once` para uma checagem |
@@ -62,6 +64,7 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 | Resposta / provedores / roteamento / cache | `src/engine/` |
 | Envelope professor (`--explain` / gate) | `src/conversation/` |
 | Entrevista YBY-BRIEF | `src/brief/` |
+| Plano verificável | `src/plan/` |
 | Hub keepalive | `src/platform/`, `scripts/install-hub-service.sh` |
 | Allowlist e decisão de comando | `src/safety/`, `config/safety-allowlist.txt` |
 | Execução após a porta | `src/actions/` |
