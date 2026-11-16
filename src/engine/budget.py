@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.engine.cloud_usage_log import DEFAULT_LOG_PATH, EVENT_COMPLETED
+from src.engine.cloud_usage_log import DEFAULT_LOG_PATH, EVENT_COMPLETED, TOKENS_SOURCE_API
 
 CODE_ALLOWED = "allowed"
 CODE_BLOCKED_LOCAL_ONLY = "blocked_local_only"
@@ -21,6 +21,16 @@ class BudgetEvaluation:
     allowed: bool
     reason: str
     code: str
+
+
+@dataclass(frozen=True)
+class MonthUsage:
+    """Soma do mês UTC corrente a partir do JSONL local."""
+
+    tokens: int
+    monthly_token_limit: int
+    warn_token_limit: int
+    cloud_mode: str
 
 
 class CloudBudget:
@@ -69,7 +79,7 @@ class CloudBudget:
                 CODE_BLOCKED_LOCAL_ONLY,
             )
 
-        used = self._month_token_usage()
+        used = self.month_token_usage()
         if used >= self.monthly_token_limit:
             return BudgetEvaluation(
                 False,
@@ -97,7 +107,15 @@ class CloudBudget:
             )
         return BudgetEvaluation(True, "Dentro do orçamento mensal.", CODE_ALLOWED)
 
-    def _month_token_usage(self) -> int:
+    def month_usage(self) -> MonthUsage:
+        return MonthUsage(
+            tokens=self.month_token_usage(),
+            monthly_token_limit=self.monthly_token_limit,
+            warn_token_limit=self.warn_token_limit,
+            cloud_mode=self.cloud_mode,
+        )
+
+    def month_token_usage(self) -> int:
         if not self.log_path.is_file():
             return 0
         now = time.gmtime()
@@ -120,11 +138,30 @@ class CloudBudget:
                 when = time.gmtime(ts)
                 if when.tm_year != year or when.tm_mon != month:
                     continue
-                for field in ("input_tokens_estimate", "output_tokens_estimate"):
-                    value = row.get(field, 0)
-                    if isinstance(value, int):
-                        total += value
+                total += _row_tokens(row)
         return total
+
+    # Compatível com código/testes que ainda usam o nome privado.
+    _month_token_usage = month_token_usage
+
+
+def _row_tokens(row: dict) -> int:
+    """Prefere usage da API; senão soma as estimativas (log antigo)."""
+
+    if row.get("tokens_source") == TOKENS_SOURCE_API:
+        total = 0
+        for field in ("input_tokens", "output_tokens"):
+            value = row.get(field, 0)
+            if isinstance(value, int):
+                total += value
+        return total
+
+    total = 0
+    for field in ("input_tokens_estimate", "output_tokens_estimate"):
+        value = row.get(field, 0)
+        if isinstance(value, int):
+            total += value
+    return total
 
 
 def _int(source: dict[str, str], name: str, default: int) -> int:
