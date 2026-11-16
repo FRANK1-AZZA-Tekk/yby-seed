@@ -135,16 +135,30 @@ Trilha prática para levar o YBY SEED de **CLI local confiável** a **agentes pr
 
 Itens são **issues futuras** no sentido de planejamento; não implicam código neste PR. Prioridade: **P0** essencial próximo MVP agente → **P3** futuro YBY.
 
-### Próximo lote (após política de comandos D10) — só planejamento
+### Fila produto/UX (lotes 13–27) + nuvem pendente
 
-Não implementar neste ciclo. Ordem sugerida:
+Um lote por ciclo. **Não** implementar 14–27 de uma vez. Núcleo novo fino (`src/conversation/` etc.); **não** expandir `src/agents/` legado.
 
-1. Consentimento de nuvem bloqueado por padrão
-2. Semântica de `local_only` e validação da configuração
-3. Proteção de segredos em JSON e `Authorization: Bearer`
-4. Reindexação consistente do vault
-5. Verificação independente do sucesso do agente
-6. Isolamento pelo SO antes de ampliar execução de código gerado
+| Lote | Status | Escopo mínimo | Não fazer ainda |
+|---|---|---|---|
+| **13** conversa/professor | **Feito** (`yby ask --explain`; envelope em `gate` / `run` refuse; `src/conversation/explain.py`) | PT-BR Entendi/Falta/Proposta/Risco/Próximo/Reverter; redact na exibição | Mudar `decide` / execução |
+| **Grok off** | Fila (segurança nuvem; pode inverter ordem sob OK) | Tirar Grok do roteador/failover; docs/testes | Novo provedor |
+| 14 YBY-BRIEF | Fila | Pydantic + path vault opcional | Gerar código |
+| 15 Plano verificável | Fila | Contrato de etapas vs allowlist | Executar plano |
+| 16 Gerador artefatos | Fila | Dir + manifesto hashes (CLI local) | install/deploy; Next/React sem OK |
+| 17 Validador | Fila | sintaxe/AST; bloquear run sem sandbox | `eval` |
+| 18 Cursor fake | Fila | Adaptador + plano aprovado | MCP real |
+| 19 Aprendizado diário | Fila | JSONL + relatório | Auto-merge |
+| 20 Memória segura | Fila | Preferências com consentimento no vault | Vector DB novo |
+| 21 Pesquisa consentida | Fila | Gate consent + HTTP fake | Busca real |
+| 22 Observabilidade CLI | Fila | CLI sobre `cloud_usage_log` + eventos locais | Datadog |
+| 23 Backup local | Fila | tar/cópia vault+logs redigidos + restore test | Backup nuvem |
+| 24 Endurecer execução | Fila | Timeouts/limites; bloquear código gerado | Sandbox OS completo |
+| 25 UX CLI | Fila | Atritos confirmados só | Mudar política D10 |
+| 26 Qualidade contínua | Fila | Falhas confirmadas + docs | Feature nova |
+| 27 Contratos dispositivos | Fila | Schemas versionados + fakes | Firmware / acoplar celular-relógio |
+
+Backlog de segurança/nuvem legado (ainda válido como itens, fora da numeração 13–27): consentimento de nuvem default-off; `local_only`; segredos em JSON/`Authorization`; reindex vault; verificação de sucesso do agente; isolamento SO antes de ampliar código gerado.
 
 ### P0 — essencial para o próximo MVP agente
 

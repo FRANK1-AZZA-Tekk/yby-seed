@@ -10,11 +10,12 @@ Uso:
     python yby.py gate "rm arquivo"
 
 Comandos:
-    ask     - Responde em texto (sem shell); --voice grava, pergunta e fala
+    ask     - Responde em texto (sem shell); --explain = envelope professor;
+              --voice grava, pergunta e fala
     listen  - Push-to-talk: grava até Enter → ask → TTS
     hub     - Keepalive do PC Hub (saúde do Ollama)
     run     - Executa comando após a porta de segurança
-    gate    - Só decide; não executa
+    gate    - Só decide (com envelope); não executa
     note    - Grava nota no vault
     recall  - Busca no vault
     agent   - Loop de agente P0 (opt-in; não altera o ask)
@@ -32,6 +33,13 @@ from src.actions.runner import DEFAULT_TIMEOUT, run_command
 from src.agent_loop.loop import ControlledAgentLoop
 from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
 from src.agent_loop.tools import vault_registry_or_skip
+from src.conversation.explain import (
+    format_cli_error,
+    format_command_decision,
+    format_engine_reply,
+    format_vague_ask,
+    is_vague_request,
+)
 from src.engine.config import EngineConfig
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.engine.providers import OllamaProvider
@@ -86,6 +94,7 @@ def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
     )
 
     if not result.approved:
+        click.echo(format_command_decision(texto, result.decision), err=True)
         raise SystemExit(1)
 
     if result.stdout:
@@ -114,8 +123,13 @@ def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
     default=False,
     help="Grava até Enter, pergunta ao motor e fala a resposta (Piper).",
 )
+@click.option(
+    "--explain",
+    is_flag=True,
+    help="Modo professor: envelope Entendi/Falta/Proposta/Risco/Próximo passo.",
+)
 @click.argument("pergunta", nargs=-1, required=False)
-def ask(heavy: bool, voice: bool, pergunta: tuple[str, ...]) -> None:
+def ask(heavy: bool, voice: bool, explain: bool, pergunta: tuple[str, ...]) -> None:
     """Responde um pedido em texto. Com --voice, usa microfone e TTS local."""
 
     if voice:
@@ -126,16 +140,44 @@ def ask(heavy: bool, voice: bool, pergunta: tuple[str, ...]) -> None:
     if not texto:
         click.echo(
             'Informe um pedido. Exemplo: yby ask "explica uma lista" '
-            "(ou yby ask --voice / yby listen)",
+            "(ou yby ask --voice / yby listen / yby ask --explain \"...\")",
             err=True,
         )
         raise SystemExit(1)
 
+    if explain and is_vague_request(texto):
+        click.echo(format_vague_ask(texto))
+        raise SystemExit(0)
+
     resposta = build_engine().reply(texto, explicit_heavy=heavy)
-    if resposta.notice:
+    if resposta.notice and not explain:
         click.echo(resposta.notice, err=True)
     if resposta.provider == "none":
+        if explain:
+            click.echo(
+                format_engine_reply(
+                    prompt=texto,
+                    text=resposta.text or "(sem resposta)",
+                    provider=resposta.provider or "none",
+                    model=resposta.model or "-",
+                    reasons=resposta.reasons,
+                    notice=resposta.notice,
+                )
+            )
         raise SystemExit(1)
+
+    if explain:
+        click.echo(
+            format_engine_reply(
+                prompt=texto,
+                text=resposta.text,
+                provider=resposta.provider,
+                model=resposta.model,
+                reasons=resposta.reasons,
+                notice=resposta.notice,
+            )
+        )
+        return
 
     motivo = "; ".join(resposta.reasons)
     click.echo(f"modelo: {resposta.provider} {resposta.model} ({motivo})", err=True)
@@ -191,7 +233,7 @@ def gate(comando: tuple[str, ...]) -> None:
     policy = load_policy(default_policy_path())
     project_root = default_policy_path().parents[1]
     decision = decide(texto, policy=policy, project_root=project_root)
-    click.echo(f"{decision.action}: {decision.reason}")
+    click.echo(format_command_decision(texto, decision))
     if decision.action != "ask":
         raise SystemExit(0 if decision.action == "run" else 1)
 
@@ -215,7 +257,14 @@ def note(titulo: str, texto: tuple[str, ...]) -> None:
         vault = vault_from_env()
         path = vault.write_note(titulo, " ".join(texto).strip() + "\n")
     except VaultError as exc:
-        click.echo(str(exc), err=True)
+        click.echo(
+            format_cli_error(
+                kind="vault",
+                detail=str(exc),
+                next_step="defina YBY_VAULT_PATH para uma pasta gravável e tente de novo",
+            ),
+            err=True,
+        )
         raise SystemExit(1) from exc
     click.echo(path)
 
@@ -332,7 +381,14 @@ def recall(consulta: str) -> None:
     try:
         hits = vault_from_env().search(consulta)
     except VaultError as exc:
-        click.echo(str(exc), err=True)
+        click.echo(
+            format_cli_error(
+                kind="vault",
+                detail=str(exc),
+                next_step="defina YBY_VAULT_PATH e rode yby note antes de recall",
+            ),
+            err=True,
+        )
         raise SystemExit(1) from exc
     if not hits:
         click.echo("Nenhuma nota.")

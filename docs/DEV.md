@@ -20,8 +20,9 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 | Comando | O que faz |
 |---|---|
 | `python yby.py ask "..."` | texto via HybridEngine (Ollama → nuvem se pesado/`--heavy`) |
-| `python yby.py run "..."` | porta de segurança → executa se permitido |
-| `python yby.py gate "..."` | só decide (run/ask/refuse); não executa |
+| `python yby.py ask --explain "..."` | mesmo `ask` com envelope professor PT-BR (pedido vago esclarece sem chamar o motor) |
+| `python yby.py run "..."` | porta de segurança → executa se permitido (refuse/ask negado: envelope) |
+| `python yby.py gate "..."` | só decide (run/ask/refuse) com envelope; não executa |
 | `python yby.py note "título" texto da nota...` | grava no vault |
 | `python yby.py recall "consulta"` | busca no vault |
 | `python yby.py listen` | push-to-talk: Whisper → ask → Piper |
@@ -55,6 +56,7 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 | Objetivo | Pastas |
 |---|---|
 | Resposta / provedores / roteamento / cache | `src/engine/` |
+| Envelope professor (`--explain` / gate) | `src/conversation/` |
 | Hub keepalive | `src/platform/`, `scripts/install-hub-service.sh` |
 | Allowlist e decisão de comando | `src/safety/`, `config/safety-allowlist.txt` |
 | Execução após a porta | `src/actions/` |

@@ -9,6 +9,7 @@ Pacote Python do YBY SEED (`pythonpath = ["."]` no `pyproject.toml`). Entrada CL
 | `engine/` | HybridEngine, roteamento local/nuvem, cache |
 | `safety/` | allowlist + decisão (não executa) |
 | `actions/` | subprocess após a porta |
+| `conversation/` | envelope professor PT-BR (`ask --explain`, gate/run) |
 | `memory/` | vault Markdown |
 | `voice/` | STT/TTS opcional (`listen` / `ask --voice`) |
 | `platform/` | hub keepalive (serviço systemd) |
