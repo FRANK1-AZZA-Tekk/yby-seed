@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import sys
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from src.engine.budget import CloudBudget, CODE_BLOCKED_BUDGET, CODE_BLOCKED_LOCAL_ONLY, CODE_BLOCKED_NO_TTY
 from src.engine.cache import ResponseCache
@@ -14,11 +15,14 @@ from src.engine.cloud_usage_log import (
     EVENT_BLOCKED_BUDGET,
     EVENT_BLOCKED_LOCAL_ONLY,
     EVENT_BLOCKED_NO_TTY,
+    EVENT_BLOCKED_SENSITIVE,
     EVENT_CANCELLED,
     EVENT_COMPLETED,
     EVENT_CONFIRMED,
     EVENT_FAILED,
     EVENT_REQUESTED,
+    TOKENS_SOURCE_API,
+    TOKENS_SOURCE_ESTIMATE,
     utc_timestamp,
 )
 from src.engine.config import EngineConfig
@@ -33,6 +37,7 @@ from src.engine.providers import (
     TextProvider,
 )
 from src.engine.routing import RouteDecision, decide_route
+from src.engine.secret_gate import find_secret, find_secret_in_outbound, redact_for_cloud
 
 SYSTEM_PROMPT = (
     "Você é o YBY SEED, um exocórtex pessoal. "
@@ -41,6 +46,14 @@ SYSTEM_PROMPT = (
 )
 
 ProviderName = Literal["local", "cloud", "none"]
+
+
+class _SensitiveBlocked(Exception):
+    """Segredo detectado no outbound pós-trim (não é falha de rede)."""
+
+    def __init__(self, kind: str) -> None:
+        self.kind = kind
+        super().__init__(kind)
 
 
 @dataclass(frozen=True)
@@ -78,14 +91,21 @@ class HybridEngine:
         self.cloud_log = cloud_log or CloudUsageLog.from_env()
         self.budget = budget or CloudBudget.from_env()
         if confirm_fn is None:
-            self.confirm_fn = lambda _msg: True
-            self.has_tty_fn = has_tty_fn or (lambda: True)
+            # Sem callback: fail-closed se a política exige confirmação.
+            # (antes auto-aprovava — risco residual SEED quando mode=ask)
+            if self.budget.require_confirm:
+                self.confirm_fn = lambda _msg: False
+                self.has_tty_fn = has_tty_fn or (lambda: False)
+            else:
+                self.confirm_fn = lambda _msg: True
+                self.has_tty_fn = has_tty_fn or (lambda: True)
         else:
             self.confirm_fn = confirm_fn
             self.has_tty_fn = has_tty_fn or (
                 lambda: sys.stdin.isatty() and sys.stdout.isatty()
             )
         self._cloud_session_confirmed = False
+        self._pending_cloud_warn: str | None = None
 
     def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
         decision = decide_route(
@@ -113,6 +133,18 @@ class HybridEngine:
         decision: RouteDecision,
         local_error: ProviderError,
     ) -> EngineReply:
+        if self.budget.cloud_mode == "local_only":
+            return EngineReply(
+                "",
+                "none",
+                "",
+                decision.reasons,
+                (
+                    f"Ollama falhou ({local_error}). "
+                    "YBY_CLOUD_MODE=local_only: nuvem desligada "
+                    "(para fallback: YBY_CLOUD_MODE=ask + YBY_CLOUD_API_KEY)."
+                ),
+            )
         if not self.cloud.has_credentials():
             return EngineReply(
                 "",
@@ -139,21 +171,38 @@ class HybridEngine:
                 f"Ollama falhou ({local_error}). {blocked.notice}",
             )
         try:
-            result = self._cloud_call(prompt, purpose="ollama_fallback")
+            result = self._cloud_call(prompt, purpose="ollama_fallback", decision=decision)
+        except _SensitiveBlocked as blocked:
+            reply = self._block_sensitive(
+                decision,
+                purpose="ollama_fallback",
+                provider_label="openrouter",
+                kind=blocked.kind,
+                input_est=CloudUsageLog.estimate_tokens(prompt),
+            )
+            return EngineReply(
+                "",
+                "none",
+                "",
+                decision.reasons,
+                f"Ollama falhou ({local_error}). {reply.notice}",
+            )
         except ProviderError as cloud_error:
             return EngineReply(
                 "",
                 "none",
                 "",
                 decision.reasons,
-                f"Ollama falhou ({local_error}). A nuvem também falhou ({cloud_error}).",
+                self._with_warn(
+                    f"Ollama falhou ({local_error}). A nuvem também falhou ({cloud_error})."
+                ),
             )
         return EngineReply(
             result.text,
             "cloud",
             result.model,
             decision.reasons,
-            (
+            self._with_warn(
                 f"Ollama falhou ({local_error}). "
                 f"Respondi pela nuvem ({result.model} via {result.via})."
             ),
@@ -169,10 +218,24 @@ class HybridEngine:
             return blocked
 
         try:
-            result = self._cloud_call(prompt, purpose="route_cloud")
+            result = self._cloud_call(prompt, purpose="route_cloud", decision=decision)
+        except _SensitiveBlocked as blocked:
+            return self._block_sensitive(
+                decision,
+                purpose="route_cloud",
+                provider_label="openrouter",
+                kind=blocked.kind,
+                input_est=CloudUsageLog.estimate_tokens(prompt),
+            )
         except ProviderError as cloud_error:
             return self._local_after_cloud_failure(prompt, decision, cloud_error)
-        return EngineReply(result.text, "cloud", result.model, decision.reasons, None)
+        return EngineReply(
+            result.text,
+            "cloud",
+            result.model,
+            decision.reasons,
+            self._with_warn(None),
+        )
 
     def _local_without_cloud_key(
         self,
@@ -215,16 +278,47 @@ class HybridEngine:
                 "none",
                 "",
                 decision.reasons,
-                f"Nuvem falhou ({cloud_error}). Ollama também falhou ({local_error}).",
+                self._with_warn(
+                    f"Nuvem falhou ({cloud_error}). Ollama também falhou ({local_error})."
+                ),
             )
         return EngineReply(
             text,
             "local",
             self.config.local_model,
             decision.reasons,
-            (
+            self._with_warn(
                 f"Nuvem falhou ({cloud_error}). "
                 f"Respondi com o modelo local {self.config.local_model}."
+            ),
+        )
+
+    def _block_sensitive(
+        self,
+        decision: RouteDecision,
+        *,
+        purpose: str,
+        provider_label: str,
+        kind: str,
+        input_est: int,
+    ) -> EngineReply:
+        event = self._base_event(
+            decision,
+            provider=provider_label,
+            purpose=purpose,
+            input_est=input_est,
+            result=EVENT_BLOCKED_SENSITIVE,
+        )
+        event["sensitive_kind"] = kind
+        self.cloud_log.append(event)
+        return EngineReply(
+            "",
+            "none",
+            "",
+            decision.reasons,
+            (
+                f"Nuvem bloqueada: o pedido parece conter dado sensível "
+                f"({kind}). Remova e tente de novo."
             ),
         )
 
@@ -236,23 +330,34 @@ class HybridEngine:
         purpose: str,
         provider_label: str = "openrouter",
     ) -> EngineReply | None:
+        input_est = CloudUsageLog.estimate_tokens(prompt)
+        secret = find_secret(prompt)
+        if secret is None:
+            # M1: também escaneia o corpo pós-trim (e head+tail sem marker).
+            trimmed = trim_context(prompt, self.config.cloud_max_chars)
+            secret = find_secret_in_outbound(trimmed)
+        if secret is not None:
+            return self._block_sensitive(
+                decision,
+                purpose=purpose,
+                provider_label=provider_label,
+                kind=secret.kind,
+                input_est=input_est,
+            )
+
         evaluation = self.budget.evaluate(
             requires_confirmation=True,
             has_tty=self.has_tty_fn(),
         )
-        model = self.config.cloud_model
-        input_est = CloudUsageLog.estimate_tokens(prompt)
 
         if not evaluation.allowed:
-            event = {
-                "timestamp": utc_timestamp(),
-                "provider": provider_label,
-                "model": model,
-                "purpose": purpose,
-                "input_tokens_estimate": input_est,
-                "output_tokens_estimate": 0,
-                "result": _blocked_event(evaluation.code),
-            }
+            event = self._base_event(
+                decision,
+                provider=provider_label,
+                purpose=purpose,
+                input_est=input_est,
+                result=_blocked_event(evaluation.code),
+            )
             self.cloud_log.append(event)
             return EngineReply("", "none", "", decision.reasons, evaluation.reason)
 
@@ -260,108 +365,157 @@ class HybridEngine:
         if cache_hit:
             return None
 
+        if evaluation.reason.startswith("Aviso:"):
+            self._pending_cloud_warn = evaluation.reason
+
         self.cloud_log.append(
-            {
-                "timestamp": utc_timestamp(),
-                "provider": provider_label,
-                "model": model,
-                "purpose": purpose,
-                "input_tokens_estimate": input_est,
-                "output_tokens_estimate": 0,
-                "result": EVENT_REQUESTED,
-            }
+            self._base_event(
+                decision,
+                provider=provider_label,
+                purpose=purpose,
+                input_est=input_est,
+                result=EVENT_REQUESTED,
+            )
         )
 
         needs_confirm = self.budget.require_confirm and not self._cloud_session_confirmed
         if needs_confirm:
+            route = "; ".join(decision.codes) if decision.codes else "; ".join(decision.reasons)
             question = (
-                "Este pedido pode usar nuvem (tokens/custo). Confirmar? [s/n]"
+                f"Nuvem ({purpose}): {route}; "
+                f"~{input_est} tokens de entrada. Confirmar? [s/n]"
             )
             if not self.confirm_fn(question):
                 self.cloud_log.append(
-                    {
-                        "timestamp": utc_timestamp(),
-                        "provider": provider_label,
-                        "model": model,
-                        "purpose": purpose,
-                        "input_tokens_estimate": input_est,
-                        "output_tokens_estimate": 0,
-                        "result": EVENT_CANCELLED,
-                    }
+                    self._base_event(
+                        decision,
+                        provider=provider_label,
+                        purpose=purpose,
+                        input_est=input_est,
+                        result=EVENT_CANCELLED,
+                    )
                 )
                 return EngineReply(
                     "",
                     "none",
                     "",
                     decision.reasons,
-                    "Uso de nuvem cancelado pelo usuário.",
+                    self._with_warn("Uso de nuvem cancelado pelo usuário."),
                 )
             self._cloud_session_confirmed = True
             self.cloud_log.append(
-                {
-                    "timestamp": utc_timestamp(),
-                    "provider": provider_label,
-                    "model": model,
-                    "purpose": purpose,
-                    "input_tokens_estimate": input_est,
-                    "output_tokens_estimate": 0,
-                    "result": EVENT_CONFIRMED,
-                }
+                self._base_event(
+                    decision,
+                    provider=provider_label,
+                    purpose=purpose,
+                    input_est=input_est,
+                    result=EVENT_CONFIRMED,
+                )
             )
         return None
 
     def _cache_hit(self, prompt: str) -> bool:
-        trimmed = trim_context(prompt, self.config.cloud_max_chars)
-        key = self.cache.make_key(trimmed, model=self.config.cloud_model, system=SYSTEM_PROMPT)
+        outbound = redact_for_cloud(trim_context(prompt, self.config.cloud_max_chars))
+        key = self.cache.make_key(outbound, model=self.config.cloud_model, system=SYSTEM_PROMPT)
         return self.cache.get(key) is not None
 
-    def _cloud_call(self, prompt: str, *, purpose: str) -> CloudResult:
+    def _with_warn(self, notice: str | None) -> str | None:
+        warn = self._pending_cloud_warn
+        self._pending_cloud_warn = None
+        if warn and notice:
+            return f"{warn} {notice}"
+        return warn or notice
+
+    def _cloud_call(
+        self,
+        prompt: str,
+        *,
+        purpose: str,
+        decision: RouteDecision,
+    ) -> CloudResult:
         trimmed = trim_context(prompt, self.config.cloud_max_chars)
+        # Defesa em profundidade: reescaneia pós-trim antes de redigir/POST.
+        late = find_secret_in_outbound(trimmed)
+        if late is not None:
+            raise _SensitiveBlocked(late.kind)
+        outbound = redact_for_cloud(trimmed)
         cache_model = self.config.cloud_model
-        key = self.cache.make_key(trimmed, model=cache_model, system=SYSTEM_PROMPT)
+        key = self.cache.make_key(outbound, model=cache_model, system=SYSTEM_PROMPT)
         cached = self.cache.get(key)
-        input_est = CloudUsageLog.estimate_tokens(trimmed)
+        input_est = CloudUsageLog.estimate_tokens(outbound)
         provider_label = "openrouter"
 
         if cached is not None:
             return CloudResult(cached, cache_model, "cache")
 
+        started = time.monotonic()
         try:
             if self.cloud_chain is not None:
-                result = self.cloud_chain.complete_with_meta(trimmed, system=SYSTEM_PROMPT)
+                result = self.cloud_chain.complete_with_meta(outbound, system=SYSTEM_PROMPT)
             else:
                 text = self.cloud.complete(
-                    trimmed, model=self.config.cloud_model, system=SYSTEM_PROMPT
+                    outbound, model=self.config.cloud_model, system=SYSTEM_PROMPT
                 )
                 result = CloudResult(text, self.config.cloud_model, "cloud")
         except ProviderError as exc:
+            latency_ms = int((time.monotonic() - started) * 1000)
             self.cloud_log.append(
-                {
-                    "timestamp": utc_timestamp(),
-                    "provider": provider_label,
-                    "model": cache_model,
-                    "purpose": purpose,
-                    "input_tokens_estimate": input_est,
-                    "output_tokens_estimate": 0,
-                    "result": EVENT_FAILED,
-                }
+                self._base_event(
+                    decision,
+                    provider=provider_label,
+                    purpose=purpose,
+                    input_est=input_est,
+                    result=EVENT_FAILED,
+                    latency_ms=latency_ms,
+                )
             )
             raise exc
 
+        latency_ms = int((time.monotonic() - started) * 1000)
         output_est = CloudUsageLog.estimate_tokens(result.text)
-        self.cloud_log.append(
-            {
-                "timestamp": utc_timestamp(),
-                "provider": result.via,
-                "model": result.model,
-                "purpose": purpose,
-                "input_tokens_estimate": input_est,
-                "output_tokens_estimate": output_est,
-                "result": EVENT_COMPLETED,
-            }
+        event = self._base_event(
+            decision,
+            provider=result.via,
+            purpose=purpose,
+            input_est=input_est,
+            result=EVENT_COMPLETED,
+            latency_ms=latency_ms,
+            output_est=output_est,
         )
+        if result.input_tokens is not None and result.output_tokens is not None:
+            event["input_tokens"] = result.input_tokens
+            event["output_tokens"] = result.output_tokens
+            event["tokens_source"] = TOKENS_SOURCE_API
+            event["input_tokens_estimate"] = result.input_tokens
+            event["output_tokens_estimate"] = result.output_tokens
+        else:
+            event["tokens_source"] = TOKENS_SOURCE_ESTIMATE
+        self.cloud_log.append(event)
         self.cache.set(key, result.text)
         return result
+
+    def _base_event(
+        self,
+        decision: RouteDecision,
+        *,
+        provider: str,
+        purpose: str,
+        input_est: int,
+        result: str,
+        latency_ms: int = 0,
+        output_est: int = 0,
+    ) -> dict[str, Any]:
+        return {
+            "timestamp": utc_timestamp(),
+            "provider": provider,
+            "model": self.config.cloud_model,
+            "purpose": purpose,
+            "input_tokens_estimate": input_est,
+            "output_tokens_estimate": output_est,
+            "result": result,
+            "latency_ms": latency_ms,
+            "route_codes": list(decision.codes),
+        }
 
 
 def _blocked_event(code: str) -> str:
@@ -389,18 +543,10 @@ def engine_from_env(
         api_key=config.cloud_api_key,
         timeout=config.cloud_timeout,
     )
-    fallback = CloudProvider(
-        config.cloud_fallback_base_url,
-        api_key=config.cloud_fallback_api_key,
-        timeout=config.cloud_timeout,
-    )
     chain = CascadingCloudProvider(
         primary,
         primary_model=config.cloud_model,
         primary_label="openrouter",
-        fallback=fallback,
-        fallback_model=config.cloud_fallback_model,
-        fallback_label="grok",
     )
     return HybridEngine(
         config,

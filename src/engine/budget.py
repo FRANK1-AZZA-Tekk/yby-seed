@@ -8,12 +8,20 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.engine.cloud_usage_log import DEFAULT_LOG_PATH, EVENT_COMPLETED
+from src.engine.cloud_usage_log import DEFAULT_LOG_PATH, EVENT_COMPLETED, TOKENS_SOURCE_API
 
 CODE_ALLOWED = "allowed"
 CODE_BLOCKED_LOCAL_ONLY = "blocked_local_only"
 CODE_BLOCKED_NO_TTY = "blocked_no_tty"
 CODE_BLOCKED_BUDGET = "blocked_budget"
+
+# local_only = nuvem off (padrão). ask = nuvem com confirmação CLI.
+CLOUD_MODES = frozenset({"local_only", "ask"})
+DEFAULT_CLOUD_MODE = "local_only"
+
+
+class CloudBudgetError(ValueError):
+    """YBY_CLOUD_MODE ou política de orçamento inválida."""
 
 
 @dataclass(frozen=True)
@@ -21,6 +29,16 @@ class BudgetEvaluation:
     allowed: bool
     reason: str
     code: str
+
+
+@dataclass(frozen=True)
+class MonthUsage:
+    """Soma do mês UTC corrente a partir do JSONL local."""
+
+    tokens: int
+    monthly_token_limit: int
+    warn_token_limit: int
+    cloud_mode: str
 
 
 class CloudBudget:
@@ -34,7 +52,7 @@ class CloudBudget:
         require_confirm: bool,
         allow_no_tty: bool,
     ) -> None:
-        self.cloud_mode = cloud_mode.strip().casefold() or "ask"
+        self.cloud_mode = _normalize_cloud_mode(cloud_mode)
         self.log_path = log_path
         self.monthly_token_limit = monthly_token_limit
         self.warn_token_limit = warn_token_limit
@@ -48,7 +66,7 @@ class CloudBudget:
             source.get("YBY_CLOUD_LOG_PATH", DEFAULT_LOG_PATH).strip() or DEFAULT_LOG_PATH
         )
         return cls(
-            cloud_mode=source.get("YBY_CLOUD_MODE", "ask"),
+            cloud_mode=source.get("YBY_CLOUD_MODE", DEFAULT_CLOUD_MODE),
             log_path=log_path,
             monthly_token_limit=_int(source, "YBY_CLOUD_MONTHLY_TOKEN_LIMIT", 200_000),
             warn_token_limit=_int(source, "YBY_CLOUD_WARN_TOKEN_LIMIT", 150_000),
@@ -69,7 +87,7 @@ class CloudBudget:
                 CODE_BLOCKED_LOCAL_ONLY,
             )
 
-        used = self._month_token_usage()
+        used = self.month_token_usage()
         if used >= self.monthly_token_limit:
             return BudgetEvaluation(
                 False,
@@ -97,7 +115,15 @@ class CloudBudget:
             )
         return BudgetEvaluation(True, "Dentro do orçamento mensal.", CODE_ALLOWED)
 
-    def _month_token_usage(self) -> int:
+    def month_usage(self) -> MonthUsage:
+        return MonthUsage(
+            tokens=self.month_token_usage(),
+            monthly_token_limit=self.monthly_token_limit,
+            warn_token_limit=self.warn_token_limit,
+            cloud_mode=self.cloud_mode,
+        )
+
+    def month_token_usage(self) -> int:
         if not self.log_path.is_file():
             return 0
         now = time.gmtime()
@@ -120,11 +146,40 @@ class CloudBudget:
                 when = time.gmtime(ts)
                 if when.tm_year != year or when.tm_mon != month:
                     continue
-                for field in ("input_tokens_estimate", "output_tokens_estimate"):
-                    value = row.get(field, 0)
-                    if isinstance(value, int):
-                        total += value
+                total += _row_tokens(row)
         return total
+
+    # Compatível com código/testes que ainda usam o nome privado.
+    _month_token_usage = month_token_usage
+
+
+def _row_tokens(row: dict) -> int:
+    """Prefere usage da API; senão soma as estimativas (log antigo)."""
+
+    if row.get("tokens_source") == TOKENS_SOURCE_API:
+        total = 0
+        for field in ("input_tokens", "output_tokens"):
+            value = row.get(field, 0)
+            if isinstance(value, int):
+                total += value
+        return total
+
+    total = 0
+    for field in ("input_tokens_estimate", "output_tokens_estimate"):
+        value = row.get(field, 0)
+        if isinstance(value, int):
+            total += value
+    return total
+
+
+def _normalize_cloud_mode(raw: str) -> str:
+    mode = (raw or "").strip().casefold() or DEFAULT_CLOUD_MODE
+    if mode not in CLOUD_MODES:
+        allowed = ", ".join(sorted(CLOUD_MODES))
+        raise CloudBudgetError(
+            f"YBY_CLOUD_MODE inválido: {raw!r}. Use um de: {allowed}."
+        )
+    return mode
 
 
 def _int(source: dict[str, str], name: str, default: int) -> int:

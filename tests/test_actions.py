@@ -5,8 +5,10 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
+from src.actions.limits import RunnerLimitError, normalize_timeout, truncate_output
 from src.actions.runner import run_command
 from src.main import cli
 from src.safety.policy import load_policy
@@ -205,3 +207,64 @@ def test_cli_run_recusa_termina_com_erro(monkeypatch) -> None:
     monkeypatch.setattr("src.main.run_command", fake_run_command)
     result = CliRunner().invoke(cli, ["run", "rm", "-rf", "/"])
     assert result.exit_code == 1
+
+
+def test_timeout_acima_do_teto_e_clampado() -> None:
+    assert normalize_timeout(999, environ={"YBY_RUN_TIMEOUT_MAX": "60"}) == 60.0
+    with pytest.raises(RunnerLimitError):
+        normalize_timeout(0)
+    with pytest.raises(RunnerLimitError):
+        normalize_timeout(-1)
+
+
+def test_saida_e_truncada(tmp_path: Path) -> None:
+    policy = _policy(tmp_path)
+    huge = "x" * 5000
+
+    def runner(argv, **kwargs):
+        return subprocess.CompletedProcess(
+            args=list(argv),
+            returncode=0,
+            stdout=huge,
+            stderr="",
+        )
+
+    result = run_command(
+        "ls",
+        policy=policy,
+        project_root=tmp_path,
+        input_fn=lambda: "n",
+        output_fn=lambda _line: None,
+        runner=runner,
+        max_output_bytes=1024,
+    )
+    assert result.executed is True
+    assert result.truncated is True
+    assert len(result.stdout.encode("utf-8")) < 5000
+    assert "truncado" in result.stdout
+    clipped, flag = truncate_output(huge, max_bytes=1024)
+    assert flag is True
+    assert "truncado" in clipped
+
+
+def test_bloqueia_execucao_sob_scaffold(tmp_path: Path) -> None:
+    policy = _policy(tmp_path)
+    scaffold = tmp_path / "generated"
+    manifest = scaffold / ".yby" / "artifacts-manifest.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text("{}", encoding="utf-8")
+    runner = _fake_runner()
+
+    result = run_command(
+        "ls",
+        policy=policy,
+        project_root=tmp_path,
+        cwd=scaffold,
+        input_fn=lambda: "n",
+        output_fn=lambda _line: None,
+        runner=runner,
+    )
+    assert result.approved is True
+    assert result.executed is False
+    assert "artefato gerado" in result.stderr
+    assert runner.calls == []

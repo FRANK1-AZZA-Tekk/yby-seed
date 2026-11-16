@@ -10,13 +10,25 @@ Uso:
     python yby.py gate "rm arquivo"
 
 Comandos:
-    ask     - Responde em texto (sem shell); --voice grava, pergunta e fala
+    ask     - Responde em texto (sem shell); --explain = envelope professor;
+              --voice grava, pergunta e fala
     listen  - Push-to-talk: grava até Enter → ask → TTS
     hub     - Keepalive do PC Hub (saúde do Ollama)
     run     - Executa comando após a porta de segurança
-    gate    - Só decide; não executa
+    gate    - Só decide (com envelope); não executa
     note    - Grava nota no vault
-    recall  - Busca no vault
+    recall  - Busca no vault (--fresh reindexa antes)
+    reindex - Reconcilia índice do vault (content-hash; sem mtime)
+    prefs   - Preferências no vault (chaves sensíveis exigem --consent)
+    research - Pesquisa consentida (HTTP fake; sem busca real)
+    devices - Contratos versionados + bus fake (sem firmware)
+    backup  - Backup local do vault + logs redigidos (sem nuvem)
+    usage   - Resumo/tail do cloud_usage.jsonl + orçamento mensal
+    learn   - Aprendizado diário (JSONL + relatório; sem auto-merge)
+    brief   - Entrevista YBY-BRIEF (sem gerar código/plano)
+    plan    - Plano verificável a partir de brief (não executa)
+    cursor-fake - Dry-run de plano validated (sem MCP / sem escrita)
+    scaffold - Propõe/aplica artefatos Python CLI (sem install)
     agent   - Loop de agente P0 (opt-in; não altera o ask)
 """
 
@@ -28,15 +40,93 @@ import click
 from dotenv import load_dotenv
 from loguru import logger
 
-from src.actions.runner import DEFAULT_TIMEOUT, run_command
+from src.actions.limits import DEFAULT_TIMEOUT, RunnerLimitError, normalize_timeout
+from src.actions.runner import run_command
 from src.agent_loop.loop import ControlledAgentLoop
 from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
 from src.agent_loop.tools import vault_registry_or_skip
+from src.artifacts.generator import (
+    ArtifactError,
+    apply_manifest,
+    propose_scaffold,
+    revert_applied,
+    run_generated_tests,
+)
+from src.artifacts.validate import format_report, validate_contents
+from src.backup.local import (
+    BackupError,
+    backup_dir_from_env,
+    create_backup,
+    keep_from_env,
+    list_backups,
+    restore_backup,
+)
+from src.brief.interview import (
+    BriefError,
+    answer_field,
+    format_status,
+    start_brief,
+    try_propose,
+)
+from src.brief.schemas import BRIEF_FIELDS
+from src.brief.store import load_or_create_store
+from src.conversation.explain import (
+    format_cli_error,
+    format_command_decision,
+    format_engine_reply,
+    format_vague_ask,
+    is_vague_request,
+)
+from src.cursor_fake.adapter import (
+    CursorFakeError,
+    format_report as format_cursor_fake_report,
+    simulate as cursor_fake_simulate,
+)
+from src.devices.fake import FakeDeviceBus, format_simulation
+from src.devices.schemas import (
+    ALLOWED_ACTIONS,
+    DEVICE_SCHEMA,
+    DeviceError,
+    parse_message_json,
+)
+from src.engine.budget import CloudBudget, CloudBudgetError
+from src.engine.cloud_usage_log import CloudUsageLog
 from src.engine.config import EngineConfig
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.engine.providers import OllamaProvider
+from src.learn.daily import (
+    LEARN_KINDS,
+    LearnError,
+    append_entry,
+    format_report as format_learn_report,
+    learn_log_path_from_env,
+    report_for_day,
+)
+from src.memory.prefs import (
+    PrefsError,
+    format_record,
+    get_pref,
+    list_prefs,
+    set_pref,
+)
 from src.memory.vault import VaultError, vault_from_env
+from src.obs.usage import (
+    UsageError,
+    format_events,
+    format_summary,
+    read_events,
+    summarize,
+)
+from src.plan.builder import PlanError, build_plan_from_brief, revise_plan
+from src.plan.schemas import PlanStep
+from src.plan.store import load_or_create_plan_store
+from src.plan.validate import validate_plan
 from src.platform.hub import main as hub_main
+from src.research.consent import ResearchError
+from src.research.search import (
+    format_report as format_research_report,
+    search as research_search,
+)
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
 from src.voice.config import voice_config_from_env
 from src.voice.session import VoiceError, listen_once
@@ -45,10 +135,15 @@ from src.voice.session import VoiceError, listen_once
 logger.add("logs/yby_seed_{time}.log", rotation="1 day", retention="7 days")
 
 
-@click.group()
-def cli():
-    """YBY SEED - Programação em Linguagem Natural"""
-    pass
+@click.group(
+    epilog=(
+        "Criação controlada: yby brief start \"ideia\" → plan → scaffold "
+        "(ask não abre brief sozinho). Gate decide; run executa. "
+        "Nuvem off por padrão (YBY_CLOUD_MODE=local_only)."
+    ),
+)
+def cli() -> None:
+    """YBY SEED — Programação em Linguagem Natural (local-first)."""
 
 
 @cli.command(
@@ -74,18 +169,43 @@ def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
         click.echo('Informe um comando. Exemplo: yby run "ls"', err=True)
         raise SystemExit(1)
 
+    try:
+        effective_timeout = normalize_timeout(timeout)
+    except RunnerLimitError as exc:
+        click.echo(
+            format_cli_error(
+                kind="run",
+                detail=str(exc),
+                next_step="use --timeout entre 0.1s e YBY_RUN_TIMEOUT_MAX (padrão 120)",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+
     policy = load_policy(default_policy_path())
     project_root = default_policy_path().parents[1]
     result = run_command(
         texto,
         policy=policy,
         project_root=project_root,
-        timeout=timeout,
+        timeout=effective_timeout,
         input_fn=lambda: click.prompt("s/n", prompt_suffix=" "),
         output_fn=click.echo,
     )
 
     if not result.approved:
+        click.echo(format_command_decision(texto, result.decision), err=True)
+        raise SystemExit(1)
+
+    if result.approved and not result.executed and result.stderr:
+        click.echo(
+            format_cli_error(
+                kind="run",
+                detail=result.stderr,
+                next_step="não execute código de scaffold aplicado; sem sandbox OS no v1",
+            ),
+            err=True,
+        )
         raise SystemExit(1)
 
     if result.stdout:
@@ -98,7 +218,7 @@ def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
             click.echo(err=True)
 
     if result.timed_out:
-        click.echo(f"timeout após {timeout:g}s", err=True)
+        click.echo(f"timeout após {effective_timeout:g}s", err=True)
         raise SystemExit(124)
     raise SystemExit(0 if result.exit_code == 0 else (result.exit_code or 1))
 
@@ -114,8 +234,13 @@ def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
     default=False,
     help="Grava até Enter, pergunta ao motor e fala a resposta (Piper).",
 )
+@click.option(
+    "--explain",
+    is_flag=True,
+    help="Modo professor: envelope Entendi/Falta/Proposta/Risco/Próximo passo.",
+)
 @click.argument("pergunta", nargs=-1, required=False)
-def ask(heavy: bool, voice: bool, pergunta: tuple[str, ...]) -> None:
+def ask(heavy: bool, voice: bool, explain: bool, pergunta: tuple[str, ...]) -> None:
     """Responde um pedido em texto. Com --voice, usa microfone e TTS local."""
 
     if voice:
@@ -126,16 +251,44 @@ def ask(heavy: bool, voice: bool, pergunta: tuple[str, ...]) -> None:
     if not texto:
         click.echo(
             'Informe um pedido. Exemplo: yby ask "explica uma lista" '
-            "(ou yby ask --voice / yby listen)",
+            "(ou yby ask --voice / yby listen / yby ask --explain \"...\")",
             err=True,
         )
         raise SystemExit(1)
 
+    if explain and is_vague_request(texto):
+        click.echo(format_vague_ask(texto))
+        raise SystemExit(0)
+
     resposta = build_engine().reply(texto, explicit_heavy=heavy)
-    if resposta.notice:
+    if resposta.notice and not explain:
         click.echo(resposta.notice, err=True)
     if resposta.provider == "none":
+        if explain:
+            click.echo(
+                format_engine_reply(
+                    prompt=texto,
+                    text=resposta.text or "(sem resposta)",
+                    provider=resposta.provider or "none",
+                    model=resposta.model or "-",
+                    reasons=resposta.reasons,
+                    notice=resposta.notice,
+                )
+            )
         raise SystemExit(1)
+
+    if explain:
+        click.echo(
+            format_engine_reply(
+                prompt=texto,
+                text=resposta.text,
+                provider=resposta.provider,
+                model=resposta.model,
+                reasons=resposta.reasons,
+                notice=resposta.notice,
+            )
+        )
+        return
 
     motivo = "; ".join(resposta.reasons)
     click.echo(f"modelo: {resposta.provider} {resposta.model} ({motivo})", err=True)
@@ -191,7 +344,7 @@ def gate(comando: tuple[str, ...]) -> None:
     policy = load_policy(default_policy_path())
     project_root = default_policy_path().parents[1]
     decision = decide(texto, policy=policy, project_root=project_root)
-    click.echo(f"{decision.action}: {decision.reason}")
+    click.echo(format_command_decision(texto, decision))
     if decision.action != "ask":
         raise SystemExit(0 if decision.action == "run" else 1)
 
@@ -202,6 +355,463 @@ def gate(comando: tuple[str, ...]) -> None:
         output_fn=click.echo,
     )
     raise SystemExit(0 if approved else 1)
+
+
+@cli.group()
+def brief() -> None:
+    """Entrevista YBY-BRIEF: ideia → campos → proposta (não executa, não gera código)."""
+
+
+@brief.command("start")
+@click.argument("ideia", nargs=-1, required=True)
+@click.option(
+    "--dir",
+    "store_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Pasta de briefs (default: YBY_VAULT_PATH/.yby/briefs ou ./.yby/briefs).",
+)
+def brief_start(ideia: tuple[str, ...], store_dir: Path | None) -> None:
+    """Inicia um brief a partir de uma ideia em linguagem natural."""
+
+    load_dotenv(override=False)
+    try:
+        draft, questions = start_brief(" ".join(ideia))
+        path = load_or_create_store(store_dir).save(draft)
+    except BriefError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(f"id: {draft.id}")
+    click.echo(f"salvo: {path}")
+    click.echo(format_status(draft))
+    if questions:
+        click.echo("perguntas:")
+        for index, question in enumerate(questions, start=1):
+            click.echo(f"  {index}. {question}")
+
+
+@brief.command("answer")
+@click.argument("brief_id")
+@click.argument("campo")
+@click.argument("texto", nargs=-1, required=True)
+@click.option(
+    "--dir",
+    "store_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+def brief_answer(
+    brief_id: str, campo: str, texto: tuple[str, ...], store_dir: Path | None
+) -> None:
+    """Responde um campo (retomada). Campos: objective, audience, scope, …"""
+
+    load_dotenv(override=False)
+    store = load_or_create_store(store_dir)
+    try:
+        draft = store.load(brief_id)
+        answer_field(draft, campo, " ".join(texto))
+        store.save(draft)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    except BriefError as exc:
+        click.echo(str(exc), err=True)
+        known = ", ".join(key for key, _ in BRIEF_FIELDS)
+        click.echo(f"campos: {known}", err=True)
+        raise SystemExit(1) from exc
+    click.echo(format_status(draft))
+
+
+@brief.command("show")
+@click.argument("brief_id")
+@click.option(
+    "--dir",
+    "store_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
+    "--cloud-safe",
+    is_flag=True,
+    help="JSON sem segredos (omite campos marcados sensíveis).",
+)
+def brief_show(brief_id: str, store_dir: Path | None, cloud_safe: bool) -> None:
+    """Mostra o brief (retomada)."""
+
+    load_dotenv(override=False)
+    try:
+        draft = load_or_create_store(store_dir).load(brief_id)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    if cloud_safe:
+        click.echo(json.dumps(draft.cloud_safe_dict(), ensure_ascii=False, indent=2))
+        return
+    click.echo(format_status(draft))
+    click.echo(json.dumps(draft.model_dump(), ensure_ascii=False, indent=2))
+
+
+@brief.command("propose")
+@click.argument("brief_id")
+@click.option(
+    "--dir",
+    "store_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+def brief_propose(brief_id: str, store_dir: Path | None) -> None:
+    """Gera proposta só se o brief estiver completo. Não gera plano nem código."""
+
+    load_dotenv(override=False)
+    store = load_or_create_store(store_dir)
+    try:
+        draft = store.load(brief_id)
+        proposal = try_propose(draft)
+        store.save(draft)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    except BriefError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(proposal)
+
+
+@cli.group("plan")
+def plan_grp() -> None:
+    """Plano verificável (YBY-PLAN). Não executa etapas."""
+
+
+@plan_grp.command("from-brief")
+@click.argument("brief_id")
+@click.option(
+    "--brief-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
+    "--dir",
+    "plan_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+def plan_from_brief(brief_id: str, brief_dir: Path | None, plan_dir: Path | None) -> None:
+    """Gera plano validado a partir de um brief completo."""
+
+    load_dotenv(override=False)
+    try:
+        brief = load_or_create_store(brief_dir).load(brief_id)
+        plan = build_plan_from_brief(brief)
+        path = load_or_create_plan_store(plan_dir).save(plan)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    except PlanError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(f"id: {plan.id}")
+    click.echo(f"version: {plan.version}")
+    click.echo(f"status: {plan.status}")
+    click.echo(f"salvo: {path}")
+    click.echo(json.dumps(plan.model_dump(), ensure_ascii=False, indent=2))
+
+
+@plan_grp.command("show")
+@click.argument("plan_id")
+@click.option("--version", type=int, default=None)
+@click.option(
+    "--dir",
+    "plan_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+def plan_show(plan_id: str, version: int | None, plan_dir: Path | None) -> None:
+    """Mostra um plano (opcionalmente uma versão)."""
+
+    load_dotenv(override=False)
+    try:
+        plan = load_or_create_plan_store(plan_dir).load(plan_id, version=version)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(json.dumps(plan.model_dump(), ensure_ascii=False, indent=2))
+
+
+@plan_grp.command("validate")
+@click.argument("plan_id")
+@click.argument("brief_id")
+@click.option(
+    "--dir",
+    "plan_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
+    "--brief-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+def plan_validate(
+    plan_id: str, brief_id: str, plan_dir: Path | None, brief_dir: Path | None
+) -> None:
+    """Revalida plano vs brief e allowlist (sem executar)."""
+
+    load_dotenv(override=False)
+    try:
+        plan = load_or_create_plan_store(plan_dir).load(plan_id)
+        brief = load_or_create_store(brief_dir).load(brief_id)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    reasons = validate_plan(plan, brief)
+    if reasons:
+        for reason in reasons:
+            click.echo(reason, err=True)
+        raise SystemExit(1)
+    click.echo("ok")
+
+
+@plan_grp.command("revise")
+@click.argument("plan_id")
+@click.argument("brief_id")
+@click.option(
+    "--dir",
+    "plan_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
+    "--brief-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
+    "--drop-step",
+    multiple=True,
+    help="Remove etapa por id e grava nova versão.",
+)
+def plan_revise(
+    plan_id: str,
+    brief_id: str,
+    plan_dir: Path | None,
+    brief_dir: Path | None,
+    drop_step: tuple[str, ...],
+) -> None:
+    """Nova versão do plano (ex.: remove etapas). Não executa."""
+
+    load_dotenv(override=False)
+    store = load_or_create_plan_store(plan_dir)
+    try:
+        plan = store.load(plan_id)
+        brief = load_or_create_store(brief_dir).load(brief_id)
+        steps: list[PlanStep] | None = None
+        if drop_step:
+            drop = set(drop_step)
+            steps = [s for s in plan.steps if s.id not in drop]
+        updated = revise_plan(plan, brief, steps=steps)
+        path = store.save(updated)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    except PlanError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(f"id: {updated.id}")
+    click.echo(f"version: {updated.version}")
+    click.echo(f"salvo: {path}")
+
+
+@cli.group("cursor-fake")
+def cursor_fake_grp() -> None:
+    """Adaptador Cursor fake: dry-run de plano validated (sem MCP)."""
+
+
+@cursor_fake_grp.command("simulate")
+@click.argument("plan_id")
+@click.option(
+    "--dir",
+    "plan_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Pasta dos planos (padrão: vault/.yby/plans ou .yby/plans).",
+)
+@click.option("--json", "as_json", is_flag=True, help="Saída estruturada em JSON.")
+def cursor_fake_simulate_cmd(
+    plan_id: str, plan_dir: Path | None, as_json: bool
+) -> None:
+    """Simula execução do plano sem escrever disco nem chamar MCP."""
+
+    load_dotenv(override=False)
+    try:
+        plan = load_or_create_plan_store(plan_dir).load(plan_id)
+        report = cursor_fake_simulate(plan)
+    except FileNotFoundError as exc:
+        click.echo(
+            format_cli_error(
+                kind="cursor-fake",
+                detail=str(exc),
+                next_step="gere um plano com yby plan from-brief <brief_id>",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    except CursorFakeError as exc:
+        click.echo(
+            format_cli_error(
+                kind="cursor-fake",
+                detail=str(exc),
+                next_step="use um plano status=validated",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    if as_json:
+        click.echo(json.dumps(report.model_dump(), ensure_ascii=False, indent=2))
+    else:
+        click.echo(format_cursor_fake_report(report))
+
+
+@cli.group()
+def scaffold() -> None:
+    """Gerador de artefatos (Python CLI). Sem pip install / deploy."""
+
+
+@scaffold.command("propose")
+@click.argument("plan_id")
+@click.argument("target", type=click.Path(file_okay=False, path_type=Path))
+@click.option("--name", required=True, help="Nome do pacote Python.")
+@click.option("--objective", default="scaffold local YBY", show_default=True)
+@click.option(
+    "--plan-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
+    "--out",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Salva manifesto JSON da proposta.",
+)
+def scaffold_propose(
+    plan_id: str,
+    target: Path,
+    name: str,
+    objective: str,
+    plan_dir: Path | None,
+    out: Path | None,
+) -> None:
+    """Propõe scaffold em memória/manifesto. Não escreve o projeto ainda."""
+
+    load_dotenv(override=False)
+    try:
+        plan = load_or_create_plan_store(plan_dir).load(plan_id)
+        manifest, contents = propose_scaffold(
+            plan, target, name=name, objective=objective
+        )
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    except ArtifactError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    payload = {
+        "manifest": manifest.model_dump(),
+        "files": sorted(contents),
+    }
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text + "\n", encoding="utf-8")
+        # stash contents next to manifest for apply
+        stash = out.with_suffix(".contents.json")
+        stash.write_text(
+            json.dumps(contents, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        click.echo(f"proposta: {out}")
+        click.echo(f"conteudos: {stash}")
+    click.echo(text)
+
+
+@scaffold.command("apply")
+@click.argument("proposal", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--approve-overwrite",
+    is_flag=True,
+    help="Permite substituir arquivo existente (default: recusa).",
+)
+def scaffold_apply(proposal: Path, approve_overwrite: bool) -> None:
+    """Aplica proposta salva por `scaffold propose --out`."""
+
+    payload = json.loads(proposal.read_text(encoding="utf-8"))
+    from src.artifacts.manifest import ArtifactManifest
+
+    try:
+        manifest = ArtifactManifest.model_validate(payload["manifest"])
+        stash = proposal.with_suffix(".contents.json")
+        if not stash.is_file():
+            raise ArtifactError(f"faltam conteúdos: {stash}")
+        contents = json.loads(stash.read_text(encoding="utf-8"))
+        applied = apply_manifest(
+            manifest, contents, approve_overwrite=approve_overwrite
+        )
+    except (ArtifactError, KeyError, json.JSONDecodeError) as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(f"applied: {applied.target_dir}")
+    click.echo(json.dumps(applied.model_dump(), ensure_ascii=False, indent=2))
+
+
+@scaffold.command("revert")
+@click.argument("target", type=click.Path(exists=True, file_okay=False, path_type=Path))
+def scaffold_revert(target: Path) -> None:
+    """Remove arquivos do manifesto aplicado no alvo."""
+
+    from src.artifacts.manifest import ArtifactManifest
+
+    man = target / ".yby" / "artifacts-manifest.json"
+    if not man.is_file():
+        click.echo("manifesto não encontrado", err=True)
+        raise SystemExit(1)
+    try:
+        manifest = ArtifactManifest.model_validate_json(man.read_text(encoding="utf-8"))
+        reverted = revert_applied(manifest)
+    except ArtifactError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(f"status: {reverted.status}")
+
+
+@scaffold.command("validate")
+@click.argument("proposal", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+def scaffold_validate(proposal: Path) -> None:
+    """Validação estática da proposta. Não executa código gerado."""
+
+    try:
+        json.loads(proposal.read_text(encoding="utf-8"))
+        stash = proposal.with_suffix(".contents.json")
+        contents = json.loads(stash.read_text(encoding="utf-8"))
+        if not isinstance(contents, dict):
+            raise ArtifactError("conteúdos inválidos")
+        report = validate_contents(contents)
+        click.echo(format_report(report))
+        if not report.ok:
+            raise SystemExit(1)
+    except (OSError, json.JSONDecodeError, KeyError, ArtifactError) as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+
+
+@scaffold.command("test-generated")
+@click.argument("target", type=click.Path(exists=True, file_okay=False, path_type=Path))
+def scaffold_test_generated(target: Path) -> None:
+    """Bloqueado: sem sandbox OS não executamos código gerado."""
+
+    try:
+        run_generated_tests(target)
+    except ArtifactError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
 
 
 @cli.command()
@@ -215,9 +825,348 @@ def note(titulo: str, texto: tuple[str, ...]) -> None:
         vault = vault_from_env()
         path = vault.write_note(titulo, " ".join(texto).strip() + "\n")
     except VaultError as exc:
-        click.echo(str(exc), err=True)
+        click.echo(
+            format_cli_error(
+                kind="vault",
+                detail=str(exc),
+                next_step="defina YBY_VAULT_PATH para uma pasta gravável e tente de novo",
+            ),
+            err=True,
+        )
         raise SystemExit(1) from exc
     click.echo(path)
+
+
+@cli.group()
+def prefs() -> None:
+    """Preferências no vault com consentimento para chaves sensíveis."""
+
+
+@prefs.command("list")
+def prefs_list() -> None:
+    """Lista preferências gravadas."""
+
+    load_dotenv(override=False)
+    try:
+        records = list_prefs(vault_from_env())
+    except (VaultError, PrefsError) as exc:
+        click.echo(
+            format_cli_error(
+                kind="prefs",
+                detail=str(exc),
+                next_step="defina YBY_VAULT_PATH e tente de novo",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    if not records:
+        click.echo("(nenhuma preferência)")
+        return
+    for record in records:
+        click.echo(format_record(record))
+
+
+@prefs.command("get")
+@click.argument("key")
+def prefs_get(key: str) -> None:
+    """Mostra uma preferência."""
+
+    load_dotenv(override=False)
+    try:
+        record = get_pref(vault_from_env(), key)
+    except (VaultError, PrefsError) as exc:
+        click.echo(
+            format_cli_error(
+                kind="prefs",
+                detail=str(exc),
+                next_step="use yby prefs list / set",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    click.echo(format_record(record))
+
+
+@prefs.command("set")
+@click.argument("key")
+@click.argument("value", nargs=-1, required=True)
+@click.option(
+    "--consent",
+    is_flag=True,
+    help="Obrigatório para chaves sensíveis (share_notes_with_cloud, remember_failures, allow_web_search).",
+)
+def prefs_set(key: str, value: tuple[str, ...], consent: bool) -> None:
+    """Define preferência. Chaves sensíveis exigem --consent."""
+
+    load_dotenv(override=False)
+    try:
+        record = set_pref(
+            vault_from_env(),
+            key,
+            " ".join(value).strip(),
+            consent=consent,
+        )
+    except (VaultError, PrefsError) as exc:
+        click.echo(
+            format_cli_error(
+                kind="prefs",
+                detail=str(exc),
+                next_step="para chaves sensíveis passe --consent; confira YBY_VAULT_PATH",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    click.echo(format_record(record))
+
+
+@cli.group()
+def backup() -> None:
+    """Backup local do vault + logs redigidos (sem nuvem)."""
+
+
+@backup.command("create")
+@click.option(
+    "--dir",
+    "backup_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Pasta de archives (padrão: YBY_BACKUP_DIR ou backups/yby).",
+)
+@click.option(
+    "--keep",
+    type=int,
+    default=None,
+    help="Quantos archives manter (padrão: YBY_BACKUP_KEEP ou 7).",
+)
+def backup_create(backup_dir: Path | None, keep: int | None) -> None:
+    """Cria tar.gz com vault e logs redigidos; aplica retenção."""
+
+    load_dotenv(override=False)
+    try:
+        vault = vault_from_env()
+        dest = backup_dir or backup_dir_from_env()
+        retention = keep if keep is not None else keep_from_env()
+        log_path = CloudUsageLog.from_env().path
+        info = create_backup(
+            vault_path=vault.root,
+            backup_dir=dest,
+            log_paths=[log_path],
+            keep=retention,
+        )
+    except (VaultError, BackupError) as exc:
+        click.echo(
+            format_cli_error(
+                kind="backup",
+                detail=str(exc),
+                next_step="confira YBY_VAULT_PATH / YBY_BACKUP_DIR e tente de novo",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    click.echo(f"{info.path} ({info.size_bytes} bytes)")
+
+
+@backup.command("list")
+@click.option(
+    "--dir",
+    "backup_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Pasta de archives (padrão: YBY_BACKUP_DIR ou backups/yby).",
+)
+def backup_list(backup_dir: Path | None) -> None:
+    """Lista archives locais (mais recente primeiro)."""
+
+    load_dotenv(override=False)
+    try:
+        dest = backup_dir or backup_dir_from_env()
+        items = list_backups(dest)
+    except BackupError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    if not items:
+        click.echo("(nenhum backup)")
+        return
+    for info in items:
+        click.echo(f"{info.stamp}\t{info.size_bytes}\t{info.path}")
+
+
+@backup.command("restore")
+@click.argument("archive", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("target", type=click.Path(file_okay=False, path_type=Path))
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Permite restaurar em pasta não vazia (ainda não aponta ao vault ativo).",
+)
+def backup_restore(archive: Path, target: Path, force: bool) -> None:
+    """Restaura vault do archive para um diretório alvo (não sobrescreve o vault ativo)."""
+
+    load_dotenv(override=False)
+    try:
+        restored = restore_backup(archive, target, force=force)
+    except BackupError as exc:
+        click.echo(
+            format_cli_error(
+                kind="backup",
+                detail=str(exc),
+                next_step="use um alvo vazio ou --force; nunca aponte ao vault vivo sem copiar antes",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    click.echo(restored)
+
+
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def usage(ctx: click.Context) -> None:
+    """Resumo do cloud_usage.jsonl e orçamento mensal (local; sem Datadog)."""
+
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(usage_summary)
+
+
+@usage.command("summary")
+def usage_summary() -> None:
+    """Mostra modo, tokens do mês UTC e contagem por resultado."""
+
+    load_dotenv(override=False)
+    try:
+        log = CloudUsageLog.from_env()
+        budget = CloudBudget.from_env()
+        report = summarize(log_path=log.path, budget=budget)
+    except (UsageError, CloudBudgetError) as exc:
+        click.echo(
+            format_cli_error(
+                kind="usage",
+                detail=str(exc),
+                next_step="confira YBY_CLOUD_LOG_PATH / YBY_CLOUD_MODE",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    click.echo(format_summary(report))
+
+
+@usage.command("tail")
+@click.option(
+    "--limit",
+    default=20,
+    show_default=True,
+    type=click.IntRange(1, 500),
+    help="Quantos eventos mais recentes mostrar.",
+)
+def usage_tail(limit: int) -> None:
+    """Lista os últimos eventos do JSONL (metadados apenas)."""
+
+    load_dotenv(override=False)
+    try:
+        log = CloudUsageLog.from_env()
+        events = read_events(log.path)
+        click.echo(format_events(events, limit=limit))
+    except UsageError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+
+
+@cli.group()
+def learn() -> None:
+    """Aprendizado diário (JSONL + relatório). Sem auto-merge em docs."""
+
+
+@learn.command("log")
+@click.argument("kind")
+@click.argument("summary", nargs=-1, required=True)
+@click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help="Tag opcional (repetível).",
+)
+@click.option(
+    "--log-path",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="JSONL (padrão: YBY_LEARN_LOG_PATH ou logs/learn.jsonl).",
+)
+def learn_log(kind: str, summary: tuple[str, ...], tags: tuple[str, ...], log_path: Path | None) -> None:
+    """Registra um aprendizado (success|failure|note|insight)."""
+
+    load_dotenv(override=False)
+    try:
+        path = log_path or learn_log_path_from_env()
+        entry = append_entry(
+            kind=kind,
+            summary=" ".join(summary).strip(),
+            log_path=path,
+            tags=list(tags),
+        )
+    except LearnError as exc:
+        click.echo(
+            format_cli_error(
+                kind="learn",
+                detail=str(exc),
+                next_step=f"use kind em {{{', '.join(sorted(LEARN_KINDS))}}} sem segredos",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    click.echo(f"{entry.day}\t{entry.kind}\t{entry.summary}")
+
+
+@learn.command("report")
+@click.option(
+    "--day",
+    default=None,
+    help="Dia UTC YYYY-MM-DD (padrão: hoje).",
+)
+@click.option(
+    "--log-path",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="JSONL (padrão: YBY_LEARN_LOG_PATH ou logs/learn.jsonl).",
+)
+@click.option("--json", "as_json", is_flag=True, help="Saída estruturada em JSON.")
+def learn_report(day: str | None, log_path: Path | None, as_json: bool) -> None:
+    """Mostra relatório do dia. Não grava em docs/LEARNING.md."""
+
+    load_dotenv(override=False)
+    try:
+        path = log_path or learn_log_path_from_env()
+        report = report_for_day(log_path=path, day=day)
+    except LearnError as exc:
+        click.echo(
+            format_cli_error(
+                kind="learn",
+                detail=str(exc),
+                next_step="use --day YYYY-MM-DD e confira YBY_LEARN_LOG_PATH",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    if as_json:
+        payload = {
+            "day": report.day,
+            "log_path": str(report.log_path),
+            "total": report.total,
+            "by_kind": report.by_kind,
+            "note": report.note,
+            "entries": [
+                {
+                    "timestamp": e.timestamp,
+                    "day": e.day,
+                    "kind": e.kind,
+                    "summary": e.summary,
+                    "source": e.source,
+                    "tags": list(e.tags),
+                }
+                for e in report.entries
+            ],
+        }
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        click.echo(format_learn_report(report))
 
 
 @cli.command("agent")
@@ -325,20 +1274,213 @@ def agent_cmd(
 
 @cli.command()
 @click.argument("consulta")
-def recall(consulta: str) -> None:
+@click.option(
+    "--fresh",
+    is_flag=True,
+    help="Reindexa o vault (content-hash) antes da busca — útil após Syncthing/edições externas.",
+)
+def recall(consulta: str, fresh: bool) -> None:
     """Busca notas no índice do vault. Não chama a rede."""
 
     load_dotenv(override=False)
     try:
-        hits = vault_from_env().search(consulta)
+        vault = vault_from_env()
+        if fresh:
+            stats = vault.reindex()
+            click.echo(
+                f"reindex: +{stats.added} ~{stats.updated} ={stats.unchanged} -{stats.removed}",
+                err=True,
+            )
+        hits = vault.search(consulta)
     except VaultError as exc:
-        click.echo(str(exc), err=True)
+        click.echo(
+            format_cli_error(
+                kind="vault",
+                detail=str(exc),
+                next_step="defina YBY_VAULT_PATH e rode yby note / yby reindex",
+            ),
+            err=True,
+        )
         raise SystemExit(1) from exc
     if not hits:
         click.echo("Nenhuma nota.")
         return
     for hit in hits:
         click.echo(f"{hit.score:.2f} {hit.name}")
+
+
+@cli.command("reindex")
+@click.option("--json", "as_json", is_flag=True, help="Estatísticas em JSON.")
+def reindex_cmd(as_json: bool) -> None:
+    """Reindexa o vault: novos/alterados por content-hash; remove órfãos."""
+
+    load_dotenv(override=False)
+    try:
+        stats = vault_from_env().reindex()
+    except VaultError as exc:
+        click.echo(
+            format_cli_error(
+                kind="vault",
+                detail=str(exc),
+                next_step="defina YBY_VAULT_PATH apontando para a pasta do vault",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    payload = {
+        "added": stats.added,
+        "updated": stats.updated,
+        "unchanged": stats.unchanged,
+        "removed": stats.removed,
+        "total": stats.total,
+    }
+    if as_json:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        click.echo(
+            f"reindex ok: +{stats.added} atualizados={stats.updated} "
+            f"iguais={stats.unchanged} removidos={stats.removed} (total={stats.total})"
+        )
+
+
+@cli.command("research")
+@click.argument("consulta", nargs=-1, required=True)
+@click.option(
+    "--consent",
+    is_flag=True,
+    help="Consentimento one-shot (ou use prefs allow_web_search=1).",
+)
+@click.option("--json", "as_json", is_flag=True, help="Saída estruturada em JSON.")
+def research_cmd(consulta: tuple[str, ...], consent: bool, as_json: bool) -> None:
+    """Pesquisa consentida via HTTP fake (sem busca real na rede)."""
+
+    load_dotenv(override=False)
+    vault = None
+    try:
+        vault = vault_from_env()
+    except VaultError:
+        vault = None
+    try:
+        report = research_search(
+            " ".join(consulta).strip(),
+            consented=consent,
+            vault=vault,
+        )
+    except ResearchError as exc:
+        click.echo(
+            format_cli_error(
+                kind="research",
+                detail=str(exc),
+                next_step="passe --consent ou yby prefs set allow_web_search 1 --consent",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    if as_json:
+        payload = {
+            "query": report.query,
+            "transport": report.transport,
+            "warning": report.warning,
+            "hits": [
+                {"title": h.title, "url": h.url, "snippet": h.snippet}
+                for h in report.hits
+            ],
+        }
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        click.echo(format_research_report(report))
+
+
+@cli.group()
+def devices() -> None:
+    """Contratos versionados hub↔dispositivo (fake; sem firmware/MQTT)."""
+
+
+@devices.command("schema")
+@click.option("--json", "as_json", is_flag=True, help="Metadados em JSON.")
+def devices_schema(as_json: bool) -> None:
+    """Mostra schema_version e ações de intent allowlisted."""
+
+    payload = {
+        "schema_version": DEVICE_SCHEMA,
+        "message_types": ["telemetry", "intent"],
+        "device_kinds": ["watch", "phone", "hub", "fake"],
+        "allowed_actions": list(ALLOWED_ACTIONS),
+        "warning": "contrato só; sem acoplar celular/relógio neste repo",
+    }
+    if as_json:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    click.echo(f"schema_version: {payload['schema_version']}")
+    click.echo(f"types: {', '.join(payload['message_types'])}")
+    click.echo(f"kinds: {', '.join(payload['device_kinds'])}")
+    click.echo(f"allowed_actions: {', '.join(payload['allowed_actions'])}")
+    click.echo(f"warning: {payload['warning']}")
+
+
+@devices.command("validate")
+@click.argument("path", type=click.Path(path_type=Path, exists=True))
+@click.option("--json", "as_json", is_flag=True, help="Resumo em JSON.")
+def devices_validate(path: Path, as_json: bool) -> None:
+    """Valida um arquivo JSON contra yby-device/v1 (não executa no hardware)."""
+
+    try:
+        message = parse_message_json(path.read_text(encoding="utf-8"))
+    except (OSError, DeviceError) as exc:
+        click.echo(
+            format_cli_error(
+                kind="devices",
+                detail=str(exc),
+                next_step="corrija o JSON ou rode yby devices schema",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    summary = {
+        "ok": True,
+        "schema_version": message.schema_version,
+        "type": message.type,
+        "event_id": message.event_id,
+        "device_id": message.device.device_id,
+    }
+    if as_json:
+        click.echo(json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        click.echo(
+            f"ok: {summary['type']} event_id={summary['event_id']} "
+            f"device={summary['device_id']} ({summary['schema_version']})"
+        )
+
+
+@devices.command("simulate")
+@click.option(
+    "--action",
+    default="ping",
+    show_default=True,
+    type=click.Choice(list(ALLOWED_ACTIONS), case_sensitive=False),
+    help="Intent allowlisted (nunca executado no firmware).",
+)
+@click.option("--device-id", default="fake-watch-1", show_default=True)
+@click.option("--json", "as_json", is_flag=True, help="Relatório em JSON.")
+def devices_simulate(action: str, device_id: str, as_json: bool) -> None:
+    """Round-trip fake: telemetria + intent validados; executed=false."""
+
+    try:
+        report = FakeDeviceBus(device_id=device_id).simulate(action=action)
+    except DeviceError as exc:
+        click.echo(
+            format_cli_error(
+                kind="devices",
+                detail=str(exc),
+                next_step=f"use uma ação em: {', '.join(ALLOWED_ACTIONS)}",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    if as_json:
+        click.echo(report.model_dump_json(indent=2))
+    else:
+        click.echo(format_simulation(report))
 
 
 def _confirm_cloud(message: str) -> bool:

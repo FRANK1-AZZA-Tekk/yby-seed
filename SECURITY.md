@@ -1,6 +1,6 @@
 # Política de Segurança do YBY SEED
 
-> **v1 (PC Hub):** ameaça principal é **execução de shell** via `yby run` — mitigada por allowlist ([D10](DECISIONS.md)), confirmação e `src/actions`. Gateway MQTT (`src/gateway`) é legado; se ativo, trate o broker como confiável. Demais seções sobre Docker/MQTT em massa referem-se ao desenho histórico.
+> **v1 (PC Hub):** ameaça principal é **execução de shell** via `yby run` — mitigada por allowlist + classificação run/ask/refuse ([D10](DECISIONS.md), [config/safety-allowlist.txt](config/safety-allowlist.txt)), confirmação interativa, `shell=False` e o mesmo argv/workdir autorizados em `src/actions`. Sem TTY, pedidos `ask` não executam. Riscos residuais: paths em comandos `[read]`, env `GIT_*`, ausência de sandbox OS. **Código gerado** (`yby scaffold`): validação estática obrigatória; **execução/auto-teste bloqueados** até haver isolamento OS (Lote 17). Gateway MQTT (`src/gateway`) é legado; se ativo, trate o broker como confiável. Seções Docker/MQTT em massa abaixo são desenho histórico.
 
 ## 🛡️ Reportando uma Vulnerabilidade
 
@@ -58,11 +58,10 @@ Levamos a segurança do YBY SEED muito a sério. Se você identificar uma vulner
 
 ### Para Usuários
 
-- **Atualize regularmente:** `docker-compose pull && docker-compose up -d`
-- **Use senhas fortes:** MQTT, OTA, APIs
-- **Isole a rede:** VLAN separada para IoT, firewall
-- **Monitore logs:** `docker-compose logs -f`
-- **Backup:** Registry SQLite, configurações
+- **Prefira `gate` antes de `run`:** veja a decisão; confirme só o que entender.
+- **Não coloque segredos em argumentos** de comandos `[read]` (paths não são sandboxed).
+- **Atualize regularmente** o código do hub; revise `config/safety-allowlist.txt` se ampliar a allowlist.
+- (Legado IoT) MQTT/Docker: senhas fortes, rede isolada, `docker-compose logs` — só se ainda usar esse caminho.
 
 ### Para Contribuidores
 

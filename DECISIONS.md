@@ -16,11 +16,11 @@ Inventário real de repositórios e arquitetura por domínios antes de qualquer 
 
 Ollama local primeiro. A nuvem entra quando a heurística de complexidade ou tamanho dispara, ou quando a pessoa pede (`--heavy`, frases como "pensa mais").
 
-O provedor de nuvem é compatível com a API da OpenAI e configurável por URL, modelo e chave. Destino de nuvem padrão: **OpenRouter com modelo free** (`openrouter/free`). Se OpenRouter falhar ou não houver chave, fallback para **Grok (xAI)**. Chaves só no `.env` do servidor.
+O provedor de nuvem é compatível com a API da OpenAI e configurável por URL, modelo e chave. Destino de nuvem padrão: **OpenRouter com modelo free** (`openrouter/free`). Chaves só no `.env` do servidor.
 
-Nota do dono (aprovado): OpenRouter free é o alvo de nuvem padrão; Grok é o fallback **quando** o failover automático for reativado com autorização explícita.
+Nota do dono (aprovado): OpenRouter free é o alvo de nuvem padrão; Grok é candidato a fallback **somente quando** o failover automático for reativado com autorização explícita (hoje **não** há cascade — ver implementação abaixo e D12).
 
-**Implementação (código vigente):** o `ask` usa OpenRouter como nuvem **primária** quando o roteamento pede nuvem (`src/engine/providers.py`, `CascadingCloudProvider`). **Falha do OpenRouter não chama Grok automaticamente** — regra operacional em **D12** e issue **#42**. Chaves Grok (`YBY_GROK_*`) permanecem no `.env` para evolução futura, não para cascade silencioso.
+**Implementação (código vigente):** o `ask` usa um **único** destino de nuvem (`YBY_CLOUD_*`, padrão OpenRouter) via `CascadingCloudProvider` (nome histórico; sem cascade). **Não há cliente Grok no roteador** — regra operacional em **D12**. Para outro endpoint OpenAI-compatível, reaponte `YBY_CLOUD_BASE_URL` / chave / modelo.
 
 Substitui a redação intermediária em que Grok era o destino automático e OpenRouter só configuração alternativa. Também substitui a redação antiga "Ollama local primeiro; OpenRouter apenas como fallback."
 
@@ -60,13 +60,21 @@ O YBY SEED roda num servidor doméstico sempre ligado. Esse servidor é o PC Hub
 
 Operação: unit systemd de usuário (`scripts/yby-hub.service` + `scripts/install-hub-service.sh`) mantém um keepalive fino (`python -m src.platform.hub` / `yby hub`) que só checa o Ollama — **não** sobe o gateway MQTT. Vault via Syncthing (`examples/syncthing/`, `docs/syncthing/`). Cache de respostas e limite de contexto antes da nuvem. Detalhe: [docs/PLATFORM.md](docs/PLATFORM.md).
 
-## D10 — Segurança de comandos (2026-11-11)
+## D10 — Segurança de comandos (2026-11-11; atualizado 2026-11-16)
 
-A allowlist cobre comandos somente leitura (`ls`, `cat`, `df`, estado do sistema e equivalentes), comandos `git` e scripts dentro da pasta do YBY. Qualquer outro comando pede sim ou não no terminal. Padrões destrutivos óbvios são recusados.
+Allowlist em [config/safety-allowlist.txt](config/safety-allowlist.txt). Classificação em `src/safety`; execução em `src/actions` com `shell=False`, usando o mesmo `argv` e `workdir` gravados na `Decision`.
 
-O módulo `src/safety` classifica o comando em run, ask ou refuse e faz a pergunta no terminal. Ele não executa o comando. O `ask` também não executa shell.
+**Run (automático):** token bare em `[read]` sem opção mutável conhecida (hoje: `date -s`/`--set` não entram); `git` bare com subcomando de inspeção `status`/`diff`/`log`/`show`/`branch` (sem delete/move/copy)/`rev-parse`/`describe`, sem globals `-c`/`-C`/`--git-dir`/`--work-tree`/`--config-env`/`--exec-path`/….
 
-A camada `src/actions` é quem executa: só chama o subprocesso depois de `run`, ou de `ask` com sim. `refuse` nunca chega ao shell. O CLI é `python yby.py run "..."`. `gate` continua só decidindo.
+**Ask (confirmação):** fora da allowlist; executável com path (`./git`, `/tmp/git`); `git config`/push/commit e demais subcomandos; globals git arriscados; `date --set`; scripts sob `[scripts]` (a pasta não confere auto-exec); encadeamento de shell; parse `shlex` inválido. Sem TTY/`EOFError`/`OSError` na confirmação → não executa.
+
+**Refuse:** padrões `[refuse]` (texto cru, argv pós-`shlex`, git normalizado) e checagens estruturais (`git` com `!`, `reset --hard`, `clean` forçado, `push --force`/`-f`). `refuse` e `ask` sem sim válido não chamam subprocesso. `argv` vazio após “sim” também não executa.
+
+**Limitações / riscos residuais:** `[read]` não sandboxa paths (`cat .env` pode ser `run`); variáveis `GIT_*`/hooks por ambiente não inspecionadas; unificação argv/cwd não é prova formal; sem isolamento de OS para código gerado (lote 24 só teto de timeout/saída + bloqueio sob scaffold aplicado).
+
+**Próximos passos (outro lote — não implementar aqui):** ~~consentimento de nuvem bloqueado por padrão / `local_only` + validação~~ (feito em `src/engine/budget.py`); ~~timeouts/limites + bloquear gerado no runner~~ (lote 24); ~~proteção de segredos em JSON e `Authorization: Bearer`~~ (lote 26 / `secret_gate`); reindexação consistente do vault; verificação independente do sucesso do agente; isolamento pelo SO antes de ampliar execução de código gerado.
+
+O CLI é `python yby.py run "..."` / `gate` (só decide).
 
 ## D11 — Voz local (2026-11-11)
 

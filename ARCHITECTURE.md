@@ -14,7 +14,7 @@ Usuário
 yby.py → src/main.py (Click)
   ├─ ask [--heavy] [--voice]
   │     → src/engine (HybridEngine: Ollama, cache, roteamento, budget)
-  │     → nuvem OpenRouter (primária) se pesado/explícito; sem failover auto → Grok (D12, #42)
+  │     → nuvem OpenRouter (destino único) se pesado/explícito; sem cascade Grok (D12)
   ├─ run "cmd"
   │     → src/safety (allowlist + sim/não) → src/actions (subprocess, timeout)
   ├─ gate "cmd" → src/safety (só decide)

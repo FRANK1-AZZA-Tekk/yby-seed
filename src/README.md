@@ -8,8 +8,18 @@ Pacote Python do YBY SEED (`pythonpath = ["."]` no `pyproject.toml`). Entrada CL
 |---|---|
 | `engine/` | HybridEngine, roteamento local/nuvem, cache |
 | `safety/` | allowlist + decisão (não executa) |
-| `actions/` | subprocess após a porta |
-| `memory/` | vault Markdown |
+| `actions/` | subprocess após a porta (timeout/saída/bloqueio scaffold) |
+| `conversation/` | envelope professor PT-BR (`ask --explain`, gate/run) |
+| `brief/` | YBY-BRIEF (entrevista → proposta; sem código) |
+| `plan/` | YBY-PLAN (etapas vs allowlist; sem execução) |
+| `cursor_fake/` | dry-run de plano validated (`yby cursor-fake`; sem MCP) |
+| `learn/` | aprendizado diário JSONL + relatório (`yby learn`; sem auto-merge) |
+| `research/` | pesquisa consentida com HTTP fake (`yby research`; sem busca real) |
+| `devices/` | contratos `yby-device/v1` + bus fake (`yby devices`; sem firmware) |
+| `artifacts/` | scaffold Python CLI + manifesto (sem install) |
+| `memory/` | vault Markdown + prefs com consentimento (`yby prefs`) |
+| `backup/` | backup local vault + logs redigidos (`yby backup`) |
+| `obs/` | CLI `yby usage` sobre `cloud_usage.jsonl` |
 | `voice/` | STT/TTS opcional (`listen` / `ask --voice`) |
 | `platform/` | hub keepalive (serviço systemd) |
 | `security/ast_guard.py` | guarda de código gerado |

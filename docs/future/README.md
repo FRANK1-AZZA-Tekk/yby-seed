@@ -15,8 +15,9 @@
 ## Fases (resumo)
 
 1. **Agora (yby-seed):** PC Hub + fase P + agente P0.  
-2. **Depois:** mobile gateway (repo YBY).  
-3. **Depois:** T-Watch **S3 Plus** (FRANK_ZER0 / YBY), nunca confundir com T-Watch 2020 ou S3 sem “Plus”.
+2. **Contrato no seed (lote 27):** `yby devices` — schema `yby-device/v1` + fake; **não** substitui firmware/MQTT.  
+3. **Depois:** mobile gateway (repo YBY).  
+4. **Depois:** T-Watch **S3 Plus** (FRANK_ZER0 / YBY), nunca confundir com T-Watch 2020 ou S3 sem “Plus”.
 
 ## Ferramenta opcional: REA
 

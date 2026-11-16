@@ -135,6 +135,32 @@ Trilha prática para levar o YBY SEED de **CLI local confiável** a **agentes pr
 
 Itens são **issues futuras** no sentido de planejamento; não implicam código neste PR. Prioridade: **P0** essencial próximo MVP agente → **P3** futuro YBY.
 
+### Fila produto/UX (lotes 13–27) + nuvem pendente + revisão 28
+
+Um lote por ciclo. Núcleo novo fino (`src/conversation/` etc.); **não** expandir `src/agents/` legado. Mapa factual: [docs/SEED_READINESS.md](docs/SEED_READINESS.md).
+
+| Lote | Status | Escopo mínimo | Não fazer ainda |
+|---|---|---|---|
+| **13** conversa/professor | **Feito** (`yby ask --explain`; envelope em `gate` / `run` refuse; `src/conversation/explain.py`) | PT-BR Entendi/Falta/Proposta/Risco/Próximo/Reverter; redact na exibição | Mudar `decide` / execução |
+| **Grok off** | **Feito** (sem cliente/cascade Grok; só `YBY_CLOUD_*`) | Removido wiring morto; destino único OpenRouter | Novo provedor / reativar cascade |
+| **14** YBY-BRIEF | **Feito** (`yby brief start/answer/show/propose`; `src/brief/`) | Pydantic + path vault opcional; retomada; proposta só se completo | Gerar código / plano executável |
+| **15** Plano verificável | **Feito** (`yby plan from-brief/show/validate/revise`; `src/plan/`) | Contrato de etapas vs allowlist; versionado | Executar plano |
+| **16** Gerador artefatos | **Feito** (`yby scaffold propose/apply/revert`; `src/artifacts/`) | Dir novo + manifesto hashes (Python CLI) | install/deploy; Next/React sem OK |
+| **17** Validador | **Feito** (`scaffold validate` / `test-generated` bloqueado; `src/artifacts/validate.py`) | sintaxe + testes obrigatórios; sem sandbox OS → execução gerada bloqueada | `eval` / auto-pytest |
+| **28** Revisão final SEED | **Feito** (auditoria; docs; sem feature) | Separar pronto/testado/validado; limitações reais | “Pronto para produção” sem evidência |
+| **18** Cursor fake | **Feito** (`yby cursor-fake simulate`; `src/cursor_fake/`) | Adaptador + plano `validated` (dry-run) | MCP real |
+| **19** Aprendizado diário | **Feito** (`yby learn log/report`; `src/learn/`) | JSONL + relatório diário UTC | Auto-merge |
+| **20** Memória segura | **Feito** (`yby prefs`; `src/memory/prefs.py`) | Preferências com consentimento no vault | Vector DB novo |
+| **21** Pesquisa consentida | **Feito** (`yby research`; `src/research/`) | Gate consent + HTTP fake | Busca real |
+| **22** Observabilidade CLI | **Feito** (`yby usage` / `usage tail`; `src/obs/`) | CLI sobre `cloud_usage_log` + orçamento mensal | Datadog |
+| **23** Backup local | **Feito** (`yby backup create/list/restore`; `src/backup/`) | tar.gz vault+logs redigidos + retenção 7 + restore test | Backup nuvem |
+| **24** Endurecer execução | **Feito** (`src/actions/limits.py`; teto timeout/saída; bloqueio sob scaffold) | Timeouts/limites; bloquear código gerado | Sandbox OS completo |
+| **25** UX CLI | **Feito** (`ask --explain`→brief; notice `local_only`; epílogo `--help`) | Atritos confirmados só | Mudar política D10 |
+| **26** Qualidade contínua | **Feito** (secret gate: `Authorization: Bearer` + JSON sem prefixo; docs) | Falhas confirmadas + docs | Feature nova |
+| **27** Contratos dispositivos | **Feito** (`yby devices schema/validate/simulate`; `src/devices/`) | Schemas versionados + fakes | Firmware / acoplar celular-relógio |
+
+Backlog de segurança/nuvem legado (ainda válido como itens, fora da numeração 13–27): ~~consentimento de nuvem default-off / `local_only`~~ (feito); ~~segredos em JSON/`Authorization`~~ (lote 26 + X-API-Key/Basic); ~~reindex vault~~ (`yby reindex` / `recall --fresh`, content-hash); verificação de sucesso do agente; isolamento SO antes de ampliar código gerado.
+
 ### P0 — essencial para o próximo MVP agente
 
 | Título | Objetivo | Critério de aceite | Dependências | Risco de segurança |

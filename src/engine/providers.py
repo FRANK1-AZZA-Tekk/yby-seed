@@ -132,6 +132,9 @@ class CloudProvider:
         return bool(self.api_key)
 
     def complete(self, prompt: str, *, model: str, system: str) -> str:
+        return self.complete_with_meta(prompt, model=model, system=system).text
+
+    def complete_with_meta(self, prompt: str, *, model: str, system: str) -> CloudResult:
         if not self.has_credentials():
             raise ProviderError("YBY_CLOUD_API_KEY não está definida.")
 
@@ -162,7 +165,14 @@ class CloudProvider:
         text = _message_content(payload)
         if not text.strip():
             raise ProviderError(f"Nuvem ({model}) devolveu uma resposta vazia.")
-        return text
+        input_tokens, output_tokens = _usage_tokens(payload)
+        return CloudResult(
+            text,
+            model,
+            "cloud",
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
 
 
 @dataclass(frozen=True)
@@ -172,13 +182,15 @@ class CloudResult:
     text: str
     model: str
     via: str
+    input_tokens: int | None = None
+    output_tokens: int | None = None
 
 
 class CascadingCloudProvider:
-    """Nuvem primária (ex.: OpenRouter). Sem failover automático para Grok (D12).
+    """Destino único de nuvem (padrão OpenRouter). Sem cascade / Grok (D12).
 
-    Fallback alternativo fica no construtor até a issue #42 (confirmação explícita);
-    não é chamado em `complete_with_meta`.
+    Para outro provedor OpenAI-compatível, aponte `YBY_CLOUD_*` — não há segundo
+    cliente embutido.
     """
 
     def __init__(
@@ -187,43 +199,66 @@ class CascadingCloudProvider:
         *,
         primary_model: str,
         primary_label: str = "openrouter",
-        fallback: CloudProvider | None = None,
-        fallback_model: str = "",
-        fallback_label: str = "grok",
     ) -> None:
         self.primary = primary
         self.primary_model = primary_model
         self.primary_label = primary_label
-        self.fallback = fallback
-        self.fallback_model = fallback_model
-        self.fallback_label = fallback_label
 
     def has_credentials(self) -> bool:
         return self.primary.has_credentials()
 
     def complete(self, prompt: str, *, model: str, system: str) -> str:
-        """Protocolo CloudClient: apenas o provedor primário."""
+        """Protocolo CloudClient: apenas o provedor configurado."""
 
         return self.complete_with_meta(prompt, system=system).text
 
     def complete_with_meta(self, prompt: str, *, system: str) -> CloudResult:
-        """Chama só o destino primário; falha não dispara Grok (confirmação futura #42)."""
+        """Chama só o destino configurado; falha não dispara segundo provedor."""
 
         if not self.primary.has_credentials():
             raise ProviderError(
-                "YBY_CLOUD_API_KEY não está definida. "
-                "Fallback de nuvem exige autorização explícita (issue #42)."
+                "YBY_CLOUD_API_KEY não está definida, então não há nuvem configurada."
             )
         try:
-            text = self.primary.complete(
-                prompt, model=self.primary_model, system=system
+            result = _primary_complete_with_meta(
+                self.primary,
+                prompt,
+                model=self.primary_model,
+                system=system,
             )
         except ProviderError as exc:
             raise ProviderError(
                 f"{self.primary_label} falhou ({exc}). "
-                "Nuvem alternativa não é chamada automaticamente (D12)."
+                "Nenhum segundo provedor está configurado no roteador (D12)."
             ) from exc
-        return CloudResult(text, self.primary_model, self.primary_label)
+        return CloudResult(
+            result.text,
+            self.primary_model,
+            self.primary_label,
+            input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens,
+        )
+
+
+def _primary_complete_with_meta(
+    primary: CloudClient,
+    prompt: str,
+    *,
+    model: str,
+    system: str,
+) -> CloudResult:
+    """Aceita CloudProvider ou fake só com `complete` (testes)."""
+
+    meta = getattr(primary, "complete_with_meta", None)
+    if callable(meta):
+        result = meta(prompt, model=model, system=system)
+        if isinstance(result, CloudResult):
+            return result
+        if isinstance(result, str):
+            return CloudResult(result, model, "cloud")
+        raise ProviderError("complete_with_meta devolveu um tipo inválido.")
+    text = primary.complete(prompt, model=model, system=system)
+    return CloudResult(text, model, "cloud")
 
 
 def _json_object(response: requests.Response, who: str) -> dict[str, Any]:
@@ -250,3 +285,14 @@ def _message_content(payload: dict[str, Any]) -> str:
     if not isinstance(content, str):
         raise ProviderError("A nuvem não devolveu message.content.")
     return content
+
+
+def _usage_tokens(payload: dict[str, Any]) -> tuple[int | None, int | None]:
+    usage = payload.get("usage")
+    if not isinstance(usage, dict):
+        return None, None
+    prompt = usage.get("prompt_tokens")
+    completion = usage.get("completion_tokens")
+    input_tokens = prompt if isinstance(prompt, int) else None
+    output_tokens = completion if isinstance(completion, int) else None
+    return input_tokens, output_tokens

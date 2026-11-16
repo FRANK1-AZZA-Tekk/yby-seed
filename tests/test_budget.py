@@ -4,13 +4,36 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from src.engine.budget import (
     CODE_BLOCKED_BUDGET,
     CODE_BLOCKED_LOCAL_ONLY,
     CODE_BLOCKED_NO_TTY,
+    DEFAULT_CLOUD_MODE,
     CloudBudget,
+    CloudBudgetError,
 )
 from src.engine.cloud_usage_log import EVENT_COMPLETED, utc_timestamp
+
+
+def test_default_cloud_mode_is_local_only() -> None:
+    assert DEFAULT_CLOUD_MODE == "local_only"
+    budget = CloudBudget.from_env({})
+    assert budget.cloud_mode == "local_only"
+    out = budget.evaluate(requires_confirmation=False, has_tty=True)
+    assert out.allowed is False
+    assert out.code == CODE_BLOCKED_LOCAL_ONLY
+
+
+def test_invalid_cloud_mode_raises() -> None:
+    with pytest.raises(CloudBudgetError, match="YBY_CLOUD_MODE inválido"):
+        CloudBudget.from_env({"YBY_CLOUD_MODE": "always"})
+
+
+def test_blank_cloud_mode_falls_back_to_default() -> None:
+    budget = CloudBudget.from_env({"YBY_CLOUD_MODE": "  "})
+    assert budget.cloud_mode == "local_only"
 
 
 def test_local_only_bloqueia() -> None:
@@ -69,3 +92,69 @@ def test_dentro_do_teto_permite() -> None:
     budget = CloudBudget.from_env({"YBY_CLOUD_MODE": "ask", "YBY_CLOUD_REQUIRE_CONFIRM": "0"})
     out = budget.evaluate(requires_confirmation=False, has_tty=False)
     assert out.allowed is True
+
+
+def test_row_tokens_prefers_api(tmp_path) -> None:
+    log_path = tmp_path / "cloud_usage.jsonl"
+    log_path.write_text(
+        json.dumps(
+            {
+                "timestamp": utc_timestamp(),
+                "provider": "openrouter",
+                "model": "m",
+                "purpose": "test",
+                "input_tokens_estimate": 1,
+                "output_tokens_estimate": 1,
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "tokens_source": "api",
+                "result": EVENT_COMPLETED,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log_path),
+            "YBY_CLOUD_REQUIRE_CONFIRM": "0",
+        }
+    )
+    assert budget.month_token_usage() == 150
+
+
+def test_budget_ignores_non_completed(tmp_path) -> None:
+    log_path = tmp_path / "cloud_usage.jsonl"
+    rows = [
+        {
+            "timestamp": utc_timestamp(),
+            "provider": "openrouter",
+            "model": "m",
+            "purpose": "t",
+            "input_tokens_estimate": 99_000,
+            "output_tokens_estimate": 0,
+            "result": "cloud_requested",
+        },
+        {
+            "timestamp": utc_timestamp(),
+            "provider": "openrouter",
+            "model": "m",
+            "purpose": "t",
+            "input_tokens_estimate": 10,
+            "output_tokens_estimate": 5,
+            "result": EVENT_COMPLETED,
+        },
+    ]
+    log_path.write_text(
+        "".join(json.dumps(row) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log_path),
+            "YBY_CLOUD_REQUIRE_CONFIRM": "0",
+        }
+    )
+    assert budget.month_token_usage() == 15

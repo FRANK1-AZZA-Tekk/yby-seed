@@ -2,6 +2,28 @@
 
 Registro de uso real, falhas e aprendizados práticos.
 
+## 2026-11-16 — Scan/otimização pós-fila 13–27
+
+- Fontes: SEED/ROADMAP residual + práticas vault (content-hash, não mtime) + padrões X-API-Key/Basic.
+- Feito: `Vault.reindex` + CLI; secret gate `X-Api-Key` / `Authorization: Basic`; `confirm_fn=None` fail-closed com `require_confirm`.
+- Follow-up audit: `AWS_SECRET_ACCESS_KEY` / JSON SecretAccessKey; `search` ignora órfãos; índice JSON corrompido → `VaultError`; redact de `X-Api-Key` sem deixar `X-`.
+- Fora deste passe: sandbox OS completo; verificação independente de sucesso do agente; FTS.
+
+## 2026-11-16 — Lote 27 (contratos dispositivos)
+
+- Escopo: schemas versionados `yby-device/v1` + `FakeDeviceBus` + CLI `devices schema|validate|simulate`.
+- Fora: firmware, MQTT/BLE real, acoplar celular/relógio. `executed` sempre false no simulate.
+
+## 2026-11-16 — Lote 26 (qualidade: secret gate)
+
+- Falha confirmada (SEED/DECISIONS): `Authorization: Bearer …` e JSON sem prefixo (`api_key`/`token`/`password`) passavam no `find_secret`.
+- Correção: padrões + redação em `src/engine/secret_gate.py`; testes de regressão. Sem feature nova.
+
+## 2026-11-16 — Lote 25 (UX CLI, atritos confirmados)
+
+- Atritos: `ask` não abre brief; avisos de Ollama omitiam `YBY_CLOUD_MODE=local_only`; help raiz magro.
+- Mitigação: `--explain` em pedido de criação aponta `yby brief start`; notice/`--explain` citam modo+chave; epílogo no `--help`. Sem mudar D10 nem auto-abrir brief.
+
 ## 2026-11-11 — Primeiro uso real
 
 - Testado: `python yby.py ask "explique uma lista em Python"`

@@ -1,4 +1,4 @@
-"""OpenRouter→Grok, cache TTL e limite de contexto (HTTP mockado)."""
+"""OpenRouter único, cache TTL e limite de contexto (HTTP mockado)."""
 
 from __future__ import annotations
 
@@ -7,12 +7,20 @@ import time
 import pytest
 import requests
 
+from src.engine.budget import CloudBudget
 from src.engine.cache import ResponseCache
 from src.engine.config import DEFAULT_CLOUD_MODEL, EngineConfig
 from src.engine.context import trim_context
 from src.engine.hybrid import HybridEngine
 from src.engine.providers import CascadingCloudProvider, CloudProvider, ProviderError
 from src.engine.routing import DEFAULT_HEAVY_PHRASES
+
+
+
+def _budget_ask() -> CloudBudget:
+    return CloudBudget.from_env(
+        {"YBY_CLOUD_MODE": "ask", "YBY_CLOUD_REQUIRE_CONFIRM": "0"}
+    )
 
 
 def _config(**overrides: object) -> EngineConfig:
@@ -22,9 +30,6 @@ def _config(**overrides: object) -> EngineConfig:
         cloud_base_url="https://openrouter.ai/api/v1",
         cloud_model=DEFAULT_CLOUD_MODEL,
         cloud_api_key="or-key",
-        cloud_fallback_base_url="https://api.x.ai/v1",
-        cloud_fallback_model="grok-4.7",
-        cloud_fallback_api_key="xai-key",
         heavy_min_chars=1200,
         heavy_min_lines=25,
         heavy_min_questions=3,
@@ -74,17 +79,16 @@ class _Session:
         return item
 
 
-def test_from_env_padrao_openrouter_free_e_grok_fallback() -> None:
+def test_from_env_padrao_openrouter_free_sem_grok() -> None:
     config = EngineConfig.from_env({})
     assert config.cloud_base_url == "https://openrouter.ai/api/v1"
     assert config.cloud_model == "openrouter/free"
-    assert config.cloud_fallback_base_url == "https://api.x.ai/v1"
-    assert config.cloud_fallback_model == "grok-4.7"
+    assert not hasattr(config, "cloud_fallback_model")
     assert config.cache_ttl_seconds == 3600.0
     assert config.cloud_max_chars == 12000
 
 
-def test_from_env_le_openrouter_e_grok_aliases() -> None:
+def test_from_env_le_openrouter_e_ignora_yby_grok() -> None:
     config = EngineConfig.from_env(
         {
             "OPENROUTER_API_KEY": "or-secret",
@@ -95,43 +99,27 @@ def test_from_env_le_openrouter_e_grok_aliases() -> None:
         }
     )
     assert config.cloud_api_key == "or-secret"
-    assert config.cloud_fallback_api_key == "grok-secret"
-    assert config.cloud_fallback_model == "grok-custom"
+    assert config.cloud_model == "openrouter/free"
     assert config.cloud_max_chars == 500
     assert config.cache_ttl_seconds == 10.0
 
 
-def test_openrouter_falha_nao_chama_grok_automaticamente() -> None:
+def test_openrouter_falha_sem_segundo_provedor() -> None:
     openrouter = CloudProvider(
         "https://openrouter.ai/api/v1",
         api_key="or-key",
         timeout=3,
         session=_Session([_Response(503, {"error": "busy"})]),
     )
-    grok = CloudProvider(
-        "https://api.x.ai/v1",
-        api_key="xai-key",
-        timeout=3,
-        session=_Session(
-            [_Response(200, {"choices": [{"message": {"content": "via grok"}}]})]
-        ),
-    )
-    chain = CascadingCloudProvider(
-        openrouter,
-        primary_model="openrouter/free",
-        fallback=grok,
-        fallback_model="grok-4.7",
-    )
-    with pytest.raises(ProviderError, match="não é chamada automaticamente"):
+    chain = CascadingCloudProvider(openrouter, primary_model="openrouter/free")
+    with pytest.raises(ProviderError, match="Nenhum segundo provedor"):
         chain.complete_with_meta("pensa mais", system="sys")
-    assert grok._session.posts == []
 
 
-def test_openrouter_ok_nao_chama_grok() -> None:
+def test_openrouter_ok() -> None:
     openrouter_session = _Session(
         [_Response(200, {"choices": [{"message": {"content": "via or"}}]})]
     )
-    grok_session = _Session([])
     chain = CascadingCloudProvider(
         CloudProvider(
             "https://openrouter.ai/api/v1",
@@ -140,26 +128,16 @@ def test_openrouter_ok_nao_chama_grok() -> None:
             session=openrouter_session,
         ),
         primary_model="openrouter/free",
-        fallback=CloudProvider(
-            "https://api.x.ai/v1",
-            api_key="xai-key",
-            timeout=3,
-            session=grok_session,
-        ),
-        fallback_model="grok-4.7",
     )
     result = chain.complete_with_meta("pensa mais", system="sys")
     assert result.via == "openrouter"
     assert result.model == "openrouter/free"
-    assert grok_session.posts == []
 
 
 def test_cascade_sem_credenciais_explica() -> None:
     chain = CascadingCloudProvider(
         CloudProvider("https://openrouter.ai/api/v1", api_key="", timeout=3),
         primary_model="openrouter/free",
-        fallback=CloudProvider("https://api.x.ai/v1", api_key="", timeout=3),
-        fallback_model="grok-4.7",
     )
     assert chain.has_credentials() is False
     with pytest.raises(ProviderError, match="YBY_CLOUD_API_KEY"):
@@ -197,6 +175,7 @@ def test_motor_usa_cache_na_segunda_chamada_nuvem() -> None:
         chain,
         cloud_chain=chain,
         cache=ResponseCache(ttl_seconds=60.0),
+        budget=_budget_ask()
     )
     first = engine.reply("pensa mais sobre listas")
     second = engine.reply("pensa mais sobre listas")
@@ -221,6 +200,7 @@ def test_contexto_truncado_antes_da_nuvem() -> None:
         chain,
         cloud_chain=chain,
         cache=ResponseCache(ttl_seconds=0),
+        budget=_budget_ask()
     )
     reply = engine.reply(long_prompt)
     assert reply.provider == "cloud"
@@ -243,26 +223,13 @@ def test_trim_context_corta_longo() -> None:
     assert "truncado" in out
 
 
-def test_conexao_recusada_no_openrouter_nao_tenta_grok() -> None:
+def test_conexao_recusada_no_openrouter_sem_segundo_provedor() -> None:
     openrouter = CloudProvider(
         "https://openrouter.ai/api/v1",
         api_key="or-key",
         timeout=3,
         session=_Session([requests.ConnectionError("down")]),
     )
-    grok = CloudProvider(
-        "https://api.x.ai/v1",
-        api_key="xai-key",
-        timeout=3,
-        session=_Session(
-            [_Response(200, {"choices": [{"message": {"content": "grok ok"}}]})]
-        ),
-    )
-    chain = CascadingCloudProvider(
-        openrouter,
-        primary_model="openrouter/free",
-        fallback=grok,
-        fallback_model="grok-4.7",
-    )
-    with pytest.raises(ProviderError, match="não é chamada automaticamente"):
+    chain = CascadingCloudProvider(openrouter, primary_model="openrouter/free")
+    with pytest.raises(ProviderError, match="Nenhum segundo provedor"):
         chain.complete("pensa mais", model="x", system="s")
