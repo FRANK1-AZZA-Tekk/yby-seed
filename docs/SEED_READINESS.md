@@ -54,6 +54,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 - Pesquisa consentida: `yby research` (gate + HTTP fake; sem busca real).
 - UX CLI (lote 25): `--explain` em pedido de criação aponta `brief start`; falha Ollama+`local_only` nomeia o modo; `--help` com epílogo. D10 intacto.
 - Qualidade (lote 26): secret gate cobre `Authorization: Bearer` e JSON (`api_key`/`token`/`password`) sem prefixo conhecido; docs alinhados.
+- Dispositivos (lote 27): contrato `yby-device/v1` + bus fake (`yby devices`); sem MQTT/BLE/firmware neste repo.
 
 ## Lacunas críticas (antes de ser “cérebro” do ecossistema)
 
@@ -83,7 +84,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 5. ~~**Sandbox / bloquear** execução ampliada~~ — lote 24 (limites) + 17 (gerado); sandbox OS completo ainda fora.
 6. ~~**Cursor fake**~~ — feito (lote 18 dry-run); MCP/Cursor real ainda fora.
 7. ~~**Qualidade contínua**~~ — lote 26 (Bearer/JSON no secret gate + docs).
-8. Contratos de dispositivos / wearable (lote 27) quando fizer sentido.
+8. ~~**Contratos dispositivos**~~ — lote 27 (schemas + fake; firmware/celular-relógio ainda fora).
 
 ## O que esta revisão NÃO afirma
 

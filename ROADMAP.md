@@ -157,7 +157,7 @@ Um lote por ciclo. Núcleo novo fino (`src/conversation/` etc.); **não** expand
 | **24** Endurecer execução | **Feito** (`src/actions/limits.py`; teto timeout/saída; bloqueio sob scaffold) | Timeouts/limites; bloquear código gerado | Sandbox OS completo |
 | **25** UX CLI | **Feito** (`ask --explain`→brief; notice `local_only`; epílogo `--help`) | Atritos confirmados só | Mudar política D10 |
 | **26** Qualidade contínua | **Feito** (secret gate: `Authorization: Bearer` + JSON sem prefixo; docs) | Falhas confirmadas + docs | Feature nova |
-| 27 Contratos dispositivos | Fila | Schemas versionados + fakes | Firmware / acoplar celular-relógio |
+| **27** Contratos dispositivos | **Feito** (`yby devices schema/validate/simulate`; `src/devices/`) | Schemas versionados + fakes | Firmware / acoplar celular-relógio |
 
 Backlog de segurança/nuvem legado (ainda válido como itens, fora da numeração 13–27): ~~consentimento de nuvem default-off / `local_only`~~ (feito); ~~segredos em JSON/`Authorization`~~ (lote 26); reindex vault; verificação de sucesso do agente; isolamento SO antes de ampliar código gerado.
 

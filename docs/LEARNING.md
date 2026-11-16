@@ -2,6 +2,11 @@
 
 Registro de uso real, falhas e aprendizados práticos.
 
+## 2026-11-16 — Lote 27 (contratos dispositivos)
+
+- Escopo: schemas versionados `yby-device/v1` + `FakeDeviceBus` + CLI `devices schema|validate|simulate`.
+- Fora: firmware, MQTT/BLE real, acoplar celular/relógio. `executed` sempre false no simulate.
+
 ## 2026-11-16 — Lote 26 (qualidade: secret gate)
 
 - Falha confirmada (SEED/DECISIONS): `Authorization: Bearer …` e JSON sem prefixo (`api_key`/`token`/`password`) passavam no `find_secret`.

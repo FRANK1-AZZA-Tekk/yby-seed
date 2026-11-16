@@ -20,6 +20,7 @@ Comandos:
     recall  - Busca no vault
     prefs   - Preferências no vault (chaves sensíveis exigem --consent)
     research - Pesquisa consentida (HTTP fake; sem busca real)
+    devices - Contratos versionados + bus fake (sem firmware)
     backup  - Backup local do vault + logs redigidos (sem nuvem)
     usage   - Resumo/tail do cloud_usage.jsonl + orçamento mensal
     learn   - Aprendizado diário (JSONL + relatório; sem auto-merge)
@@ -79,6 +80,13 @@ from src.cursor_fake.adapter import (
     CursorFakeError,
     format_report as format_cursor_fake_report,
     simulate as cursor_fake_simulate,
+)
+from src.devices.fake import FakeDeviceBus, format_simulation
+from src.devices.schemas import (
+    ALLOWED_ACTIONS,
+    DEVICE_SCHEMA,
+    DeviceError,
+    parse_message_json,
 )
 from src.engine.budget import CloudBudget, CloudBudgetError
 from src.engine.cloud_usage_log import CloudUsageLog
@@ -1334,6 +1342,98 @@ def research_cmd(consulta: tuple[str, ...], consent: bool, as_json: bool) -> Non
         click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
         click.echo(format_research_report(report))
+
+
+@cli.group()
+def devices() -> None:
+    """Contratos versionados hub↔dispositivo (fake; sem firmware/MQTT)."""
+
+
+@devices.command("schema")
+@click.option("--json", "as_json", is_flag=True, help="Metadados em JSON.")
+def devices_schema(as_json: bool) -> None:
+    """Mostra schema_version e ações de intent allowlisted."""
+
+    payload = {
+        "schema_version": DEVICE_SCHEMA,
+        "message_types": ["telemetry", "intent"],
+        "device_kinds": ["watch", "phone", "hub", "fake"],
+        "allowed_actions": list(ALLOWED_ACTIONS),
+        "warning": "contrato só; sem acoplar celular/relógio neste repo",
+    }
+    if as_json:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    click.echo(f"schema_version: {payload['schema_version']}")
+    click.echo(f"types: {', '.join(payload['message_types'])}")
+    click.echo(f"kinds: {', '.join(payload['device_kinds'])}")
+    click.echo(f"allowed_actions: {', '.join(payload['allowed_actions'])}")
+    click.echo(f"warning: {payload['warning']}")
+
+
+@devices.command("validate")
+@click.argument("path", type=click.Path(path_type=Path, exists=True))
+@click.option("--json", "as_json", is_flag=True, help="Resumo em JSON.")
+def devices_validate(path: Path, as_json: bool) -> None:
+    """Valida um arquivo JSON contra yby-device/v1 (não executa no hardware)."""
+
+    try:
+        message = parse_message_json(path.read_text(encoding="utf-8"))
+    except (OSError, DeviceError) as exc:
+        click.echo(
+            format_cli_error(
+                kind="devices",
+                detail=str(exc),
+                next_step="corrija o JSON ou rode yby devices schema",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    summary = {
+        "ok": True,
+        "schema_version": message.schema_version,
+        "type": message.type,
+        "event_id": message.event_id,
+        "device_id": message.device.device_id,
+    }
+    if as_json:
+        click.echo(json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        click.echo(
+            f"ok: {summary['type']} event_id={summary['event_id']} "
+            f"device={summary['device_id']} ({summary['schema_version']})"
+        )
+
+
+@devices.command("simulate")
+@click.option(
+    "--action",
+    default="ping",
+    show_default=True,
+    type=click.Choice(list(ALLOWED_ACTIONS), case_sensitive=False),
+    help="Intent allowlisted (nunca executado no firmware).",
+)
+@click.option("--device-id", default="fake-watch-1", show_default=True)
+@click.option("--json", "as_json", is_flag=True, help="Relatório em JSON.")
+def devices_simulate(action: str, device_id: str, as_json: bool) -> None:
+    """Round-trip fake: telemetria + intent validados; executed=false."""
+
+    try:
+        report = FakeDeviceBus(device_id=device_id).simulate(action=action)
+    except DeviceError as exc:
+        click.echo(
+            format_cli_error(
+                kind="devices",
+                detail=str(exc),
+                next_step=f"use uma ação em: {', '.join(ALLOWED_ACTIONS)}",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    if as_json:
+        click.echo(report.model_dump_json(indent=2))
+    else:
+        click.echo(format_simulation(report))
 
 
 def _confirm_cloud(message: str) -> bool:
