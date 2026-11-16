@@ -83,7 +83,7 @@ Monitoramento via MQTT + TUI
 | Operação | Latência Média | Hardware |
 |---|---|---|
 | NL2Code (local, Ollama) | 3-5s | GTX 1650, 4GB VRAM |
-| NL2Code (fallback, Grok) | conforme o provedor | API externa (padrão: Grok, xAI) |
+| NL2Code (nuvem, OpenRouter) | conforme o provedor | API externa (primária; sem failover auto → Grok, D12) |
 | MQTT end-to-end | <200ms | Wi-Fi local |
 | OTA (wearable) | 30-60s | Wi-Fi, 400KB firmware |
 

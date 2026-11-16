@@ -8,6 +8,7 @@
 | [DEV.md](DEV.md) | Setup, CLI, env, testes, pastas |
 | [PLATFORM.md](PLATFORM.md) | Hub systemd, Syncthing, nuvem (OpenRouter; D12) |
 | [MEMORY.md](MEMORY.md) | Vault Obsidian |
+| [SEED_READINESS.md](SEED_READINESS.md) | Lote 28: pronto / testado / validado + portões |
 | [../DECISIONS.md](../DECISIONS.md) | D1–D13 (vigentes) |
 | [../ARCHITECTURE.md](../ARCHITECTURE.md) | Arquitetura do v1 (`ask` / safety / engine) |
 | [../ROADMAP.md](../ROADMAP.md) | Fases (atualizar com o checklist em REPOS) |

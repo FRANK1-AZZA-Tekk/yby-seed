@@ -94,7 +94,8 @@ def try_propose(brief: YbyBrief) -> str:
         f"Dados: {brief.required_data}",
         f"Aceite: {brief.acceptance}",
         f"Riscos: {brief.risks}",
-        "Próximo: lote 15 (plano verificável) após aprovação humana do brief.",
+        "Próximo: `yby plan from-brief <id>` após aprovação humana do brief "
+        "(plano ≠ execução).",
     ]
     if brief.sensitive_kinds:
         lines.append(

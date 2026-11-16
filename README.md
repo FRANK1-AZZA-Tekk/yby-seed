@@ -53,20 +53,30 @@ Sem chave OpenRouter (`YBY_CLOUD_API_KEY` / `OPENROUTER_API_KEY`) nem Grok (`YBY
 O v1 mora neste repositório. Mapa e checklist de camadas: [docs/REPOS.md](docs/REPOS.md). Como rodar e testar: [docs/DEV.md](docs/DEV.md).
 
 ```text
-feito:     engine | safety → actions | memory | voice | security/ast_guard
-em curso:  Plataforma (D9) — hub systemd, Syncthing, OpenRouter→Grok, cache
+testado (pytest): engine | safety→actions | conversation | brief | plan |
+                  artifacts | memory | voice | platform/hub | ast_guard
+em curso (Fase P): hub systemd operacional; Syncthing externo; backup vault
+                   ainda sem checklist completo; Grok configurável mas
+                   sem failover automático (D12)
+não validado p/ ecossistema: sandbox OS, execução de plano/scaffold,
+                   aprendizado diário, prefs com consentimento, obs CLI
 
 yby.py            → comando
-src/engine        → ask (+ cache / contexto nuvem)
+src/engine        → ask (+ cache / contexto nuvem / secret gate)
+src/conversation  → ask --explain / envelope gate
+src/brief         → entrevista YBY-BRIEF (sem código)
+src/plan          → plano verificável (sem execução)
+src/artifacts     → scaffold Python CLI + validação estática
 src/platform      → hub keepalive
 src/voice         → STT/TTS opcional (listen / ask --voice)
 src/safety        → allowlist, decide (não executa)
 src/actions       → executa após a porta
-src/memory        → vault de notas
+src/memory        → vault de notas (índice hash local, não FTS)
 src/security      → guarda AST
 tests/            → pytest
 ```
 
+Mapa de prontidão (Lote 28): [docs/SEED_READINESS.md](docs/SEED_READINESS.md).  
 Agentes, RAG e gateway ficam em `src/`, fora desse caminho ([src/README.md](src/README.md)).
 
 Mobile e firmware saíram do v1. Ver [docs/archive/FORA-DO-V1.md](docs/archive/FORA-DO-V1.md). Não programe features do YBY em forks; não coloque segredos no repo.

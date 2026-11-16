@@ -135,18 +135,19 @@ Trilha prática para levar o YBY SEED de **CLI local confiável** a **agentes pr
 
 Itens são **issues futuras** no sentido de planejamento; não implicam código neste PR. Prioridade: **P0** essencial próximo MVP agente → **P3** futuro YBY.
 
-### Fila produto/UX (lotes 13–27) + nuvem pendente
+### Fila produto/UX (lotes 13–27) + nuvem pendente + revisão 28
 
-Um lote por ciclo. **Não** implementar 14–27 de uma vez. Núcleo novo fino (`src/conversation/` etc.); **não** expandir `src/agents/` legado.
+Um lote por ciclo. Núcleo novo fino (`src/conversation/` etc.); **não** expandir `src/agents/` legado. Mapa factual: [docs/SEED_READINESS.md](docs/SEED_READINESS.md).
 
 | Lote | Status | Escopo mínimo | Não fazer ainda |
 |---|---|---|---|
 | **13** conversa/professor | **Feito** (`yby ask --explain`; envelope em `gate` / `run` refuse; `src/conversation/explain.py`) | PT-BR Entendi/Falta/Proposta/Risco/Próximo/Reverter; redact na exibição | Mudar `decide` / execução |
-| **Grok off** | Fila (segurança nuvem; pode inverter ordem sob OK) | Tirar Grok do roteador/failover; docs/testes | Novo provedor |
+| **Grok off** | Fila (segurança nuvem; pode inverter ordem sob OK) | Remover wiring morto / docs; Grok já **não** é chamado no failover | Novo provedor |
 | **14** YBY-BRIEF | **Feito** (`yby brief start/answer/show/propose`; `src/brief/`) | Pydantic + path vault opcional; retomada; proposta só se completo | Gerar código / plano executável |
 | **15** Plano verificável | **Feito** (`yby plan from-brief/show/validate/revise`; `src/plan/`) | Contrato de etapas vs allowlist; versionado | Executar plano |
 | **16** Gerador artefatos | **Feito** (`yby scaffold propose/apply/revert`; `src/artifacts/`) | Dir novo + manifesto hashes (Python CLI) | install/deploy; Next/React sem OK |
 | **17** Validador | **Feito** (`scaffold validate` / `test-generated` bloqueado; `src/artifacts/validate.py`) | sintaxe + testes obrigatórios; sem sandbox OS → execução gerada bloqueada | `eval` / auto-pytest |
+| **28** Revisão final SEED | **Feito** (auditoria; docs; sem feature) | Separar pronto/testado/validado; limitações reais | “Pronto para produção” sem evidência |
 | 18 Cursor fake | Fila | Adaptador + plano aprovado | MCP real |
 | 19 Aprendizado diário | Fila | JSONL + relatório | Auto-merge |
 | 20 Memória segura | Fila | Preferências com consentimento no vault | Vector DB novo |
