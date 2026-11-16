@@ -75,7 +75,7 @@ class Vault:
         scored = [
             Hit(name, _dot(query_vector, vector))
             for name, vector in index.items()
-            if vector
+            if vector and (self.root / name).is_file()
         ]
         scored.sort(key=lambda hit: hit.score, reverse=True)
         return [hit for hit in scored[:k] if hit.score > 0]
@@ -137,10 +137,25 @@ class Vault:
     def _load_index_state(self) -> tuple[dict[str, list[float]], dict[str, str]]:
         if not self.index_path.is_file():
             return {}, {}
-        data = json.loads(self.index_path.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(self.index_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise VaultError(
+                "índice corrompido (.yby/index.json); rode yby reindex"
+            ) from exc
+        if not isinstance(data, dict):
+            raise VaultError(
+                "índice corrompido (.yby/index.json); rode yby reindex"
+            )
         raw_notes = data.get("notes", {})
+        if not isinstance(raw_notes, dict):
+            raise VaultError(
+                "índice corrompido (.yby/index.json); rode yby reindex"
+            )
         notes = {name: list(vector) for name, vector in raw_notes.items()}
         raw_hashes = data.get("hashes", {})
+        if not isinstance(raw_hashes, dict):
+            raw_hashes = {}
         hashes = {name: str(value) for name, value in raw_hashes.items()}
         return notes, hashes
 

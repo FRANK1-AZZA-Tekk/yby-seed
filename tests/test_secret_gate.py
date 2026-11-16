@@ -193,8 +193,24 @@ def test_x_api_key_and_basic_auth_blocked() -> None:
     basic = "Authorization: Basic dXNlcjpwYXNzd29yZGxvbmdv"
     assert find_secret(xkey).kind == "api_key"
     assert find_secret(basic).kind == "token"
-    assert "abcdefghijklmnopqrstuvwxyz0123" not in redact_for_cloud(xkey)
+    redacted = redact_for_cloud(xkey)
+    assert "abcdefghijklmnopqrstuvwxyz0123" not in redacted
+    assert redacted.startswith("X-Api-Key:")
+    assert "[API_KEY_REDACTED]" in redacted
     assert "dXNlcjpwYXNzd29yZGxvbmdv" not in redact_for_cloud(basic)
+
+
+def test_aws_secret_access_key_blocked() -> None:
+    secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    env = f"AWS_SECRET_ACCESS_KEY={secret}"
+    js = f'{{"aws_secret_access_key":"{secret}"}}'
+    camel = f'{{"SecretAccessKey":"{secret}"}}'
+    assert find_secret(env).kind == "api_key"
+    assert find_secret(js).kind == "api_key"
+    assert find_secret(camel).kind == "api_key"
+    assert secret not in redact_for_cloud(env)
+    assert secret not in redact_for_cloud(js)
+    assert secret not in redact_for_cloud(camel)
 
 
 def test_zwsp_inside_sk_or_v1_still_blocked() -> None:

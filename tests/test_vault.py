@@ -60,6 +60,21 @@ def test_cli_reindex_e_recall_fresh(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert "ext.md" in fresh.output
 
 
+def test_search_ignora_arquivo_apagado_sem_reindex(tmp_path: Path) -> None:
+    vault = Vault(tmp_path)
+    vault.write_note("fantasma", "servidor de casa hub")
+    (tmp_path / "fantasma.md").unlink()
+    assert vault.search("hub") == []
+
+
+def test_indice_corrompido_vira_vault_error(tmp_path: Path) -> None:
+    vault = Vault(tmp_path)
+    vault.index_path.parent.mkdir(parents=True, exist_ok=True)
+    vault.index_path.write_text("{nao-json", encoding="utf-8")
+    with pytest.raises(VaultError, match="corrompido"):
+        vault.search("x")
+
+
 def test_nota_nao_escapa_do_vault(tmp_path: Path) -> None:
     vault = Vault(tmp_path)
     with pytest.raises(VaultError):

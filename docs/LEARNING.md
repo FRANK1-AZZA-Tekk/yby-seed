@@ -6,6 +6,7 @@ Registro de uso real, falhas e aprendizados práticos.
 
 - Fontes: SEED/ROADMAP residual + práticas vault (content-hash, não mtime) + padrões X-API-Key/Basic.
 - Feito: `Vault.reindex` + CLI; secret gate `X-Api-Key` / `Authorization: Basic`; `confirm_fn=None` fail-closed com `require_confirm`.
+- Follow-up audit: `AWS_SECRET_ACCESS_KEY` / JSON SecretAccessKey; `search` ignora órfãos; índice JSON corrompido → `VaultError`; redact de `X-Api-Key` sem deixar `X-`.
 - Fora deste passe: sandbox OS completo; verificação independente de sucesso do agente; FTS.
 
 ## 2026-11-16 — Lote 27 (contratos dispositivos)

@@ -29,9 +29,11 @@ _CHECKS: tuple[tuple[str, re.Pattern[str]], ...] = (
             r"|xai-[A-Za-z0-9_-]{16,}"
             r"|ghp_[A-Za-z0-9]{20,}"
             r"|AKIA[0-9A-Z]{16}"
-            r"|[A-Za-z0-9_]*API[_-]?KEY\s*[=:]\s*\S{8,}"
-            r"|\"api[_-]?key\"\s*:\s*\"[^\"]{8,}\""
             r"|X-Api-?Key\s*[=:]\s*[^\s\"]{8,}"
+            r"|AWS[_-]?SECRET[_-]?ACCESS[_-]?KEY\s*[=:]\s*\S{16,}"
+            r"|\"(?:api[_-]?key|aws[_-]?secret[_-]?access[_-]?key|"
+            r"secret[_-]?access[_-]?key|SecretAccessKey)\"\s*:\s*\"[^\"]{8,}\""
+            r"|(?<![A-Za-z0-9_-])[A-Za-z0-9_]*API[_-]?KEY\s*[=:]\s*\S{8,}"
             r")",
             re.IGNORECASE,
         ),
@@ -76,6 +78,28 @@ _CHECKS: tuple[tuple[str, re.Pattern[str]], ...] = (
 _REDACT: tuple[tuple[str, re.Pattern[str], str], ...] = (
     ("email", re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"), "[EMAIL_REDACTED]"),
     (
+        "x_api_key",
+        re.compile(r"(X-Api-?Key\s*[=:]\s*)[^\s\"]{8,}", re.IGNORECASE),
+        r"\1[API_KEY_REDACTED]",
+    ),
+    (
+        "aws_secret_env",
+        re.compile(
+            r"(AWS[_-]?SECRET[_-]?ACCESS[_-]?KEY\s*[=:]\s*)\S{16,}",
+            re.IGNORECASE,
+        ),
+        r"\1[API_KEY_REDACTED]",
+    ),
+    (
+        "aws_secret_json",
+        re.compile(
+            r'("(?:aws[_-]?secret[_-]?access[_-]?key|'
+            r'secret[_-]?access[_-]?key|SecretAccessKey)"\s*:\s*")[^"]{8,}"',
+            re.IGNORECASE,
+        ),
+        r'\1[API_KEY_REDACTED]"',
+    ),
+    (
         "api_key",
         re.compile(
             r"("
@@ -88,7 +112,7 @@ _REDACT: tuple[tuple[str, re.Pattern[str], str], ...] = (
             r"|xai-[A-Za-z0-9_-]{16,}"
             r"|ghp_[A-Za-z0-9]{20,}"
             r"|AKIA[0-9A-Z]{16}"
-            r"|[A-Za-z0-9_]*API[_-]?KEY\s*[=:]\s*\S{8,}"
+            r"|(?<![A-Za-z0-9_-])[A-Za-z0-9_]*API[_-]?KEY\s*[=:]\s*\S{8,}"
             r")",
             re.IGNORECASE,
         ),
@@ -98,11 +122,6 @@ _REDACT: tuple[tuple[str, re.Pattern[str], str], ...] = (
         "api_key_json",
         re.compile(r'("api[_-]?key"\s*:\s*")[^"]{8,}"', re.IGNORECASE),
         r'\1[API_KEY_REDACTED]"',
-    ),
-    (
-        "x_api_key",
-        re.compile(r"(X-Api-?Key\s*[=:]\s*)[^\s\"]{8,}", re.IGNORECASE),
-        r"\1[API_KEY_REDACTED]",
     ),
     (
         "private_key",
