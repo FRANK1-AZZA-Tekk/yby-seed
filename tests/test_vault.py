@@ -23,6 +23,43 @@ def test_nota_e_busca(tmp_path: Path) -> None:
     assert hits[0].name == "diario.md"
 
 
+def test_reindex_detecta_edicao_externa_e_orfaos(tmp_path: Path) -> None:
+    vault = Vault(tmp_path)
+    vault.write_note("a", "alpha servidor")
+    vault.write_note("b", "beta lista")
+    # Edição fora do write_note (Syncthing / editor).
+    (tmp_path / "a.md").write_text("alpha servidor atualizado hub", encoding="utf-8")
+    (tmp_path / "c.md").write_text("gamma nova nota", encoding="utf-8")
+    (tmp_path / "b.md").unlink()
+
+    first = vault.reindex()
+    assert first.added >= 1
+    assert first.updated >= 1
+    assert first.removed >= 1
+    hits = vault.search("hub")
+    assert hits and hits[0].name == "a.md"
+    assert all(h.name != "b.md" for h in vault.search("lista"))
+
+    second = vault.reindex()
+    assert second.unchanged >= 2
+    assert second.added == 0
+    assert second.updated == 0
+    assert second.removed == 0
+
+
+def test_cli_reindex_e_recall_fresh(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("YBY_VAULT_PATH", str(tmp_path))
+    (tmp_path / "ext.md").write_text("nota externa syncthing hub", encoding="utf-8")
+    runner = CliRunner()
+    reindexed = runner.invoke(cli, ["reindex"])
+    assert reindexed.exit_code == 0, reindexed.output
+    assert "reindex ok" in reindexed.output
+
+    fresh = runner.invoke(cli, ["recall", "--fresh", "hub"])
+    assert fresh.exit_code == 0, fresh.output
+    assert "ext.md" in fresh.output
+
+
 def test_nota_nao_escapa_do_vault(tmp_path: Path) -> None:
     vault = Vault(tmp_path)
     with pytest.raises(VaultError):

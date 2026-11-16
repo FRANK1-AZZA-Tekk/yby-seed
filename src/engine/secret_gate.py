@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from src.engine.context import TRUNCATION_MARKER
 
 # Ordem: o primeiro match decide o tipo reportado no bloqueio.
-# Lote 26: fecha gaps confirmados — Authorization: Bearer e JSON sem prefixo conhecido.
+# Lote 26+: Bearer/JSON; pós-scan: X-API-Key e Authorization: Basic (padrões GitGuardian).
 _CHECKS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "api_key",
@@ -31,6 +31,7 @@ _CHECKS: tuple[tuple[str, re.Pattern[str]], ...] = (
             r"|AKIA[0-9A-Z]{16}"
             r"|[A-Za-z0-9_]*API[_-]?KEY\s*[=:]\s*\S{8,}"
             r"|\"api[_-]?key\"\s*:\s*\"[^\"]{8,}\""
+            r"|X-Api-?Key\s*[=:]\s*[^\s\"]{8,}"
             r")",
             re.IGNORECASE,
         ),
@@ -62,6 +63,7 @@ _CHECKS: tuple[tuple[str, re.Pattern[str]], ...] = (
             r"("
             r"(?:token|bearer)\s*[=:]\s*[A-Za-z0-9._-]{20,}"
             r"|Authorization\s*:\s*Bearer\s+[^\s\"]{8,}"
+            r"|Authorization\s*:\s*Basic\s+[^\s\"]{8,}"
             r"|\"(?:token|access[_-]?token|auth[_-]?token)\"\s*:\s*\"[^\"]{8,}\""
             r")",
             re.IGNORECASE,
@@ -98,6 +100,11 @@ _REDACT: tuple[tuple[str, re.Pattern[str], str], ...] = (
         r'\1[API_KEY_REDACTED]"',
     ),
     (
+        "x_api_key",
+        re.compile(r"(X-Api-?Key\s*[=:]\s*)[^\s\"]{8,}", re.IGNORECASE),
+        r"\1[API_KEY_REDACTED]",
+    ),
+    (
         "private_key",
         re.compile(
             r"-----BEGIN (?:RSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----"
@@ -132,7 +139,10 @@ _REDACT: tuple[tuple[str, re.Pattern[str], str], ...] = (
     ),
     (
         "authorization",
-        re.compile(r"(Authorization\s*:\s*Bearer\s+)[^\s\"]{8,}", re.IGNORECASE),
+        re.compile(
+            r"(Authorization\s*:\s*(?:Bearer|Basic)\s+)[^\s\"]{8,}",
+            re.IGNORECASE,
+        ),
         r"\1[TOKEN_REDACTED]",
     ),
     (

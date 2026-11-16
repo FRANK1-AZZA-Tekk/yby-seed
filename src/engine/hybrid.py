@@ -91,8 +91,14 @@ class HybridEngine:
         self.cloud_log = cloud_log or CloudUsageLog.from_env()
         self.budget = budget or CloudBudget.from_env()
         if confirm_fn is None:
-            self.confirm_fn = lambda _msg: True
-            self.has_tty_fn = has_tty_fn or (lambda: True)
+            # Sem callback: fail-closed se a política exige confirmação.
+            # (antes auto-aprovava — risco residual SEED quando mode=ask)
+            if self.budget.require_confirm:
+                self.confirm_fn = lambda _msg: False
+                self.has_tty_fn = has_tty_fn or (lambda: False)
+            else:
+                self.confirm_fn = lambda _msg: True
+                self.has_tty_fn = has_tty_fn or (lambda: True)
         else:
             self.confirm_fn = confirm_fn
             self.has_tty_fn = has_tty_fn or (

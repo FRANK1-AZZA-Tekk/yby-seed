@@ -2,6 +2,12 @@
 
 Registro de uso real, falhas e aprendizados práticos.
 
+## 2026-11-16 — Scan/otimização pós-fila 13–27
+
+- Fontes: SEED/ROADMAP residual + práticas vault (content-hash, não mtime) + padrões X-API-Key/Basic.
+- Feito: `Vault.reindex` + CLI; secret gate `X-Api-Key` / `Authorization: Basic`; `confirm_fn=None` fail-closed com `require_confirm`.
+- Fora deste passe: sandbox OS completo; verificação independente de sucesso do agente; FTS.
+
 ## 2026-11-16 — Lote 27 (contratos dispositivos)
 
 - Escopo: schemas versionados `yby-device/v1` + `FakeDeviceBus` + CLI `devices schema|validate|simulate`.

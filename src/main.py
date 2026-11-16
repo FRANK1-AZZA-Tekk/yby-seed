@@ -17,7 +17,8 @@ Comandos:
     run     - Executa comando após a porta de segurança
     gate    - Só decide (com envelope); não executa
     note    - Grava nota no vault
-    recall  - Busca no vault
+    recall  - Busca no vault (--fresh reindexa antes)
+    reindex - Reconcilia índice do vault (content-hash; sem mtime)
     prefs   - Preferências no vault (chaves sensíveis exigem --consent)
     research - Pesquisa consentida (HTTP fake; sem busca real)
     devices - Contratos versionados + bus fake (sem firmware)
@@ -1273,18 +1274,30 @@ def agent_cmd(
 
 @cli.command()
 @click.argument("consulta")
-def recall(consulta: str) -> None:
+@click.option(
+    "--fresh",
+    is_flag=True,
+    help="Reindexa o vault (content-hash) antes da busca — útil após Syncthing/edições externas.",
+)
+def recall(consulta: str, fresh: bool) -> None:
     """Busca notas no índice do vault. Não chama a rede."""
 
     load_dotenv(override=False)
     try:
-        hits = vault_from_env().search(consulta)
+        vault = vault_from_env()
+        if fresh:
+            stats = vault.reindex()
+            click.echo(
+                f"reindex: +{stats.added} ~{stats.updated} ={stats.unchanged} -{stats.removed}",
+                err=True,
+            )
+        hits = vault.search(consulta)
     except VaultError as exc:
         click.echo(
             format_cli_error(
                 kind="vault",
                 detail=str(exc),
-                next_step="defina YBY_VAULT_PATH e rode yby note antes de recall",
+                next_step="defina YBY_VAULT_PATH e rode yby note / yby reindex",
             ),
             err=True,
         )
@@ -1294,6 +1307,40 @@ def recall(consulta: str) -> None:
         return
     for hit in hits:
         click.echo(f"{hit.score:.2f} {hit.name}")
+
+
+@cli.command("reindex")
+@click.option("--json", "as_json", is_flag=True, help="Estatísticas em JSON.")
+def reindex_cmd(as_json: bool) -> None:
+    """Reindexa o vault: novos/alterados por content-hash; remove órfãos."""
+
+    load_dotenv(override=False)
+    try:
+        stats = vault_from_env().reindex()
+    except VaultError as exc:
+        click.echo(
+            format_cli_error(
+                kind="vault",
+                detail=str(exc),
+                next_step="defina YBY_VAULT_PATH apontando para a pasta do vault",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    payload = {
+        "added": stats.added,
+        "updated": stats.updated,
+        "unchanged": stats.unchanged,
+        "removed": stats.removed,
+        "total": stats.total,
+    }
+    if as_json:
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        click.echo(
+            f"reindex ok: +{stats.added} atualizados={stats.updated} "
+            f"iguais={stats.unchanged} removidos={stats.removed} (total={stats.total})"
+        )
 
 
 @cli.command("research")

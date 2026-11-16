@@ -59,11 +59,11 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 ## Lacunas críticas (antes de ser “cérebro” do ecossistema)
 
 1. **Sem sandbox OS** — limites de timeout/saída e bloqueio sob scaffold (lote 24); ainda sem isolamento de SO completo.
-2. ~~**Consentimento de nuvem** default-off~~ — `YBY_CLOUD_MODE` padrão `local_only` + enum estrito; library `confirm_fn=None` ainda auto-aprova quando mode=`ask`.
+2. ~~**Consentimento de nuvem** default-off~~ — `YBY_CLOUD_MODE` padrão `local_only` + enum estrito; `confirm_fn=None` com `require_confirm` é fail-closed (não auto-aprova).
 3. ~~**Grok** wiring morto~~ — **removido** (lote Grok off): destino único `YBY_CLOUD_*`.
 4. ~~**Backup vault**~~ — `yby backup` local (tar.gz + retenção); checklist Fase P Fase 5 ainda exige exercício no hub real.
 5. ~~**Observabilidade CLI**~~ — `yby usage` / `usage tail` sobre JSONL local (sem Datadog).
-6. **Memória**: prefs+consentimento feitos (lote 20); ainda sem FTS, sem reindex CLI; `ask` não grava nota.
+6. **Memória**: prefs+consentimento (lote 20) + `reindex`/`recall --fresh` (content-hash); ainda sem FTS; `ask` não grava nota.
 7. **ask ↛ brief** — ainda não abre brief sozinho; lote 25 só aponta o caminho no `--explain`/help.
 8. **Legado** `agents/`/`rag/`/`gateway/` ainda no disco — risco de confundir com o caminho ativo.
 
@@ -72,7 +72,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 - Paths allowlisted leem qualquer arquivo acessível ao usuário.
 - Secret gate: ~~gaps Bearer/`Authorization` e JSON sem prefixo~~ (lote 26); ainda heurístico — formatos novos / evasão criativa podem passar.
 - Heurística “fora de escopo” do plano é por tokens — falsos positivos/negativos.
-- Syncthing é processo externo; índice do vault pode ficar stale se arquivos mudam fora do `note`.
+- Syncthing é processo externo; use `yby reindex` / `recall --fresh` após mudanças fora do `note` (content-hash).
 - Docs históricos (`OBSERVABILITY`, `AUTO_EVOLUTION`) podem parecer produto.
 
 ## Próximos portões (ordem sugerida)

@@ -188,6 +188,15 @@ def test_json_secrets_without_known_prefix_blocked() -> None:
     assert "supersecretpasswordvalue" not in redact_for_cloud(password)
 
 
+def test_x_api_key_and_basic_auth_blocked() -> None:
+    xkey = "X-Api-Key: abcdefghijklmnopqrstuvwxyz0123"
+    basic = "Authorization: Basic dXNlcjpwYXNzd29yZGxvbmdv"
+    assert find_secret(xkey).kind == "api_key"
+    assert find_secret(basic).kind == "token"
+    assert "abcdefghijklmnopqrstuvwxyz0123" not in redact_for_cloud(xkey)
+    assert "dXNlcjpwYXNzd29yZGxvbmdv" not in redact_for_cloud(basic)
+
+
 def test_zwsp_inside_sk_or_v1_still_blocked() -> None:
     raw = "sk-or-v1-\u200babcdefghijklmnopqrstuvwxyz012345"
     assert "\u200b" in raw

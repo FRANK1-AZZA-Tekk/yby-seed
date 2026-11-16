@@ -101,6 +101,17 @@ def test_heavy_confirmacao_negada(tmp_path) -> None:
     assert any(json.loads(line)["result"] == EVENT_CANCELLED for line in lines)
 
 
+def test_confirm_fn_none_fail_closed_quando_exige_confirm(tmp_path) -> None:
+    """Library sem callback não auto-aprova nuvem (require_confirm=1)."""
+
+    engine, log = _engine(tmp_path, confirm_fn=None)
+    reply = engine.reply("oi", explicit_heavy=True)
+    assert reply.provider == "none"
+    assert "cancelado" in (reply.notice or "").casefold()
+    lines = log.path.read_text(encoding="utf-8").strip().splitlines()
+    assert any(json.loads(line)["result"] == EVENT_CANCELLED for line in lines)
+
+
 def test_heavy_confirmacao_positiva_registra_jsonl(tmp_path) -> None:
     engine, log = _engine(tmp_path, confirm_fn=lambda _: True)
     reply = engine.reply("oi", explicit_heavy=True)

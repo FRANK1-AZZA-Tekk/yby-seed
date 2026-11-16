@@ -24,8 +24,9 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 | `python yby.py --help` | epílogo: brief→plan→scaffold, gate/run, nuvem off por padrão |
 | `python yby.py run "..."` | porta de segurança → executa se permitido (refuse/ask negado: envelope); teto de timeout/saída; bloqueia cwd/alvo de scaffold |
 | `python yby.py gate "..."` | só decide (run/ask/refuse) com envelope; não executa |
-| `python yby.py note "título" texto da nota...` | grava no vault |
-| `python yby.py recall "consulta"` | busca no vault |
+| `python yby.py note "título" texto da nota...` | grava no vault (atualiza índice) |
+| `python yby.py recall "consulta"` | busca no índice local |
+| `python yby.py recall --fresh "…"` / `reindex` | reindex incremental por content-hash (Syncthing/edições externas) |
 | `python yby.py prefs list/get/set …` | preferências no vault; chaves sensíveis exigem `--consent` |
 | `python yby.py research "…" [--consent]` | pesquisa com gate de consentimento; HTTP fake (sem busca real) |
 | `python yby.py devices schema/validate/simulate` | contrato `yby-device/v1` + bus fake (sem firmware/MQTT) |
