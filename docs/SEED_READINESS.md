@@ -53,6 +53,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 - Prefs no vault: `yby prefs` (consentimento para chaves sensíveis; sem Vector DB).
 - Pesquisa consentida: `yby research` (gate + HTTP fake; sem busca real).
 - UX CLI (lote 25): `--explain` em pedido de criação aponta `brief start`; falha Ollama+`local_only` nomeia o modo; `--help` com epílogo. D10 intacto.
+- Qualidade (lote 26): secret gate cobre `Authorization: Bearer` e JSON (`api_key`/`token`/`password`) sem prefixo conhecido; docs alinhados.
 
 ## Lacunas críticas (antes de ser “cérebro” do ecossistema)
 
@@ -68,7 +69,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 ## Riscos residuais
 
 - Paths allowlisted leem qualquer arquivo acessível ao usuário.
-- Secret gate: gaps Bearer/`Authorization` e JSON sem prefixo conhecido.
+- Secret gate: ~~gaps Bearer/`Authorization` e JSON sem prefixo~~ (lote 26); ainda heurístico — formatos novos / evasão criativa podem passar.
 - Heurística “fora de escopo” do plano é por tokens — falsos positivos/negativos.
 - Syncthing é processo externo; índice do vault pode ficar stale se arquivos mudam fora do `note`.
 - Docs históricos (`OBSERVABILITY`, `AUTO_EVOLUTION`) podem parecer produto.
@@ -81,7 +82,8 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 4. ~~**Obs CLI**~~ — feito (`yby usage`).
 5. ~~**Sandbox / bloquear** execução ampliada~~ — lote 24 (limites) + 17 (gerado); sandbox OS completo ainda fora.
 6. ~~**Cursor fake**~~ — feito (lote 18 dry-run); MCP/Cursor real ainda fora.
-7. Contratos de dispositivos / wearable (lote 27) quando fizer sentido.
+7. ~~**Qualidade contínua**~~ — lote 26 (Bearer/JSON no secret gate + docs).
+8. Contratos de dispositivos / wearable (lote 27) quando fizer sentido.
 
 ## O que esta revisão NÃO afirma
 

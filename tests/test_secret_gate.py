@@ -167,6 +167,27 @@ def test_find_secret_stripe_anthropic_pem_jwt() -> None:
     assert find_secret(jwt).kind == "jwt"
 
 
+def test_authorization_bearer_header_blocked() -> None:
+    raw = "Authorization: Bearer abcdefghijklmnopqrstuvwxyz0123456789"
+    assert find_secret(raw) is not None
+    assert find_secret(raw).kind == "token"
+    redacted = redact_for_cloud(raw)
+    assert "abcdefghijklmnopqrstuvwxyz0123456789" not in redacted
+    assert "[TOKEN_REDACTED]" in redacted
+
+
+def test_json_secrets_without_known_prefix_blocked() -> None:
+    api = '{"api_key":"notaprefixbutlongsecretvalue12345"}'
+    token = '{"token":"abcdefghijklmnopqrstuvwxyz0123456789"}'
+    password = '{"password":"supersecretpasswordvalue"}'
+    assert find_secret(api).kind == "api_key"
+    assert find_secret(token).kind == "token"
+    assert find_secret(password).kind == "password"
+    assert "notaprefixbutlongsecretvalue12345" not in redact_for_cloud(api)
+    assert "abcdefghijklmnopqrstuvwxyz0123456789" not in redact_for_cloud(token)
+    assert "supersecretpasswordvalue" not in redact_for_cloud(password)
+
+
 def test_zwsp_inside_sk_or_v1_still_blocked() -> None:
     raw = "sk-or-v1-\u200babcdefghijklmnopqrstuvwxyz012345"
     assert "\u200b" in raw

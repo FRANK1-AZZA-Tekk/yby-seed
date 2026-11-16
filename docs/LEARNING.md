@@ -2,6 +2,11 @@
 
 Registro de uso real, falhas e aprendizados práticos.
 
+## 2026-11-16 — Lote 26 (qualidade: secret gate)
+
+- Falha confirmada (SEED/DECISIONS): `Authorization: Bearer …` e JSON sem prefixo (`api_key`/`token`/`password`) passavam no `find_secret`.
+- Correção: padrões + redação em `src/engine/secret_gate.py`; testes de regressão. Sem feature nova.
+
 ## 2026-11-16 — Lote 25 (UX CLI, atritos confirmados)
 
 - Atritos: `ask` não abre brief; avisos de Ollama omitiam `YBY_CLOUD_MODE=local_only`; help raiz magro.
