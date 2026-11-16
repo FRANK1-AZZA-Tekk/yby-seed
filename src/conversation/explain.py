@@ -23,6 +23,23 @@ _VAGUE = frozenset(
     }
 )
 
+# Atrito confirmado (SEED): ask não abre brief — orientar criação manual.
+_CREATION_HINTS = (
+    "cria ",
+    "criar ",
+    "crie ",
+    "monte ",
+    "montar ",
+    "gere ",
+    "gerar ",
+    "scaffold",
+    "projeto",
+    "aplicativo",
+    " app",
+    "ferramenta",
+    "cli ",
+)
+
 
 @dataclass(frozen=True)
 class ExplainBlocks:
@@ -48,6 +65,13 @@ def is_vague_request(text: str) -> bool:
     if len(cleaned) <= 3:
         return True
     return False
+
+
+def looks_like_creation_request(text: str) -> bool:
+    """Heurística leve: pedido parece querer artefato/projeto (não muda D10)."""
+
+    cleaned = f" {' '.join(text.strip().casefold().split())} "
+    return any(hint in cleaned for hint in _CREATION_HINTS)
 
 
 def clarify_questions(text: str) -> tuple[str, ...]:
@@ -95,20 +119,36 @@ def format_engine_reply(
     missing = "nada crítico" if text.strip() else "uma resposta utilizável do modelo"
     if notice:
         missing = f"{missing}; aviso: {notice}"
+        lowered = notice.casefold()
+        if "ollama" in lowered and (
+            "cloud_api_key" in lowered or "local_only" in lowered or "nuvem" in lowered
+        ):
+            missing = (
+                f"{missing} | dica: suba o Ollama local ou, se quiser nuvem, "
+                "YBY_CLOUD_MODE=ask e YBY_CLOUD_API_KEY no .env"
+            )
     risk = (
         "a nuvem pode receber trechos do pedido (já filtrados por política de segredos)"
         if provider in {"cloud", "openrouter", "cache"}
         else "resposta local pode estar incompleta ou imprecisa"
     )
+    if looks_like_creation_request(prompt):
+        next_step = (
+            "para criar com trilha controlada: "
+            f'`yby brief start "{prompt.strip()}"` → plan → scaffold '
+            "(ask não abre brief sozinho)"
+        )
+    else:
+        next_step = (
+            "se quiser executar um comando no terminal, use `yby gate \"...\"` "
+            "antes de `yby run` (gate = só decide; run = executa se permitido)"
+        )
     blocks = ExplainBlocks(
         understood=f"você pediu: {prompt.strip()}",
         missing=missing,
         proposal=text.strip() or "(sem texto)",
         risk=risk,
-        next_step=(
-            "se quiser executar um comando no terminal, use `yby gate \"...\"` "
-            "antes de `yby run` (gate = só decide; run = executa se permitido)"
-        ),
+        next_step=next_step,
         revert="nada foi alterado no disco por este `ask`; ignore a resposta se não servir",
         questions=(),
     )

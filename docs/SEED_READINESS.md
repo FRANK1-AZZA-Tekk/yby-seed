@@ -52,6 +52,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 - Aprendizado diário: `yby learn log/report` (JSONL local; sem auto-merge em `docs/LEARNING.md`).
 - Prefs no vault: `yby prefs` (consentimento para chaves sensíveis; sem Vector DB).
 - Pesquisa consentida: `yby research` (gate + HTTP fake; sem busca real).
+- UX CLI (lote 25): `--explain` em pedido de criação aponta `brief start`; falha Ollama+`local_only` nomeia o modo; `--help` com epílogo. D10 intacto.
 
 ## Lacunas críticas (antes de ser “cérebro” do ecossistema)
 
@@ -61,7 +62,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 4. ~~**Backup vault**~~ — `yby backup` local (tar.gz + retenção); checklist Fase P Fase 5 ainda exige exercício no hub real.
 5. ~~**Observabilidade CLI**~~ — `yby usage` / `usage tail` sobre JSONL local (sem Datadog).
 6. **Memória**: prefs+consentimento feitos (lote 20); ainda sem FTS, sem reindex CLI; `ask` não grava nota.
-7. **ask ↛ brief** — fluxo de criação é manual, não conversacional contínuo.
+7. **ask ↛ brief** — ainda não abre brief sozinho; lote 25 só aponta o caminho no `--explain`/help.
 8. **Legado** `agents/`/`rag/`/`gateway/` ainda no disco — risco de confundir com o caminho ativo.
 
 ## Riscos residuais

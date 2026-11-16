@@ -10,6 +10,7 @@ from src.conversation.explain import (
     format_engine_reply,
     format_vague_ask,
     is_vague_request,
+    looks_like_creation_request,
 )
 from src.engine.hybrid import EngineReply
 from src.main import cli
@@ -43,6 +44,38 @@ def test_format_engine_reply_redige_segredo() -> None:
     assert secret not in out
     assert "API_KEY_REDACTED" in out
     assert "Entendi:" in out
+
+
+def test_looks_like_creation_request() -> None:
+    assert looks_like_creation_request("cria um app")
+    assert looks_like_creation_request("quero montar um projeto CLI")
+    assert not looks_like_creation_request("explica uma lista em Python")
+
+
+def test_format_engine_reply_criacao_aponta_brief() -> None:
+    out = format_engine_reply(
+        prompt="cria um app",
+        text="ideia solta",
+        provider="local",
+        model="qwen",
+        reasons=("teste",),
+        notice=None,
+    )
+    assert "brief start" in out
+    assert "ask não abre brief" in out
+
+
+def test_format_engine_reply_notice_local_only_tem_dica_modo() -> None:
+    out = format_engine_reply(
+        prompt="explica lista",
+        text="",
+        provider="none",
+        model="",
+        reasons=("teste",),
+        notice="Ollama falhou (x). YBY_CLOUD_MODE=local_only: nuvem desligada.",
+    )
+    assert "YBY_CLOUD_MODE=ask" in out
+    assert "YBY_CLOUD_API_KEY" in out
 
 
 def test_format_command_decision_refuse() -> None:
@@ -100,6 +133,32 @@ def test_ask_explain_imprime_envelope(monkeypatch) -> None:
     assert "Entendi:" in result.output
     assert "Proposta: resposta clara" in result.output
     assert "resposta clara" in result.output
+
+
+def test_ask_explain_criacao_sugere_brief(monkeypatch) -> None:
+    class _Engine:
+        def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
+            return EngineReply(
+                text="rascunho",
+                provider="local",
+                model="qwen",
+                reasons=("ok",),
+                notice=None,
+            )
+
+    monkeypatch.setattr("src.main.build_engine", lambda: _Engine())
+    result = CliRunner().invoke(cli, ["ask", "--explain", "cria", "um", "app"])
+
+    assert result.exit_code == 0
+    assert "brief start" in result.output
+    assert "yby gate" not in result.output
+
+
+def test_cli_help_tem_epilog_criacao() -> None:
+    result = CliRunner().invoke(cli, ["--help"])
+    assert result.exit_code == 0
+    assert "brief start" in result.output
+    assert "YBY_CLOUD_MODE=local_only" in result.output
 
 
 def test_ask_sem_explain_continua_cru(monkeypatch) -> None:

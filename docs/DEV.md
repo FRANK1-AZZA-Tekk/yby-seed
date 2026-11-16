@@ -19,8 +19,9 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 
 | Comando | O que faz |
 |---|---|
-| `python yby.py ask "..."` | texto via HybridEngine (Ollama → nuvem se pesado/`--heavy`) |
-| `python yby.py ask --explain "..."` | mesmo `ask` com envelope professor PT-BR (pedido vago esclarece sem chamar o motor) |
+| `python yby.py ask "..."` | texto via HybridEngine (Ollama → nuvem se pesado/`--heavy`; padrão `local_only`) |
+| `python yby.py ask --explain "..."` | envelope professor PT-BR; pedido de criação aponta `brief start` (ask não abre brief) |
+| `python yby.py --help` | epílogo: brief→plan→scaffold, gate/run, nuvem off por padrão |
 | `python yby.py run "..."` | porta de segurança → executa se permitido (refuse/ask negado: envelope); teto de timeout/saída; bloqueia cwd/alvo de scaffold |
 | `python yby.py gate "..."` | só decide (run/ask/refuse) com envelope; não executa |
 | `python yby.py note "título" texto da nota...` | grava no vault |

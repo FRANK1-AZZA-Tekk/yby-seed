@@ -2,6 +2,11 @@
 
 Registro de uso real, falhas e aprendizados práticos.
 
+## 2026-11-16 — Lote 25 (UX CLI, atritos confirmados)
+
+- Atritos: `ask` não abre brief; avisos de Ollama omitiam `YBY_CLOUD_MODE=local_only`; help raiz magro.
+- Mitigação: `--explain` em pedido de criação aponta `yby brief start`; notice/`--explain` citam modo+chave; epílogo no `--help`. Sem mudar D10 nem auto-abrir brief.
+
 ## 2026-11-11 — Primeiro uso real
 
 - Testado: `python yby.py ask "explique uma lista em Python"`

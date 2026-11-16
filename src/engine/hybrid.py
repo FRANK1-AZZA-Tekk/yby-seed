@@ -127,6 +127,18 @@ class HybridEngine:
         decision: RouteDecision,
         local_error: ProviderError,
     ) -> EngineReply:
+        if self.budget.cloud_mode == "local_only":
+            return EngineReply(
+                "",
+                "none",
+                "",
+                decision.reasons,
+                (
+                    f"Ollama falhou ({local_error}). "
+                    "YBY_CLOUD_MODE=local_only: nuvem desligada "
+                    "(para fallback: YBY_CLOUD_MODE=ask + YBY_CLOUD_API_KEY)."
+                ),
+            )
         if not self.cloud.has_credentials():
             return EngineReply(
                 "",

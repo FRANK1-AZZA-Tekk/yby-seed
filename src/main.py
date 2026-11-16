@@ -126,10 +126,15 @@ from src.voice.session import VoiceError, listen_once
 logger.add("logs/yby_seed_{time}.log", rotation="1 day", retention="7 days")
 
 
-@click.group()
-def cli():
-    """YBY SEED - Programação em Linguagem Natural"""
-    pass
+@click.group(
+    epilog=(
+        "Criação controlada: yby brief start \"ideia\" → plan → scaffold "
+        "(ask não abre brief sozinho). Gate decide; run executa. "
+        "Nuvem off por padrão (YBY_CLOUD_MODE=local_only)."
+    ),
+)
+def cli() -> None:
+    """YBY SEED — Programação em Linguagem Natural (local-first)."""
 
 
 @cli.command(

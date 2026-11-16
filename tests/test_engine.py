@@ -287,6 +287,22 @@ def test_ollama_fora_sem_chave_explica_o_bloqueio() -> None:
     assert cloud.calls == []
 
 
+def test_ollama_fora_local_only_explica_modo() -> None:
+    ollama = FakeOllama(error=ProviderUnreachable("conexão recusada"))
+    cloud = FakeCloud()
+    budget = CloudBudget.from_env({"YBY_CLOUD_MODE": "local_only"})
+    reply = HybridEngine(
+        _config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0), budget=budget
+    ).reply("oi")
+
+    assert reply.provider == "none"
+    assert reply.text == ""
+    assert reply.notice is not None
+    assert "YBY_CLOUD_MODE=local_only" in reply.notice
+    assert "YBY_CLOUD_MODE=ask" in reply.notice
+    assert cloud.calls == []
+
+
 def test_heavy_sem_chave_degrada_para_o_local() -> None:
     ollama = FakeOllama()
     cloud = FakeCloud(api_key="")
