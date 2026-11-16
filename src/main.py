@@ -22,6 +22,7 @@ Comandos:
     usage   - Resumo/tail do cloud_usage.jsonl + orçamento mensal
     brief   - Entrevista YBY-BRIEF (sem gerar código/plano)
     plan    - Plano verificável a partir de brief (não executa)
+    cursor-fake - Dry-run de plano validated (sem MCP / sem escrita)
     scaffold - Propõe/aplica artefatos Python CLI (sem install)
     agent   - Loop de agente P0 (opt-in; não altera o ask)
 """
@@ -70,6 +71,15 @@ from src.conversation.explain import (
     format_engine_reply,
     format_vague_ask,
     is_vague_request,
+)
+from src.cursor_fake.adapter import (
+    CursorFakeError,
+)
+from src.cursor_fake.adapter import (
+    format_report as format_cursor_fake_report,
+)
+from src.cursor_fake.adapter import (
+    simulate as cursor_fake_simulate,
 )
 from src.engine.budget import CloudBudget, CloudBudgetError
 from src.engine.cloud_usage_log import CloudUsageLog
@@ -576,6 +586,56 @@ def plan_revise(
     click.echo(f"id: {updated.id}")
     click.echo(f"version: {updated.version}")
     click.echo(f"salvo: {path}")
+
+
+@cli.group("cursor-fake")
+def cursor_fake_grp() -> None:
+    """Adaptador Cursor fake: dry-run de plano validated (sem MCP)."""
+
+
+@cursor_fake_grp.command("simulate")
+@click.argument("plan_id")
+@click.option(
+    "--dir",
+    "plan_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Pasta dos planos (padrão: vault/.yby/plans ou .yby/plans).",
+)
+@click.option("--json", "as_json", is_flag=True, help="Saída estruturada em JSON.")
+def cursor_fake_simulate_cmd(
+    plan_id: str, plan_dir: Path | None, as_json: bool
+) -> None:
+    """Simula execução do plano sem escrever disco nem chamar MCP."""
+
+    load_dotenv(override=False)
+    try:
+        plan = load_or_create_plan_store(plan_dir).load(plan_id)
+        report = cursor_fake_simulate(plan)
+    except FileNotFoundError as exc:
+        click.echo(
+            format_cli_error(
+                kind="cursor-fake",
+                detail=str(exc),
+                next_step="gere um plano com yby plan from-brief <brief_id>",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    except CursorFakeError as exc:
+        click.echo(
+            format_cli_error(
+                kind="cursor-fake",
+                detail=str(exc),
+                next_step="use um plano status=validated",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    if as_json:
+        click.echo(json.dumps(report.model_dump(), ensure_ascii=False, indent=2))
+    else:
+        click.echo(format_cursor_fake_report(report))
 
 
 @cli.group()

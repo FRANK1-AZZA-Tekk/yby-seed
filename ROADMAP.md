@@ -148,7 +148,7 @@ Um lote por ciclo. Núcleo novo fino (`src/conversation/` etc.); **não** expand
 | **16** Gerador artefatos | **Feito** (`yby scaffold propose/apply/revert`; `src/artifacts/`) | Dir novo + manifesto hashes (Python CLI) | install/deploy; Next/React sem OK |
 | **17** Validador | **Feito** (`scaffold validate` / `test-generated` bloqueado; `src/artifacts/validate.py`) | sintaxe + testes obrigatórios; sem sandbox OS → execução gerada bloqueada | `eval` / auto-pytest |
 | **28** Revisão final SEED | **Feito** (auditoria; docs; sem feature) | Separar pronto/testado/validado; limitações reais | “Pronto para produção” sem evidência |
-| 18 Cursor fake | Fila | Adaptador + plano aprovado | MCP real |
+| **18** Cursor fake | **Feito** (`yby cursor-fake simulate`; `src/cursor_fake/`) | Adaptador + plano `validated` (dry-run) | MCP real |
 | 19 Aprendizado diário | Fila | JSONL + relatório | Auto-merge |
 | 20 Memória segura | Fila | Preferências com consentimento no vault | Vector DB novo |
 | 21 Pesquisa consentida | Fila | Gate consent + HTTP fake | Busca real |

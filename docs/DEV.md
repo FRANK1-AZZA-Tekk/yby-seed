@@ -33,6 +33,7 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 | `python yby.py brief propose <id>` | proposta só se completo (não é plano) |
 | `python yby.py plan from-brief <brief_id>` | gera plano validado (não executa) |
 | `python yby.py plan show/validate/revise …` | inspeciona / revalida / nova versão |
+| `python yby.py cursor-fake simulate <plan_id>` | dry-run de plano `validated` (sem MCP / sem escrita) |
 | `python yby.py scaffold propose <plan_id> <dir> --name …` | propõe scaffold Python CLI (manifesto) |
 | `python yby.py scaffold apply <proposal.json>` | aplica após aprovação (sem pip install) |
 | `python yby.py scaffold revert <dir>` | remove arquivos do manifesto |
@@ -81,6 +82,7 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 | Notas / recall | `src/memory/` |
 | Backup local vault+logs | `src/backup/` |
 | Observabilidade usage CLI | `src/obs/` |
+| Cursor fake (dry-run de plano) | `src/cursor_fake/` |
 | Código gerado perigoso | `src/security/ast_guard.py` |
 | CLI | `src/main.py`, `yby.py` |
 | Testes | `tests/` |

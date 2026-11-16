@@ -2,7 +2,7 @@
 
 Auditoria factual do núcleo ativo. **Não** declara o SEED “pronto para produção”.
 
-Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **291 passed, 14 skipped**; smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–17 + 22–24 + 28 + Grok off + cloud default-off.
+Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **295 passed, 14 skipped**; smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–18 + 22–24 + 28 + Grok off + cloud default-off.
 
 ## Vocabulário
 
@@ -48,6 +48,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 - Backup local: `yby backup create/list/restore` (vault + logs redigidos; restore em pasta alvo).
 - Obs local: `yby usage` / `usage tail` (JSONL + teto mensal; sem Datadog).
 - Execução: timeout com teto, truncagem de stdout/stderr, recusa sob `.yby/artifacts-manifest.json`.
+- Cursor fake: `yby cursor-fake simulate` dry-run de plano `validated` (sem MCP / sem escrita).
 
 ## Lacunas críticas (antes de ser “cérebro” do ecossistema)
 
@@ -75,7 +76,8 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 3. ~~**Backup local**~~ — feito (`yby backup`; restore em pasta alvo).
 4. ~~**Obs CLI**~~ — feito (`yby usage`).
 5. ~~**Sandbox / bloquear** execução ampliada~~ — lote 24 (limites) + 17 (gerado); sandbox OS completo ainda fora.
-6. Só então contratos de dispositivos / wearable (lote 27) e integração Cursor real (18+).
+6. ~~**Cursor fake**~~ — feito (lote 18 dry-run); MCP/Cursor real ainda fora.
+7. Contratos de dispositivos / wearable (lote 27) quando fizer sentido.
 
 ## O que esta revisão NÃO afirma
 
