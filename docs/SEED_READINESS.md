@@ -45,6 +45,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 - Vault Markdown + índice hash 64-d; `note`/`recall`.
 - Voz opcional; hub keepalive.
 - Criação: `brief` → `plan` → `scaffold` → `validate`/`apply`/`revert`.
+- Backup local: `yby backup create/list/restore` (vault + logs redigidos; restore em pasta alvo).
 
 ## Lacunas críticas (antes de ser “cérebro” do ecossistema)
 
