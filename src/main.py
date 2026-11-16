@@ -18,6 +18,7 @@ Comandos:
     gate    - Só decide (com envelope); não executa
     note    - Grava nota no vault
     recall  - Busca no vault
+    backup  - Backup local do vault + logs redigidos (sem nuvem)
     brief   - Entrevista YBY-BRIEF (sem gerar código/plano)
     plan    - Plano verificável a partir de brief (não executa)
     scaffold - Propõe/aplica artefatos Python CLI (sem install)
@@ -36,6 +37,22 @@ from src.actions.runner import DEFAULT_TIMEOUT, run_command
 from src.agent_loop.loop import ControlledAgentLoop
 from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
 from src.agent_loop.tools import vault_registry_or_skip
+from src.artifacts.generator import (
+    ArtifactError,
+    apply_manifest,
+    propose_scaffold,
+    revert_applied,
+    run_generated_tests,
+)
+from src.artifacts.validate import format_report, validate_contents
+from src.backup.local import (
+    BackupError,
+    backup_dir_from_env,
+    create_backup,
+    keep_from_env,
+    list_backups,
+    restore_backup,
+)
 from src.brief.interview import (
     BriefError,
     answer_field,
@@ -45,18 +62,6 @@ from src.brief.interview import (
 )
 from src.brief.schemas import BRIEF_FIELDS
 from src.brief.store import load_or_create_store
-from src.artifacts.generator import (
-    ArtifactError,
-    apply_manifest,
-    propose_scaffold,
-    revert_applied,
-    run_generated_tests,
-)
-from src.artifacts.validate import format_report, validate_contents
-from src.plan.builder import PlanError, build_plan_from_brief, revise_plan
-from src.plan.schemas import PlanStep
-from src.plan.store import load_or_create_plan_store
-from src.plan.validate import validate_plan
 from src.conversation.explain import (
     format_cli_error,
     format_command_decision,
@@ -64,10 +69,15 @@ from src.conversation.explain import (
     format_vague_ask,
     is_vague_request,
 )
+from src.engine.cloud_usage_log import CloudUsageLog
 from src.engine.config import EngineConfig
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.engine.providers import OllamaProvider
 from src.memory.vault import VaultError, vault_from_env
+from src.plan.builder import PlanError, build_plan_from_brief, revise_plan
+from src.plan.schemas import PlanStep
+from src.plan.store import load_or_create_plan_store
+from src.plan.validate import validate_plan
 from src.platform.hub import main as hub_main
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
 from src.voice.config import voice_config_from_env
@@ -698,6 +708,105 @@ def note(titulo: str, texto: tuple[str, ...]) -> None:
         )
         raise SystemExit(1) from exc
     click.echo(path)
+
+
+@cli.group()
+def backup() -> None:
+    """Backup local do vault + logs redigidos (sem nuvem)."""
+
+
+@backup.command("create")
+@click.option(
+    "--dir",
+    "backup_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Pasta de archives (padrão: YBY_BACKUP_DIR ou backups/yby).",
+)
+@click.option(
+    "--keep",
+    type=int,
+    default=None,
+    help="Quantos archives manter (padrão: YBY_BACKUP_KEEP ou 7).",
+)
+def backup_create(backup_dir: Path | None, keep: int | None) -> None:
+    """Cria tar.gz com vault e logs redigidos; aplica retenção."""
+
+    load_dotenv(override=False)
+    try:
+        vault = vault_from_env()
+        dest = backup_dir or backup_dir_from_env()
+        retention = keep if keep is not None else keep_from_env()
+        log_path = CloudUsageLog.from_env().path
+        info = create_backup(
+            vault_path=vault.root,
+            backup_dir=dest,
+            log_paths=[log_path],
+            keep=retention,
+        )
+    except (VaultError, BackupError) as exc:
+        click.echo(
+            format_cli_error(
+                kind="backup",
+                detail=str(exc),
+                next_step="confira YBY_VAULT_PATH / YBY_BACKUP_DIR e tente de novo",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    click.echo(f"{info.path} ({info.size_bytes} bytes)")
+
+
+@backup.command("list")
+@click.option(
+    "--dir",
+    "backup_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Pasta de archives (padrão: YBY_BACKUP_DIR ou backups/yby).",
+)
+def backup_list(backup_dir: Path | None) -> None:
+    """Lista archives locais (mais recente primeiro)."""
+
+    load_dotenv(override=False)
+    try:
+        dest = backup_dir or backup_dir_from_env()
+        items = list_backups(dest)
+    except BackupError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    if not items:
+        click.echo("(nenhum backup)")
+        return
+    for info in items:
+        click.echo(f"{info.stamp}\t{info.size_bytes}\t{info.path}")
+
+
+@backup.command("restore")
+@click.argument("archive", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("target", type=click.Path(file_okay=False, path_type=Path))
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Permite restaurar em pasta não vazia (ainda não aponta ao vault ativo).",
+)
+def backup_restore(archive: Path, target: Path, force: bool) -> None:
+    """Restaura vault do archive para um diretório alvo (não sobrescreve o vault ativo)."""
+
+    load_dotenv(override=False)
+    try:
+        restored = restore_backup(archive, target, force=force)
+    except BackupError as exc:
+        click.echo(
+            format_cli_error(
+                kind="backup",
+                detail=str(exc),
+                next_step="use um alvo vazio ou --force; nunca aponte ao vault vivo sem copiar antes",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    click.echo(restored)
 
 
 @cli.command("agent")

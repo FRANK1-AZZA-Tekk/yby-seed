@@ -38,11 +38,25 @@ Marcar conforme execução no hardware real. Alinhado a [PHASE-P.md](PHASE-P.md)
 
 ## Fase 5 — Backup
 
-- [ ] Criar backup local diário.
-- [ ] Manter no mínimo 7 backups.
-- [ ] Testar restauração real.
-- [ ] Garantir que backup não sobrescreva o vault.
-- [ ] Registrar local e retenção.
+Ferramenta no repo: `python yby.py backup create|list|restore` (`src/backup/`).
+Padrão: `YBY_BACKUP_DIR=backups/yby`, `YBY_BACKUP_KEEP=7`. Restore **sempre** para pasta alvo (não o vault vivo).
+
+Teste documentado (CI cobre roundtrip; no hub real marque abaixo):
+
+```bash
+export YBY_VAULT_PATH=/caminho/do/vault
+python yby.py backup create
+python yby.py backup list
+python yby.py backup restore backups/yby/yby-backup-….tar.gz /tmp/yby-restore-test
+diff -ru "$YBY_VAULT_PATH" /tmp/yby-restore-test   # notas devem bater
+# NÃO: restore direto em cima de $YBY_VAULT_PATH
+```
+
+- [ ] Criar backup local diário (timer/cron do SO chamando `yby backup create`).
+- [ ] Manter no mínimo 7 backups (`YBY_BACKUP_KEEP=7`).
+- [ ] Testar restauração real (comandos acima no hub).
+- [x] Garantir que backup não sobrescreva o vault (restore recusa alvo não vazio sem `--force`).
+- [x] Registrar local e retenção (`.env.example` + `DEV.md`).
 
 ## Fase 6 — Validação final
 

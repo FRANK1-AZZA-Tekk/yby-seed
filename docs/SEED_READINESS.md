@@ -2,7 +2,7 @@
 
 Auditoria factual do núcleo ativo. **Não** declara o SEED “pronto para produção”.
 
-Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **282 passed, 14 skipped** (pós consentimento default-off); smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–17 + 28 + Grok off + cloud default-off.
+Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **286 passed, 14 skipped**; smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–17 + 28 + Grok off + cloud default-off + backup 23.
 
 ## Vocabulário
 
@@ -51,7 +51,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 1. **Sem sandbox OS** — código/plano gerado não pode ser auto-executado com segurança.
 2. ~~**Consentimento de nuvem** default-off~~ — `YBY_CLOUD_MODE` padrão `local_only` + enum estrito; library `confirm_fn=None` ainda auto-aprova quando mode=`ask`.
 3. ~~**Grok** wiring morto~~ — **removido** (lote Grok off): destino único `YBY_CLOUD_*`.
-4. **Backup vault** e checklist Fase P Fase 5 vazios.
+4. ~~**Backup vault**~~ — `yby backup` local (tar.gz + retenção); checklist Fase P Fase 5 ainda exige exercício no hub real.
 5. **Observabilidade CLI** ausente (JSONL existe; sem `yby usage`).
 6. **Memória**: sem FTS, sem prefs/consentimento, sem reindex CLI; `ask` não grava nota.
 7. **ask ↛ brief** — fluxo de criação é manual, não conversacional contínuo.
@@ -69,7 +69,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 
 1. ~~**Grok off**~~ — feito.
 2. ~~**Consentimento nuvem default-off**~~ — feito (`local_only` + validação).
-3. **Backup local** vault+logs redigidos + restore test (Fase P / lote 23).
+3. ~~**Backup local**~~ — feito (`yby backup`; restore em pasta alvo).
 4. **Obs CLI** sobre `cloud_usage_log` (lote 22).
 5. **Sandbox / bloquear** execução ampliada (lotes 24 + 17 já bloqueiam gerado).
 6. Só então contratos de dispositivos / wearable (lote 27) e integração Cursor real (18+).

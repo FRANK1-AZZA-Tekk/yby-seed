@@ -25,6 +25,7 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 | `python yby.py gate "..."` | só decide (run/ask/refuse) com envelope; não executa |
 | `python yby.py note "título" texto da nota...` | grava no vault |
 | `python yby.py recall "consulta"` | busca no vault |
+| `python yby.py backup create/list/restore …` | tar.gz local do vault + logs redigidos (sem nuvem; restore em pasta alvo) |
 | `python yby.py brief start "ideia"` | inicia YBY-BRIEF (entrevista; sem código) |
 | `python yby.py brief answer <id> <campo> ...` | preenche campo / retoma |
 | `python yby.py brief show <id> [--cloud-safe]` | mostra brief |
@@ -56,6 +57,7 @@ Hub no boot: `bash scripts/install-hub-service.sh --enable`. Detalhe: [PLATFORM.
 | `YBY_CACHE_*`, `YBY_CLOUD_CONTEXT_MAX_CHARS` | cache TTL e limite de contexto na nuvem |
 | `YBY_HEAVY_*` | limiares / frases que sobem para nuvem |
 | `YBY_VAULT_PATH` | pasta do vault Obsidian |
+| `YBY_BACKUP_DIR`, `YBY_BACKUP_KEEP` | pasta dos archives (padrão `backups/yby`) e retenção (padrão 7) |
 | `YBY_HUB_*` | intervalo/timeout do keepalive |
 | `GATEWAY_TOKEN`, `FASTAPI_HOST` | gateway HTTP (fora do caminho do `ask`) |
 | `YBY_DATABASE_URL` | Postgres opcional (agentes legados) |
@@ -75,6 +77,7 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 | Allowlist e decisão de comando | `src/safety/`, `config/safety-allowlist.txt` |
 | Execução após a porta | `src/actions/` |
 | Notas / recall | `src/memory/` |
+| Backup local vault+logs | `src/backup/` |
 | Código gerado perigoso | `src/security/ast_guard.py` |
 | CLI | `src/main.py`, `yby.py` |
 | Testes | `tests/` |

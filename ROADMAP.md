@@ -153,7 +153,7 @@ Um lote por ciclo. Núcleo novo fino (`src/conversation/` etc.); **não** expand
 | 20 Memória segura | Fila | Preferências com consentimento no vault | Vector DB novo |
 | 21 Pesquisa consentida | Fila | Gate consent + HTTP fake | Busca real |
 | 22 Observabilidade CLI | Fila | CLI sobre `cloud_usage_log` + eventos locais | Datadog |
-| 23 Backup local | Fila | tar/cópia vault+logs redigidos + restore test | Backup nuvem |
+| **23** Backup local | **Feito** (`yby backup create/list/restore`; `src/backup/`) | tar.gz vault+logs redigidos + retenção 7 + restore test | Backup nuvem |
 | 24 Endurecer execução | Fila | Timeouts/limites; bloquear código gerado | Sandbox OS completo |
 | 25 UX CLI | Fila | Atritos confirmados só | Mudar política D10 |
 | 26 Qualidade contínua | Fila | Falhas confirmadas + docs | Feature nova |

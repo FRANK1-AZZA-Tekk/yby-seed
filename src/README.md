@@ -14,6 +14,7 @@ Pacote Python do YBY SEED (`pythonpath = ["."]` no `pyproject.toml`). Entrada CL
 | `plan/` | YBY-PLAN (etapas vs allowlist; sem execução) |
 | `artifacts/` | scaffold Python CLI + manifesto (sem install) |
 | `memory/` | vault Markdown |
+| `backup/` | backup local vault + logs redigidos (`yby backup`) |
 | `voice/` | STT/TTS opcional (`listen` / `ask --voice`) |
 | `platform/` | hub keepalive (serviço systemd) |
 | `security/ast_guard.py` | guarda de código gerado |
