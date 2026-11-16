@@ -13,7 +13,7 @@ Fase atual: **Fase P — Plataforma** (hub systemd, vault/Syncthing) sobre o nú
 YBY SEED é o exocórtex pessoal nesse servidor:
 
 - Conversa primeiro no Ollama, modelo `qwen2.5-coder:3b`.
-- Sobe para a nuvem só em pedido pesado ou explícito (`--heavy`, heurística em `src/engine/routing.py`). Destino primário: **OpenRouter** (modelo free). **Sem failover automático para Grok** se OpenRouter falhar (D12; evolução na issue #42). Cache local + limite de contexto antes da chamada. Pedidos com chave/senha/token/PEM/JWT/CPF/CNPJ são bloqueados antes do POST (inclui scan pós-trim); e-mails são redigidos.
+- Sobe para a nuvem só em pedido pesado ou explícito (`--heavy`, heurística em `src/engine/routing.py`). Destino único: **OpenRouter** (modelo free via `YBY_CLOUD_*`). **Sem segundo provedor / sem cascade Grok** (D12). Cache local + limite de contexto antes da chamada. Pedidos com chave/senha/token/PEM/JWT/CPF/CNPJ são bloqueados antes do POST (inclui scan pós-trim); e-mails são redigidos.
 - A memória é um vault Obsidian em Markdown, com índice local. `python yby.py note` grava e `python yby.py recall` busca. O Syncthing sincroniza a pasta com o servidor de casa. O `ask` ainda não grava nota sozinho.
 - Comandos de terminal seguem a allowlist em `config/safety-allowlist.txt` e a política D10: leitura/`git` de inspeção com token bare podem rodar sozinhos; scripts, mutáveis e o resto pedem sim ou não; destrutivos óbvios são recusados. Sem TTY, `ask` não executa. `python yby.py run "..."` passa pela porta e, se permitido, executa o mesmo argv/workdir autorizados (`shell=False`, timeout). `python yby.py gate "..."` só decide.
 - Voz opcional: `python yby.py listen` (ou `ask --voice`) grava até Enter, transcreve com faster-whisper e fala a resposta com Piper. Deps em `requirements-voice.txt`.
@@ -46,7 +46,7 @@ Voz (opcional): `pip install -r requirements-voice.txt`, instale o binário Pipe
 
 Hub: `bash scripts/install-hub-service.sh --enable` ou `python yby.py hub`. Plataforma: [docs/PLATFORM.md](docs/PLATFORM.md).
 
-Sem chave OpenRouter (`YBY_CLOUD_API_KEY` / `OPENROUTER_API_KEY`) nem Grok (`YBY_GROK_API_KEY` / `XAI_API_KEY`), a nuvem não é chamada: o comando avisa e, se o Ollama estiver no ar, responde no modelo local.
+Sem chave de nuvem (`YBY_CLOUD_API_KEY` / `OPENROUTER_API_KEY`), a nuvem não é chamada: o comando avisa e, se o Ollama estiver no ar, responde no modelo local.
 
 ## Onde programar
 
@@ -56,8 +56,7 @@ O v1 mora neste repositório. Mapa e checklist de camadas: [docs/REPOS.md](docs/
 testado (pytest): engine | safety→actions | conversation | brief | plan |
                   artifacts | memory | voice | platform/hub | ast_guard
 em curso (Fase P): hub systemd operacional; Syncthing externo; backup vault
-                   ainda sem checklist completo; Grok configurável mas
-                   sem failover automático (D12)
+                   ainda sem checklist completo; nuvem = destino único OpenRouter
 não validado p/ ecossistema: sandbox OS, execução de plano/scaffold,
                    aprendizado diário, prefs com consentimento, obs CLI
 

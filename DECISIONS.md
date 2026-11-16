@@ -20,7 +20,7 @@ O provedor de nuvem é compatível com a API da OpenAI e configurável por URL, 
 
 Nota do dono (aprovado): OpenRouter free é o alvo de nuvem padrão; Grok é candidato a fallback **somente quando** o failover automático for reativado com autorização explícita (hoje **não** há cascade — ver implementação abaixo e D12).
 
-**Implementação (código vigente):** o `ask` usa OpenRouter como nuvem **primária** quando o roteamento pede nuvem (`src/engine/providers.py`, `CascadingCloudProvider`). **Falha do OpenRouter não chama Grok automaticamente** — regra operacional em **D12** e issue **#42**. Chaves Grok (`YBY_GROK_*`) permanecem no `.env` para evolução futura, não para cascade silencioso.
+**Implementação (código vigente):** o `ask` usa um **único** destino de nuvem (`YBY_CLOUD_*`, padrão OpenRouter) via `CascadingCloudProvider` (nome histórico; sem cascade). **Não há cliente Grok no roteador** — regra operacional em **D12**. Para outro endpoint OpenAI-compatível, reaponte `YBY_CLOUD_BASE_URL` / chave / modelo.
 
 Substitui a redação intermediária em que Grok era o destino automático e OpenRouter só configuração alternativa. Também substitui a redação antiga "Ollama local primeiro; OpenRouter apenas como fallback."
 

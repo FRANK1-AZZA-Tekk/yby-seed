@@ -44,7 +44,7 @@ O motor não sincroniza arquivos. Configure o Syncthing à parte e aponte `YBY_V
 
 1. **Ollama** local (`qwen2.5-coder:3b`) por padrão.
 2. Pedidos pesados / `--heavy` → **OpenRouter** (`openrouter/free` por padrão).
-3. Se OpenRouter falhar → mensagem de erro; **não** há failover automático para Grok (D12; issue #42). Grok (`YBY_GROK_*`) é destino configurável para evolução futura.
+3. Se OpenRouter falhar → mensagem de erro / fallback **local**; **não** há segundo provedor de nuvem (D12).
 4. Cache local com TTL (`YBY_CACHE_TTL_SECONDS`, padrão 3600; `0` desliga).
 5. Contexto truncado antes da nuvem (`YBY_CLOUD_CONTEXT_MAX_CHARS`, padrão 12000).
 

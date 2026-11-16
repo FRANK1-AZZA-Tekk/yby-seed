@@ -187,10 +187,10 @@ class CloudResult:
 
 
 class CascadingCloudProvider:
-    """Nuvem primária (ex.: OpenRouter). Sem failover automático para Grok (D12).
+    """Destino único de nuvem (padrão OpenRouter). Sem cascade / Grok (D12).
 
-    Fallback alternativo fica no construtor até a issue #42 (confirmação explícita);
-    não é chamado em `complete_with_meta`.
+    Para outro provedor OpenAI-compatível, aponte `YBY_CLOUD_*` — não há segundo
+    cliente embutido.
     """
 
     def __init__(
@@ -199,32 +199,25 @@ class CascadingCloudProvider:
         *,
         primary_model: str,
         primary_label: str = "openrouter",
-        fallback: CloudProvider | None = None,
-        fallback_model: str = "",
-        fallback_label: str = "grok",
     ) -> None:
         self.primary = primary
         self.primary_model = primary_model
         self.primary_label = primary_label
-        self.fallback = fallback
-        self.fallback_model = fallback_model
-        self.fallback_label = fallback_label
 
     def has_credentials(self) -> bool:
         return self.primary.has_credentials()
 
     def complete(self, prompt: str, *, model: str, system: str) -> str:
-        """Protocolo CloudClient: apenas o provedor primário."""
+        """Protocolo CloudClient: apenas o provedor configurado."""
 
         return self.complete_with_meta(prompt, system=system).text
 
     def complete_with_meta(self, prompt: str, *, system: str) -> CloudResult:
-        """Chama só o destino primário; falha não dispara Grok (confirmação futura #42)."""
+        """Chama só o destino configurado; falha não dispara segundo provedor."""
 
         if not self.primary.has_credentials():
             raise ProviderError(
-                "YBY_CLOUD_API_KEY não está definida. "
-                "Fallback de nuvem exige autorização explícita (issue #42)."
+                "YBY_CLOUD_API_KEY não está definida, então não há nuvem configurada."
             )
         try:
             result = _primary_complete_with_meta(
@@ -236,7 +229,7 @@ class CascadingCloudProvider:
         except ProviderError as exc:
             raise ProviderError(
                 f"{self.primary_label} falhou ({exc}). "
-                "Nuvem alternativa não é chamada automaticamente (D12)."
+                "Nenhum segundo provedor está configurado no roteador (D12)."
             ) from exc
         return CloudResult(
             result.text,

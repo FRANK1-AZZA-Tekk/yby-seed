@@ -525,18 +525,10 @@ def engine_from_env(
         api_key=config.cloud_api_key,
         timeout=config.cloud_timeout,
     )
-    fallback = CloudProvider(
-        config.cloud_fallback_base_url,
-        api_key=config.cloud_fallback_api_key,
-        timeout=config.cloud_timeout,
-    )
     chain = CascadingCloudProvider(
         primary,
         primary_model=config.cloud_model,
         primary_label="openrouter",
-        fallback=fallback,
-        fallback_model=config.cloud_fallback_model,
-        fallback_label="grok",
     )
     return HybridEngine(
         config,

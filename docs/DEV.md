@@ -51,8 +51,7 @@ Hub no boot: `bash scripts/install-hub-service.sh --enable`. Detalhe: [PLATFORM.
 | Prefixo / chave | Uso |
 |---|---|
 | `YBY_OLLAMA_*`, `YBY_LOCAL_MODEL` | Ollama do `ask` / hub |
-| `YBY_CLOUD_*` / `OPENROUTER_API_KEY` | nuvem primária (OpenRouter free por padrão) |
-| `YBY_GROK_*` / `XAI_API_KEY` | Grok configurável; **não** é chamado automaticamente se OpenRouter falhar (D12, #42) |
+| `YBY_CLOUD_*` / `OPENROUTER_API_KEY` | destino único de nuvem (OpenRouter free por padrão; sem cascade Grok) |
 | `YBY_CACHE_*`, `YBY_CLOUD_CONTEXT_MAX_CHARS` | cache TTL e limite de contexto na nuvem |
 | `YBY_HEAVY_*` | limiares / frases que sobem para nuvem |
 | `YBY_VAULT_PATH` | pasta do vault Obsidian |

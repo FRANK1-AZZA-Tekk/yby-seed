@@ -50,7 +50,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 
 1. **Sem sandbox OS** — código/plano gerado não pode ser auto-executado com segurança.
 2. **Consentimento de nuvem** default ainda `ask` (não `local_only`); library `confirm_fn=None` auto-aprova.
-3. **Grok** ainda instanciado/configurado mas **não** chamado no failover (wiring morto; lote “Grok off”).
+3. ~~**Grok** wiring morto~~ — **removido** (lote Grok off): destino único `YBY_CLOUD_*`.
 4. **Backup vault** e checklist Fase P Fase 5 vazios.
 5. **Observabilidade CLI** ausente (JSONL existe; sem `yby usage`).
 6. **Memória**: sem FTS, sem prefs/consentimento, sem reindex CLI; `ask` não grava nota.
@@ -67,7 +67,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 
 ## Próximos portões (ordem sugerida)
 
-1. **Grok off** + alinhar D3/D12/README (já parcialmente alinhado nesta revisão).
+1. ~~**Grok off**~~ — feito.
 2. **Consentimento nuvem default-off** ou validação estrita de `YBY_CLOUD_MODE`.
 3. **Backup local** vault+logs redigidos + restore test (Fase P / lote 23).
 4. **Obs CLI** sobre `cloud_usage_log` (lote 22).

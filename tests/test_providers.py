@@ -71,31 +71,19 @@ def test_ollama_complete_envia_keep_alive_no_post(monkeypatch: pytest.MonkeyPatc
     assert payload["options"]["num_ctx"] == 8192
 
 
-def test_cascade_nao_chama_fallback_quando_primario_falha() -> None:
+def test_cascade_falha_primario_sem_segundo_provedor() -> None:
     primary = CloudProvider(
         "https://openrouter.ai/api/v1",
         api_key="or-key",
         timeout=1,
         session=_Session(error=requests.ConnectionError("down")),
     )
-    fallback = CloudProvider(
-        "https://api.x.ai/v1",
-        api_key="xai-key",
-        timeout=1,
-        session=_Session(),
-    )
-    chain = CascadingCloudProvider(
-        primary,
-        primary_model="openrouter/free",
-        fallback=fallback,
-        fallback_model="grok-4.7",
-    )
-    with pytest.raises(ProviderError, match="não é chamada automaticamente"):
+    chain = CascadingCloudProvider(primary, primary_model="openrouter/free")
+    with pytest.raises(ProviderError, match="Nenhum segundo provedor"):
         chain.complete_with_meta("oi", system="sys")
-    assert fallback._session.posts == []  # type: ignore[attr-defined]
 
 
-def test_cascade_sucesso_primario_nao_chama_fallback() -> None:
+def test_cascade_sucesso_primario() -> None:
     primary = CloudProvider(
         "https://openrouter.ai/api/v1",
         api_key="or-key",
@@ -104,21 +92,9 @@ def test_cascade_sucesso_primario_nao_chama_fallback() -> None:
             _Resp(200, {"choices": [{"message": {"content": "or"}}]})
         ),
     )
-    fallback = CloudProvider(
-        "https://api.x.ai/v1",
-        api_key="xai-key",
-        timeout=1,
-        session=_Session(),
-    )
-    chain = CascadingCloudProvider(
-        primary,
-        primary_model="openrouter/free",
-        fallback=fallback,
-        fallback_model="grok-4.7",
-    )
+    chain = CascadingCloudProvider(primary, primary_model="openrouter/free")
     result = chain.complete_with_meta("oi", system="sys")
     assert result.via == "openrouter"
-    assert fallback._session.posts == []  # type: ignore[attr-defined]
 
 
 def test_ollama_conexao_recusada_compativel() -> None:

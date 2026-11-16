@@ -14,8 +14,6 @@ DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
 DEFAULT_LOCAL_MODEL = "qwen2.5-coder:3b"
 DEFAULT_CLOUD_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_CLOUD_MODEL = "openrouter/free"
-DEFAULT_CLOUD_FALLBACK_BASE_URL = "https://api.x.ai/v1"
-DEFAULT_CLOUD_FALLBACK_MODEL = "grok-4.7"
 DEFAULT_HEAVY_MIN_CHARS = 1200
 DEFAULT_HEAVY_MIN_LINES = 25
 DEFAULT_HEAVY_MIN_QUESTIONS = 3
@@ -37,9 +35,6 @@ class EngineConfig:
     cloud_base_url: str
     cloud_model: str
     cloud_api_key: str
-    cloud_fallback_base_url: str
-    cloud_fallback_model: str
-    cloud_fallback_api_key: str
     heavy_min_chars: int
     heavy_min_lines: int
     heavy_min_questions: int
@@ -60,11 +55,6 @@ class EngineConfig:
             source = environ
 
         cloud_api_key = _first(source, "YBY_CLOUD_API_KEY", "OPENROUTER_API_KEY")
-        fallback_key = _first(
-            source, "YBY_GROK_API_KEY", "YBY_CLOUD_FALLBACK_API_KEY", "XAI_API_KEY"
-        )
-        fallback_base = _first(source, "YBY_GROK_BASE_URL", "YBY_CLOUD_FALLBACK_BASE_URL")
-        fallback_model = _first(source, "YBY_GROK_MODEL", "YBY_CLOUD_FALLBACK_MODEL")
         max_chars_raw = _first(source, "YBY_CLOUD_CONTEXT_MAX_CHARS", "YBY_CLOUD_MAX_CHARS")
 
         return cls(
@@ -73,9 +63,6 @@ class EngineConfig:
             cloud_base_url=_text(source, "YBY_CLOUD_BASE_URL") or DEFAULT_CLOUD_BASE_URL,
             cloud_model=_text(source, "YBY_CLOUD_MODEL") or DEFAULT_CLOUD_MODEL,
             cloud_api_key=cloud_api_key,
-            cloud_fallback_base_url=fallback_base or DEFAULT_CLOUD_FALLBACK_BASE_URL,
-            cloud_fallback_model=fallback_model or DEFAULT_CLOUD_FALLBACK_MODEL,
-            cloud_fallback_api_key=fallback_key,
             heavy_min_chars=_positive_int(source, "YBY_HEAVY_MIN_CHARS", DEFAULT_HEAVY_MIN_CHARS),
             heavy_min_lines=_positive_int(source, "YBY_HEAVY_MIN_LINES", DEFAULT_HEAVY_MIN_LINES),
             heavy_min_questions=_positive_int(

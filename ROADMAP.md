@@ -142,7 +142,7 @@ Um lote por ciclo. Núcleo novo fino (`src/conversation/` etc.); **não** expand
 | Lote | Status | Escopo mínimo | Não fazer ainda |
 |---|---|---|---|
 | **13** conversa/professor | **Feito** (`yby ask --explain`; envelope em `gate` / `run` refuse; `src/conversation/explain.py`) | PT-BR Entendi/Falta/Proposta/Risco/Próximo/Reverter; redact na exibição | Mudar `decide` / execução |
-| **Grok off** | Fila (segurança nuvem; pode inverter ordem sob OK) | Remover wiring morto / docs; Grok já **não** é chamado no failover | Novo provedor |
+| **Grok off** | **Feito** (sem cliente/cascade Grok; só `YBY_CLOUD_*`) | Removido wiring morto; destino único OpenRouter | Novo provedor / reativar cascade |
 | **14** YBY-BRIEF | **Feito** (`yby brief start/answer/show/propose`; `src/brief/`) | Pydantic + path vault opcional; retomada; proposta só se completo | Gerar código / plano executável |
 | **15** Plano verificável | **Feito** (`yby plan from-brief/show/validate/revise`; `src/plan/`) | Contrato de etapas vs allowlist; versionado | Executar plano |
 | **16** Gerador artefatos | **Feito** (`yby scaffold propose/apply/revert`; `src/artifacts/`) | Dir novo + manifesto hashes (Python CLI) | install/deploy; Next/React sem OK |

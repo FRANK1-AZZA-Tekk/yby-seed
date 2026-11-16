@@ -31,9 +31,6 @@ def _config(
     cloud_base_url: str = "https://openrouter.ai/api/v1",
     cloud_model: str = "openrouter/free",
     cloud_api_key: str = "test-key",
-    cloud_fallback_base_url: str = "https://api.x.ai/v1",
-    cloud_fallback_model: str = "grok-4.7",
-    cloud_fallback_api_key: str = "",
     heavy_min_chars: int = 1200,
     heavy_min_lines: int = 25,
     heavy_min_questions: int = 3,
@@ -49,9 +46,6 @@ def _config(
         cloud_base_url=cloud_base_url,
         cloud_model=cloud_model,
         cloud_api_key=cloud_api_key,
-        cloud_fallback_base_url=cloud_fallback_base_url,
-        cloud_fallback_model=cloud_fallback_model,
-        cloud_fallback_api_key=cloud_fallback_api_key,
         heavy_min_chars=heavy_min_chars,
         heavy_min_lines=heavy_min_lines,
         heavy_min_questions=heavy_min_questions,
@@ -193,9 +187,6 @@ def test_modelo_local_padrao_e_o_vencedor_do_benchmark() -> None:
     assert config.cloud_base_url == DEFAULT_CLOUD_BASE_URL == "https://openrouter.ai/api/v1"
     assert config.cloud_model == DEFAULT_CLOUD_MODEL == "openrouter/free"
     assert config.cloud_api_key == ""
-    assert config.cloud_fallback_base_url == "https://api.x.ai/v1"
-    assert config.cloud_fallback_model == "grok-4.7"
-    assert config.cloud_fallback_api_key == ""
 
 
 def test_from_env_le_chave_e_limiares() -> None:
@@ -219,7 +210,6 @@ def test_from_env_le_chave_e_limiares() -> None:
     assert config.cloud_api_key == "chave-yby"
     assert config.cloud_model == "meu/free"
     assert config.cloud_base_url == "https://example.test/v1"
-    assert config.cloud_fallback_api_key == "chave-xai"
     assert config.ollama_base_url == "http://10.0.0.2:11434"
     assert config.heavy_min_chars == 10
     assert config.heavy_min_lines == 2
@@ -228,7 +218,7 @@ def test_from_env_le_chave_e_limiares() -> None:
     assert config.cloud_max_chars == 500
 
 
-def test_from_env_aceita_openrouter_e_xai_como_aliases() -> None:
+def test_from_env_aceita_openrouter_alias_e_ignora_xai() -> None:
     config = EngineConfig.from_env(
         {
             "OPENROUTER_API_KEY": "chave-or",
@@ -236,7 +226,6 @@ def test_from_env_aceita_openrouter_e_xai_como_aliases() -> None:
         }
     )
     assert config.cloud_api_key == "chave-or"
-    assert config.cloud_fallback_api_key == "chave-xai"
 
 
 def test_from_env_rejeita_limiar_invalido() -> None:
@@ -435,30 +424,16 @@ def test_cloud_provider_usa_bearer_e_nao_chama_sem_chave() -> None:
     assert body["model"] == "openrouter/free"
 
 
-def test_cascading_openrouter_falha_sem_fallback_automatico() -> None:
+def test_cascading_openrouter_falha_sem_segundo_provedor() -> None:
     primary = CloudProvider(
         "https://openrouter.ai/api/v1",
         api_key="or",
         timeout=3,
         session=_Session(error=requests.ConnectionError("or-down")),
     )
-    fallback = CloudProvider(
-        "https://api.x.ai/v1",
-        api_key="xai",
-        timeout=3,
-        session=_Session(
-            _Response(200, {"choices": [{"message": {"content": "via-grok"}}]}),
-        ),
-    )
-    chain = CascadingCloudProvider(
-        primary,
-        primary_model="openrouter/free",
-        fallback=fallback,
-        fallback_model="grok-4.7",
-    )
-    with pytest.raises(ProviderError, match="não é chamada automaticamente"):
+    chain = CascadingCloudProvider(primary, primary_model="openrouter/free")
+    with pytest.raises(ProviderError, match="Nenhum segundo provedor"):
         chain.complete_with_meta("oi", system="sys")
-    assert fallback._session.posts == []
 
 
 def test_cascading_usa_openrouter_quando_ok() -> None:
@@ -470,54 +445,26 @@ def test_cascading_usa_openrouter_quando_ok() -> None:
             _Response(200, {"choices": [{"message": {"content": "via-or"}}]}),
         ),
     )
-    fallback = CloudProvider(
-        "https://api.x.ai/v1",
-        api_key="xai",
-        timeout=3,
-        session=_Session(),
-    )
-    chain = CascadingCloudProvider(
-        primary,
-        primary_model="openrouter/free",
-        fallback=fallback,
-        fallback_model="grok-4.7",
-    )
+    chain = CascadingCloudProvider(primary, primary_model="openrouter/free")
     result = chain.complete_with_meta("oi", system="sys")
     assert result.text == "via-or"
     assert result.via == "openrouter"
-    assert fallback._session.posts == []  # type: ignore[attr-defined]
 
 
-def test_cascading_sem_openrouter_nao_usa_grok_automaticamente() -> None:
+def test_cascading_sem_chave_recusa_nuvem() -> None:
     primary = CloudProvider("https://openrouter.ai/api/v1", api_key="", timeout=3)
-    fallback = CloudProvider(
-        "https://api.x.ai/v1",
-        api_key="xai",
-        timeout=3,
-        session=_Session(
-            _Response(200, {"choices": [{"message": {"content": "via-grok"}}]}),
-        ),
-    )
-    chain = CascadingCloudProvider(
-        primary,
-        primary_model="openrouter/free",
-        fallback=fallback,
-        fallback_model="grok-4.7",
-    )
+    chain = CascadingCloudProvider(primary, primary_model="openrouter/free")
     assert chain.has_credentials() is False
     with pytest.raises(ProviderError, match="YBY_CLOUD_API_KEY"):
         chain.complete_with_meta("oi", system="sys")
 
 
-def test_motor_com_openrouter_falho_nao_cai_no_grok() -> None:
+def test_motor_com_openrouter_falho_volta_ao_local() -> None:
     ollama = FakeOllama()
     primary = FakeCloud(api_key="or", error=ProviderError("HTTP 429"))
-    fallback = FakeCloud(text="via-grok", api_key="xai")
     chain = CascadingCloudProvider(
         primary,  # type: ignore[arg-type]
         primary_model="openrouter/free",
-        fallback=fallback,  # type: ignore[arg-type]
-        fallback_model="grok-4.7",
     )
     reply = HybridEngine(
         _config(),
@@ -529,5 +476,4 @@ def test_motor_com_openrouter_falho_nao_cai_no_grok() -> None:
     assert reply.provider == "local"
     assert reply.text == "resposta-local"
     assert reply.notice is not None
-    assert "não é chamada automaticamente" in reply.notice
-    assert fallback.calls == []
+    assert "Nenhum segundo provedor" in reply.notice or "falhou" in reply.notice
