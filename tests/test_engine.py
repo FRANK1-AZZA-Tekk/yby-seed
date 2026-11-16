@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 import requests
 
+from src.engine.budget import CloudBudget
 from src.engine.cache import ResponseCache
 from src.engine.config import (
     DEFAULT_CLOUD_BASE_URL,
@@ -22,6 +23,12 @@ from src.engine.providers import (
     ProviderUnreachable,
 )
 from src.engine.routing import DEFAULT_HEAVY_PHRASES, decide_route
+
+
+def _budget_ask() -> CloudBudget:
+    return CloudBudget.from_env(
+        {"YBY_CLOUD_MODE": "ask", "YBY_CLOUD_REQUIRE_CONFIRM": "0"}
+    )
 
 
 def _config(
@@ -236,7 +243,9 @@ def test_from_env_rejeita_limiar_invalido() -> None:
 def test_resposta_curta_usa_ollama_e_nao_chama_nuvem() -> None:
     ollama = FakeOllama()
     cloud = FakeCloud()
-    reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0)).reply(
+    reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0),
+        budget=_budget_ask()
+    ).reply(
         "explica uma lista"
     )
 
@@ -251,7 +260,9 @@ def test_resposta_curta_usa_ollama_e_nao_chama_nuvem() -> None:
 def test_ollama_fora_cai_na_nuvem() -> None:
     ollama = FakeOllama(error=ProviderUnreachable("conexão recusada"))
     cloud = FakeCloud()
-    reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0)).reply("oi")
+    reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0),
+        budget=_budget_ask()
+    ).reply("oi")
 
     assert reply.provider == "cloud"
     assert reply.model == "openrouter/free"
@@ -265,7 +276,8 @@ def test_ollama_fora_sem_chave_explica_o_bloqueio() -> None:
     ollama = FakeOllama(error=ProviderUnreachable("conexão recusada"))
     cloud = FakeCloud(api_key="")
     reply = HybridEngine(
-        _config(cloud_api_key=""), ollama, cloud, cache=ResponseCache(ttl_seconds=0)
+        _config(cloud_api_key=""), ollama, cloud, cache=ResponseCache(ttl_seconds=0),
+        budget=_budget_ask()
     ).reply("oi")
 
     assert reply.provider == "none"
@@ -279,7 +291,8 @@ def test_heavy_sem_chave_degrada_para_o_local() -> None:
     ollama = FakeOllama()
     cloud = FakeCloud(api_key="")
     reply = HybridEngine(
-        _config(cloud_api_key=""), ollama, cloud, cache=ResponseCache(ttl_seconds=0)
+        _config(cloud_api_key=""), ollama, cloud, cache=ResponseCache(ttl_seconds=0),
+        budget=_budget_ask()
     ).reply("oi", explicit_heavy=True)
 
     assert reply.provider == "local"
@@ -294,7 +307,8 @@ def test_heavy_sem_chave_e_sem_ollama() -> None:
     ollama = FakeOllama(error=ProviderUnreachable("down"))
     cloud = FakeCloud(api_key="")
     reply = HybridEngine(
-        _config(cloud_api_key=""), ollama, cloud, cache=ResponseCache(ttl_seconds=0)
+        _config(cloud_api_key=""), ollama, cloud, cache=ResponseCache(ttl_seconds=0),
+        budget=_budget_ask()
     ).reply(
         "pensa mais",
         explicit_heavy=True,
@@ -309,7 +323,9 @@ def test_heavy_sem_chave_e_sem_ollama() -> None:
 def test_heavy_com_chave_nao_chama_ollama() -> None:
     ollama = FakeOllama()
     cloud = FakeCloud()
-    reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0)).reply(
+    reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0),
+        budget=_budget_ask()
+    ).reply(
         "pensa mais sobre isso"
     )
 
@@ -322,7 +338,9 @@ def test_heavy_com_chave_nao_chama_ollama() -> None:
 def test_nuvem_fora_volta_ao_local() -> None:
     ollama = FakeOllama()
     cloud = FakeCloud(error=ProviderError("HTTP 503"))
-    reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0)).reply(
+    reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0),
+        budget=_budget_ask()
+    ).reply(
         "a" * 1200
     )
 
@@ -340,6 +358,7 @@ def test_contexto_e_truncado_antes_da_nuvem() -> None:
         ollama,
         cloud,
         cache=ResponseCache(ttl_seconds=0),
+        budget=_budget_ask()
     ).reply(prompt)
 
     assert reply.provider == "cloud"
@@ -472,6 +491,7 @@ def test_motor_com_openrouter_falho_volta_ao_local() -> None:
         chain,
         cloud_chain=chain,
         cache=ResponseCache(ttl_seconds=0),
+        budget=_budget_ask()
     ).reply("pensa mais")
     assert reply.provider == "local"
     assert reply.text == "resposta-local"

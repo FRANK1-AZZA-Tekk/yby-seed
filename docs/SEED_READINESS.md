@@ -2,7 +2,7 @@
 
 Auditoria factual do núcleo ativo. **Não** declara o SEED “pronto para produção”.
 
-Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **279 passed, 14 skipped**; smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch auditada: commits lotes 13–17 + este doc.
+Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **282 passed, 14 skipped** (pós consentimento default-off); smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–17 + 28 + Grok off + cloud default-off.
 
 ## Vocabulário
 
@@ -49,7 +49,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 ## Lacunas críticas (antes de ser “cérebro” do ecossistema)
 
 1. **Sem sandbox OS** — código/plano gerado não pode ser auto-executado com segurança.
-2. **Consentimento de nuvem** default ainda `ask` (não `local_only`); library `confirm_fn=None` auto-aprova.
+2. ~~**Consentimento de nuvem** default-off~~ — `YBY_CLOUD_MODE` padrão `local_only` + enum estrito; library `confirm_fn=None` ainda auto-aprova quando mode=`ask`.
 3. ~~**Grok** wiring morto~~ — **removido** (lote Grok off): destino único `YBY_CLOUD_*`.
 4. **Backup vault** e checklist Fase P Fase 5 vazios.
 5. **Observabilidade CLI** ausente (JSONL existe; sem `yby usage`).
@@ -68,7 +68,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 ## Próximos portões (ordem sugerida)
 
 1. ~~**Grok off**~~ — feito.
-2. **Consentimento nuvem default-off** ou validação estrita de `YBY_CLOUD_MODE`.
+2. ~~**Consentimento nuvem default-off**~~ — feito (`local_only` + validação).
 3. **Backup local** vault+logs redigidos + restore test (Fase P / lote 23).
 4. **Obs CLI** sobre `cloud_usage_log` (lote 22).
 5. **Sandbox / bloquear** execução ampliada (lotes 24 + 17 já bloqueiam gerado).

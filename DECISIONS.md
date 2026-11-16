@@ -72,7 +72,7 @@ Allowlist em [config/safety-allowlist.txt](config/safety-allowlist.txt). Classif
 
 **Limitações / riscos residuais:** `[read]` não sandboxa paths (`cat .env` pode ser `run`); variáveis `GIT_*`/hooks por ambiente não inspecionadas; unificação argv/cwd não é prova formal; sem isolamento de OS para código gerado.
 
-**Próximos passos (outro lote — não implementar aqui):** consentimento de nuvem bloqueado por padrão; semântica `local_only` e validação de config; proteção de segredos em JSON e `Authorization: Bearer`; reindexação consistente do vault; verificação independente do sucesso do agente; isolamento pelo SO antes de ampliar execução de código gerado.
+**Próximos passos (outro lote — não implementar aqui):** ~~consentimento de nuvem bloqueado por padrão / `local_only` + validação~~ (feito em `src/engine/budget.py`); proteção de segredos em JSON e `Authorization: Bearer`; reindexação consistente do vault; verificação independente do sucesso do agente; isolamento pelo SO antes de ampliar execução de código gerado.
 
 O CLI é `python yby.py run "..."` / `gate` (só decide).
 

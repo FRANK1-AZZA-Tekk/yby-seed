@@ -4,13 +4,36 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from src.engine.budget import (
     CODE_BLOCKED_BUDGET,
     CODE_BLOCKED_LOCAL_ONLY,
     CODE_BLOCKED_NO_TTY,
+    DEFAULT_CLOUD_MODE,
     CloudBudget,
+    CloudBudgetError,
 )
 from src.engine.cloud_usage_log import EVENT_COMPLETED, utc_timestamp
+
+
+def test_default_cloud_mode_is_local_only() -> None:
+    assert DEFAULT_CLOUD_MODE == "local_only"
+    budget = CloudBudget.from_env({})
+    assert budget.cloud_mode == "local_only"
+    out = budget.evaluate(requires_confirmation=False, has_tty=True)
+    assert out.allowed is False
+    assert out.code == CODE_BLOCKED_LOCAL_ONLY
+
+
+def test_invalid_cloud_mode_raises() -> None:
+    with pytest.raises(CloudBudgetError, match="YBY_CLOUD_MODE inválido"):
+        CloudBudget.from_env({"YBY_CLOUD_MODE": "always"})
+
+
+def test_blank_cloud_mode_falls_back_to_default() -> None:
+    budget = CloudBudget.from_env({"YBY_CLOUD_MODE": "  "})
+    assert budget.cloud_mode == "local_only"
 
 
 def test_local_only_bloqueia() -> None:

@@ -15,6 +15,14 @@ CODE_BLOCKED_LOCAL_ONLY = "blocked_local_only"
 CODE_BLOCKED_NO_TTY = "blocked_no_tty"
 CODE_BLOCKED_BUDGET = "blocked_budget"
 
+# local_only = nuvem off (padrão). ask = nuvem com confirmação CLI.
+CLOUD_MODES = frozenset({"local_only", "ask"})
+DEFAULT_CLOUD_MODE = "local_only"
+
+
+class CloudBudgetError(ValueError):
+    """YBY_CLOUD_MODE ou política de orçamento inválida."""
+
 
 @dataclass(frozen=True)
 class BudgetEvaluation:
@@ -44,7 +52,7 @@ class CloudBudget:
         require_confirm: bool,
         allow_no_tty: bool,
     ) -> None:
-        self.cloud_mode = cloud_mode.strip().casefold() or "ask"
+        self.cloud_mode = _normalize_cloud_mode(cloud_mode)
         self.log_path = log_path
         self.monthly_token_limit = monthly_token_limit
         self.warn_token_limit = warn_token_limit
@@ -58,7 +66,7 @@ class CloudBudget:
             source.get("YBY_CLOUD_LOG_PATH", DEFAULT_LOG_PATH).strip() or DEFAULT_LOG_PATH
         )
         return cls(
-            cloud_mode=source.get("YBY_CLOUD_MODE", "ask"),
+            cloud_mode=source.get("YBY_CLOUD_MODE", DEFAULT_CLOUD_MODE),
             log_path=log_path,
             monthly_token_limit=_int(source, "YBY_CLOUD_MONTHLY_TOKEN_LIMIT", 200_000),
             warn_token_limit=_int(source, "YBY_CLOUD_WARN_TOKEN_LIMIT", 150_000),
@@ -162,6 +170,16 @@ def _row_tokens(row: dict) -> int:
         if isinstance(value, int):
             total += value
     return total
+
+
+def _normalize_cloud_mode(raw: str) -> str:
+    mode = (raw or "").strip().casefold() or DEFAULT_CLOUD_MODE
+    if mode not in CLOUD_MODES:
+        allowed = ", ".join(sorted(CLOUD_MODES))
+        raise CloudBudgetError(
+            f"YBY_CLOUD_MODE inválido: {raw!r}. Use um de: {allowed}."
+        )
+    return mode
 
 
 def _int(source: dict[str, str], name: str, default: int) -> int:

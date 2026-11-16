@@ -4,10 +4,18 @@ from __future__ import annotations
 
 import time
 
+from src.engine.budget import CloudBudget
 from src.engine.cache import ResponseCache
 from src.engine.context import trim_context
 from src.engine.hybrid import HybridEngine
 from tests.test_engine import FakeCloud, FakeOllama, _config
+
+
+
+def _budget_ask() -> CloudBudget:
+    return CloudBudget.from_env(
+        {"YBY_CLOUD_MODE": "ask", "YBY_CLOUD_REQUIRE_CONFIRM": "0"}
+    )
 
 
 def test_trim_context_nao_corta_texto_curto() -> None:
@@ -48,7 +56,7 @@ def test_motor_usa_cache_na_nuvem() -> None:
     cache = ResponseCache(ttl_seconds=60)
     ollama = FakeOllama()
     cloud = FakeCloud(text="primeira")
-    engine = HybridEngine(_config(), ollama, cloud, cache=cache)
+    engine = HybridEngine(_config(), ollama, cloud, cache=cache, budget=_budget_ask())
 
     first = engine.reply("pensa mais sobre cache")
     assert first.text == "primeira"

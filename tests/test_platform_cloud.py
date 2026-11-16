@@ -7,12 +7,20 @@ import time
 import pytest
 import requests
 
+from src.engine.budget import CloudBudget
 from src.engine.cache import ResponseCache
 from src.engine.config import DEFAULT_CLOUD_MODEL, EngineConfig
 from src.engine.context import trim_context
 from src.engine.hybrid import HybridEngine
 from src.engine.providers import CascadingCloudProvider, CloudProvider, ProviderError
 from src.engine.routing import DEFAULT_HEAVY_PHRASES
+
+
+
+def _budget_ask() -> CloudBudget:
+    return CloudBudget.from_env(
+        {"YBY_CLOUD_MODE": "ask", "YBY_CLOUD_REQUIRE_CONFIRM": "0"}
+    )
 
 
 def _config(**overrides: object) -> EngineConfig:
@@ -167,6 +175,7 @@ def test_motor_usa_cache_na_segunda_chamada_nuvem() -> None:
         chain,
         cloud_chain=chain,
         cache=ResponseCache(ttl_seconds=60.0),
+        budget=_budget_ask()
     )
     first = engine.reply("pensa mais sobre listas")
     second = engine.reply("pensa mais sobre listas")
@@ -191,6 +200,7 @@ def test_contexto_truncado_antes_da_nuvem() -> None:
         chain,
         cloud_chain=chain,
         cache=ResponseCache(ttl_seconds=0),
+        budget=_budget_ask()
     )
     reply = engine.reply(long_prompt)
     assert reply.provider == "cloud"

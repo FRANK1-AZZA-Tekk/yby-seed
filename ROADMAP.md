@@ -159,7 +159,7 @@ Um lote por ciclo. Núcleo novo fino (`src/conversation/` etc.); **não** expand
 | 26 Qualidade contínua | Fila | Falhas confirmadas + docs | Feature nova |
 | 27 Contratos dispositivos | Fila | Schemas versionados + fakes | Firmware / acoplar celular-relógio |
 
-Backlog de segurança/nuvem legado (ainda válido como itens, fora da numeração 13–27): consentimento de nuvem default-off; `local_only`; segredos em JSON/`Authorization`; reindex vault; verificação de sucesso do agente; isolamento SO antes de ampliar código gerado.
+Backlog de segurança/nuvem legado (ainda válido como itens, fora da numeração 13–27): ~~consentimento de nuvem default-off / `local_only`~~ (feito); segredos em JSON/`Authorization`; reindex vault; verificação de sucesso do agente; isolamento SO antes de ampliar código gerado.
 
 ### P0 — essencial para o próximo MVP agente
 
