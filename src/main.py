@@ -19,6 +19,7 @@ Comandos:
     note    - Grava nota no vault
     recall  - Busca no vault
     backup  - Backup local do vault + logs redigidos (sem nuvem)
+    usage   - Resumo/tail do cloud_usage.jsonl + orçamento mensal
     brief   - Entrevista YBY-BRIEF (sem gerar código/plano)
     plan    - Plano verificável a partir de brief (não executa)
     scaffold - Propõe/aplica artefatos Python CLI (sem install)
@@ -69,11 +70,19 @@ from src.conversation.explain import (
     format_vague_ask,
     is_vague_request,
 )
+from src.engine.budget import CloudBudget, CloudBudgetError
 from src.engine.cloud_usage_log import CloudUsageLog
 from src.engine.config import EngineConfig
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.engine.providers import OllamaProvider
 from src.memory.vault import VaultError, vault_from_env
+from src.obs.usage import (
+    UsageError,
+    format_events,
+    format_summary,
+    read_events,
+    summarize,
+)
 from src.plan.builder import PlanError, build_plan_from_brief, revise_plan
 from src.plan.schemas import PlanStep
 from src.plan.store import load_or_create_plan_store
@@ -807,6 +816,58 @@ def backup_restore(archive: Path, target: Path, force: bool) -> None:
         )
         raise SystemExit(1) from exc
     click.echo(restored)
+
+
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def usage(ctx: click.Context) -> None:
+    """Resumo do cloud_usage.jsonl e orçamento mensal (local; sem Datadog)."""
+
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(usage_summary)
+
+
+@usage.command("summary")
+def usage_summary() -> None:
+    """Mostra modo, tokens do mês UTC e contagem por resultado."""
+
+    load_dotenv(override=False)
+    try:
+        log = CloudUsageLog.from_env()
+        budget = CloudBudget.from_env()
+        report = summarize(log_path=log.path, budget=budget)
+    except (UsageError, CloudBudgetError) as exc:
+        click.echo(
+            format_cli_error(
+                kind="usage",
+                detail=str(exc),
+                next_step="confira YBY_CLOUD_LOG_PATH / YBY_CLOUD_MODE",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    click.echo(format_summary(report))
+
+
+@usage.command("tail")
+@click.option(
+    "--limit",
+    default=20,
+    show_default=True,
+    type=click.IntRange(1, 500),
+    help="Quantos eventos mais recentes mostrar.",
+)
+def usage_tail(limit: int) -> None:
+    """Lista os últimos eventos do JSONL (metadados apenas)."""
+
+    load_dotenv(override=False)
+    try:
+        log = CloudUsageLog.from_env()
+        events = read_events(log.path)
+        click.echo(format_events(events, limit=limit))
+    except UsageError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
 
 
 @cli.command("agent")

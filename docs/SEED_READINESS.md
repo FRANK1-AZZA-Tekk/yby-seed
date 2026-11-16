@@ -2,7 +2,7 @@
 
 Auditoria factual do núcleo ativo. **Não** declara o SEED “pronto para produção”.
 
-Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **286 passed, 14 skipped**; smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–17 + 28 + Grok off + cloud default-off + backup 23.
+Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **288 passed, 14 skipped**; smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–17 + 28 + Grok off + cloud default-off + backup 23 + usage 22.
 
 ## Vocabulário
 
@@ -46,6 +46,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 - Voz opcional; hub keepalive.
 - Criação: `brief` → `plan` → `scaffold` → `validate`/`apply`/`revert`.
 - Backup local: `yby backup create/list/restore` (vault + logs redigidos; restore em pasta alvo).
+- Obs local: `yby usage` / `usage tail` (JSONL + teto mensal; sem Datadog).
 
 ## Lacunas críticas (antes de ser “cérebro” do ecossistema)
 
@@ -53,7 +54,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 2. ~~**Consentimento de nuvem** default-off~~ — `YBY_CLOUD_MODE` padrão `local_only` + enum estrito; library `confirm_fn=None` ainda auto-aprova quando mode=`ask`.
 3. ~~**Grok** wiring morto~~ — **removido** (lote Grok off): destino único `YBY_CLOUD_*`.
 4. ~~**Backup vault**~~ — `yby backup` local (tar.gz + retenção); checklist Fase P Fase 5 ainda exige exercício no hub real.
-5. **Observabilidade CLI** ausente (JSONL existe; sem `yby usage`).
+5. ~~**Observabilidade CLI**~~ — `yby usage` / `usage tail` sobre JSONL local (sem Datadog).
 6. **Memória**: sem FTS, sem prefs/consentimento, sem reindex CLI; `ask` não grava nota.
 7. **ask ↛ brief** — fluxo de criação é manual, não conversacional contínuo.
 8. **Legado** `agents/`/`rag/`/`gateway/` ainda no disco — risco de confundir com o caminho ativo.
@@ -71,7 +72,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 1. ~~**Grok off**~~ — feito.
 2. ~~**Consentimento nuvem default-off**~~ — feito (`local_only` + validação).
 3. ~~**Backup local**~~ — feito (`yby backup`; restore em pasta alvo).
-4. **Obs CLI** sobre `cloud_usage_log` (lote 22).
+4. ~~**Obs CLI**~~ — feito (`yby usage`).
 5. **Sandbox / bloquear** execução ampliada (lotes 24 + 17 já bloqueiam gerado).
 6. Só então contratos de dispositivos / wearable (lote 27) e integração Cursor real (18+).
 

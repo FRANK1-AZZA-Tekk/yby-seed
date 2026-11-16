@@ -26,6 +26,7 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 | `python yby.py note "título" texto da nota...` | grava no vault |
 | `python yby.py recall "consulta"` | busca no vault |
 | `python yby.py backup create/list/restore …` | tar.gz local do vault + logs redigidos (sem nuvem; restore em pasta alvo) |
+| `python yby.py usage` / `usage tail` | resumo do `cloud_usage.jsonl` + orçamento mensal (local) |
 | `python yby.py brief start "ideia"` | inicia YBY-BRIEF (entrevista; sem código) |
 | `python yby.py brief answer <id> <campo> ...` | preenche campo / retoma |
 | `python yby.py brief show <id> [--cloud-safe]` | mostra brief |
@@ -78,6 +79,7 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 | Execução após a porta | `src/actions/` |
 | Notas / recall | `src/memory/` |
 | Backup local vault+logs | `src/backup/` |
+| Observabilidade usage CLI | `src/obs/` |
 | Código gerado perigoso | `src/security/ast_guard.py` |
 | CLI | `src/main.py`, `yby.py` |
 | Testes | `tests/` |
