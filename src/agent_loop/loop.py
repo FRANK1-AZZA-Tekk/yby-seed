@@ -31,6 +31,7 @@ class AgentRunResult:
     steps: list[StepRecord] = field(default_factory=list)
     final_answer: dict[str, Any] | None = None
     abort_reason: str | None = None
+    tools_used: list[str] = field(default_factory=list)
 
     @property
     def iterations(self) -> int:
@@ -44,12 +45,16 @@ class ControlledAgentLoop:
         registry: ToolRegistry,
         planner: Planner,
         max_iterations: int = 8,
+        max_tool_calls: int | None = None,
     ) -> None:
         if max_iterations < 1:
             raise ValueError("max_iterations deve ser >= 1")
+        if max_tool_calls is not None and max_tool_calls < 0:
+            raise ValueError("max_tool_calls deve ser >= 0")
         self.registry = registry
         self.planner = planner
         self.max_iterations = max_iterations
+        self.max_tool_calls = max_tool_calls
 
     def run(self, task: str) -> AgentRunResult:
         task = task.strip()
@@ -61,6 +66,7 @@ class ControlledAgentLoop:
             )
 
         history: list[dict[str, object]] = []
+        tools_used: list[str] = []
         tools_blurb = self.registry.describe_for_prompt()
 
         for i in range(1, self.max_iterations + 1):
@@ -81,6 +87,7 @@ class ControlledAgentLoop:
                     task=task,
                     steps=_history_to_records(history)
                     + [StepRecord(i, "planner_error", {}, err)],
+                    tools_used=list(tools_used),
                 )
 
             if isinstance(step, AbortStep):
@@ -90,6 +97,7 @@ class ControlledAgentLoop:
                     task=task,
                     steps=_history_to_records(history),
                     abort_reason=step.reason,
+                    tools_used=list(tools_used),
                 )
 
             if isinstance(step, FinishStep):
@@ -99,9 +107,29 @@ class ControlledAgentLoop:
                     task=task,
                     steps=_history_to_records(history),
                     final_answer=step.answer,
+                    tools_used=list(tools_used),
                 )
 
             if isinstance(step, ToolCallStep):
+                if (
+                    self.max_tool_calls is not None
+                    and len(tools_used) >= self.max_tool_calls
+                ):
+                    return AgentRunResult(
+                        status="error",
+                        task=task,
+                        steps=_history_to_records(history)
+                        + [
+                            StepRecord(
+                                i,
+                                "tool_limit",
+                                {"name": step.name},
+                                f"limite de {self.max_tool_calls} tool calls",
+                            )
+                        ],
+                        abort_reason=f"limite de {self.max_tool_calls} tool calls",
+                        tools_used=list(tools_used),
+                    )
                 record: dict[str, object] = {
                     "action": "tool",
                     "name": step.name,
@@ -110,6 +138,7 @@ class ControlledAgentLoop:
                 try:
                     result = self.registry.run(step.name, step.arguments)
                     record["result"] = result
+                    tools_used.append(step.name)
                 except (KeyError, ValueError) as exc:
                     record["error"] = str(exc)
                     history.append(record)
@@ -117,6 +146,7 @@ class ControlledAgentLoop:
                         status="error",
                         task=task,
                         steps=_history_to_records(history),
+                        tools_used=list(tools_used),
                     )
                 history.append(record)
                 continue
@@ -126,6 +156,7 @@ class ControlledAgentLoop:
             task=task,
             steps=_history_to_records(history),
             abort_reason=f"limite de {self.max_iterations} iterações",
+            tools_used=list(tools_used),
         )
 
 
