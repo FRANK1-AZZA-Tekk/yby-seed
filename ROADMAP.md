@@ -149,7 +149,7 @@ Um lote por ciclo. Núcleo novo fino (`src/conversation/` etc.); **não** expand
 | **17** Validador | **Feito** (`scaffold validate` / `test-generated` bloqueado; `src/artifacts/validate.py`) | sintaxe + testes obrigatórios; sem sandbox OS → execução gerada bloqueada | `eval` / auto-pytest |
 | **28** Revisão final SEED | **Feito** (auditoria; docs; sem feature) | Separar pronto/testado/validado; limitações reais | “Pronto para produção” sem evidência |
 | **18** Cursor fake | **Feito** (`yby cursor-fake simulate`; `src/cursor_fake/`) | Adaptador + plano `validated` (dry-run) | MCP real |
-| 19 Aprendizado diário | Fila | JSONL + relatório | Auto-merge |
+| **19** Aprendizado diário | **Feito** (`yby learn log/report`; `src/learn/`) | JSONL + relatório diário UTC | Auto-merge |
 | 20 Memória segura | Fila | Preferências com consentimento no vault | Vector DB novo |
 | 21 Pesquisa consentida | Fila | Gate consent + HTTP fake | Busca real |
 | **22** Observabilidade CLI | **Feito** (`yby usage` / `usage tail`; `src/obs/`) | CLI sobre `cloud_usage_log` + orçamento mensal | Datadog |

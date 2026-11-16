@@ -20,6 +20,7 @@ Comandos:
     recall  - Busca no vault
     backup  - Backup local do vault + logs redigidos (sem nuvem)
     usage   - Resumo/tail do cloud_usage.jsonl + orçamento mensal
+    learn   - Aprendizado diário (JSONL + relatório; sem auto-merge)
     brief   - Entrevista YBY-BRIEF (sem gerar código/plano)
     plan    - Plano verificável a partir de brief (não executa)
     cursor-fake - Dry-run de plano validated (sem MCP / sem escrita)
@@ -74,11 +75,7 @@ from src.conversation.explain import (
 )
 from src.cursor_fake.adapter import (
     CursorFakeError,
-)
-from src.cursor_fake.adapter import (
     format_report as format_cursor_fake_report,
-)
-from src.cursor_fake.adapter import (
     simulate as cursor_fake_simulate,
 )
 from src.engine.budget import CloudBudget, CloudBudgetError
@@ -86,6 +83,14 @@ from src.engine.cloud_usage_log import CloudUsageLog
 from src.engine.config import EngineConfig
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.engine.providers import OllamaProvider
+from src.learn.daily import (
+    LEARN_KINDS,
+    LearnError,
+    append_entry,
+    format_report as format_learn_report,
+    learn_log_path_from_env,
+    report_for_day,
+)
 from src.memory.vault import VaultError, vault_from_env
 from src.obs.usage import (
     UsageError,
@@ -953,6 +958,105 @@ def usage_tail(limit: int) -> None:
     except UsageError as exc:
         click.echo(str(exc), err=True)
         raise SystemExit(1) from exc
+
+
+@cli.group()
+def learn() -> None:
+    """Aprendizado diário (JSONL + relatório). Sem auto-merge em docs."""
+
+
+@learn.command("log")
+@click.argument("kind")
+@click.argument("summary", nargs=-1, required=True)
+@click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help="Tag opcional (repetível).",
+)
+@click.option(
+    "--log-path",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="JSONL (padrão: YBY_LEARN_LOG_PATH ou logs/learn.jsonl).",
+)
+def learn_log(kind: str, summary: tuple[str, ...], tags: tuple[str, ...], log_path: Path | None) -> None:
+    """Registra um aprendizado (success|failure|note|insight)."""
+
+    load_dotenv(override=False)
+    try:
+        path = log_path or learn_log_path_from_env()
+        entry = append_entry(
+            kind=kind,
+            summary=" ".join(summary).strip(),
+            log_path=path,
+            tags=list(tags),
+        )
+    except LearnError as exc:
+        click.echo(
+            format_cli_error(
+                kind="learn",
+                detail=str(exc),
+                next_step=f"use kind em {{{', '.join(sorted(LEARN_KINDS))}}} sem segredos",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    click.echo(f"{entry.day}\t{entry.kind}\t{entry.summary}")
+
+
+@learn.command("report")
+@click.option(
+    "--day",
+    default=None,
+    help="Dia UTC YYYY-MM-DD (padrão: hoje).",
+)
+@click.option(
+    "--log-path",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="JSONL (padrão: YBY_LEARN_LOG_PATH ou logs/learn.jsonl).",
+)
+@click.option("--json", "as_json", is_flag=True, help="Saída estruturada em JSON.")
+def learn_report(day: str | None, log_path: Path | None, as_json: bool) -> None:
+    """Mostra relatório do dia. Não grava em docs/LEARNING.md."""
+
+    load_dotenv(override=False)
+    try:
+        path = log_path or learn_log_path_from_env()
+        report = report_for_day(log_path=path, day=day)
+    except LearnError as exc:
+        click.echo(
+            format_cli_error(
+                kind="learn",
+                detail=str(exc),
+                next_step="use --day YYYY-MM-DD e confira YBY_LEARN_LOG_PATH",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    if as_json:
+        payload = {
+            "day": report.day,
+            "log_path": str(report.log_path),
+            "total": report.total,
+            "by_kind": report.by_kind,
+            "note": report.note,
+            "entries": [
+                {
+                    "timestamp": e.timestamp,
+                    "day": e.day,
+                    "kind": e.kind,
+                    "summary": e.summary,
+                    "source": e.source,
+                    "tags": list(e.tags),
+                }
+                for e in report.entries
+            ],
+        }
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        click.echo(format_learn_report(report))
 
 
 @cli.command("agent")
