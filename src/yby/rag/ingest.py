@@ -1,132 +1,194 @@
-"""Ingestão de documentos no índice vetorial Chroma (LlamaIndex + Ollama)."""
+"""Ingestão de documentos no Chroma (LlamaIndex + Ollama)."""
 
 from __future__ import annotations
 
-import hashlib
 import json
-import os
-import re
+import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
-from llama_index.core import Document, Settings, StorageContext, VectorStoreIndex
+from llama_index.core import StorageContext, VectorStoreIndex
 from llama_index.core.embeddings import BaseEmbedding
-from llama_index.core.node_parser import SentenceSplitter
-from llama_index.core.schema import BaseNode
-from llama_index.embeddings.ollama import OllamaEmbedding
-from llama_index.readers.file import PDFReader
 from llama_index.vector_stores.chroma import ChromaVectorStore
 
 import chromadb
 
-DocType = Literal["md", "txt", "pdf"]
+from src.yby.rag.chunking import attach_chunk_positions, build_nodes
+from src.yby.rag.config import RagConfig
+from src.yby.rag.embedder import create_embedder
+from src.yby.rag.errors import IngestionError, UnsupportedDocumentError
+from src.yby.rag.loaders import (
+    SUPPORTED_SUFFIXES,
+    assert_knowledge_path,
+    load_document,
+    metadata_from_text as _metadata_from_text,
+    sha256_file,
+    tags_to_chroma as _tags_to_chroma,
+)
+from src.yby.rag.models import IngestionResult
 
+logger = logging.getLogger("yby.rag.ingest")
+
+MANIFEST_FILENAME = "ingest_manifest.json"
+
+# Reexports de compatibilidade (T3+ e testes legados).
 CHUNK_SIZE_TOKENS = 800
-CHUNK_OVERLAP_TOKENS = int(CHUNK_SIZE_TOKENS * 0.15)
+CHUNK_OVERLAP_TOKENS = 120
 DEFAULT_EMBED_MODEL = "nomic-embed-text"
 DEFAULT_CHROMA_DIR = Path("data/chroma")
-DEFAULT_COLLECTION_NAME = "yby_knowledge_v1"
-MANIFEST_FILENAME = "ingest_manifest.json"
+DEFAULT_COLLECTION_NAME = "yby_knowledge"
 DEFAULT_ACCESS_LEVEL = "private"
-SUPPORTED_SUFFIXES = frozenset({".md", ".txt", ".pdf"})
-
-_FRONTMATTER = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
-_TITLE_MD = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
 class IngestResult:
+    """Compatível com testes anteriores (`content_sha256` = `content_hash`)."""
+
     source: str
     skipped: bool
     chunks_indexed: int
     content_sha256: str
 
+    def to_model(self) -> IngestionResult:
+        return IngestionResult(
+            source=self.source,
+            skipped=self.skipped,
+            chunks_indexed=self.chunks_indexed,
+            content_hash=self.content_sha256,
+        )
+
+
+@dataclass(frozen=True)
+class IngestBatchSummary:
+    indexed: int
+    skipped: int
+    failed: int
+    results: list[IngestResult]
+
 
 @dataclass
 class _ManifestEntry:
-    content_sha256: str
+    content_hash: str
     updated_at: str
 
     def to_json(self) -> dict[str, str]:
-        return {
-            "content_sha256": self.content_sha256,
-            "updated_at": self.updated_at,
-        }
+        return {"content_hash": self.content_hash, "updated_at": self.updated_at}
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> _ManifestEntry:
-        return cls(
-            content_sha256=str(data["content_sha256"]),
-            updated_at=str(data["updated_at"]),
-        )
+        digest = str(data.get("content_hash") or data.get("content_sha256", ""))
+        return cls(content_hash=digest, updated_at=str(data["updated_at"]))
 
 
 class RagIngestor:
-    """Indexa arquivos .md / .txt / .pdf em Chroma persistente."""
+    """Indexa arquivos em data/knowledge somente."""
 
     def __init__(
         self,
+        config: RagConfig | None = None,
         *,
         chroma_dir: Path | None = None,
-        collection_name: str = DEFAULT_COLLECTION_NAME,
+        knowledge_dir: Path | None = None,
+        collection_name: str | None = None,
         embed_model: BaseEmbedding | None = None,
-        ollama_base_url: str | None = None,
-        embed_model_name: str = DEFAULT_EMBED_MODEL,
-        access_level: str = DEFAULT_ACCESS_LEVEL,
+        default_tags: list[str] | None = None,
         tags: list[str] | None = None,
     ) -> None:
-        self.chroma_dir = (chroma_dir or DEFAULT_CHROMA_DIR).resolve()
-        self.chroma_dir.mkdir(parents=True, exist_ok=True)
-        self.collection_name = collection_name
-        self.access_level = access_level
-        self.tags = tags or []
+        if config is None:
+            base = RagConfig.default()
+            if chroma_dir is not None:
+                chroma_path = Path(chroma_dir).resolve()
+                knowledge_path = Path(knowledge_dir or chroma_path.parent).resolve()
+                knowledge_path.mkdir(parents=True, exist_ok=True)
+                config = RagConfig(
+                    knowledge_dir=knowledge_path,
+                    chroma_dir=chroma_path,
+                    collection_name=collection_name or base.collection_name,
+                    embed_model=base.embed_model,
+                    ollama_base_url=base.ollama_base_url,
+                    chunk_size_tokens=base.chunk_size_tokens,
+                    chunk_overlap_tokens=base.chunk_overlap_tokens,
+                    default_top_k=base.default_top_k,
+                    max_results=base.max_results,
+                    timeout_seconds=base.timeout_seconds,
+                    max_file_bytes=base.max_file_bytes,
+                    max_files_per_run=base.max_files_per_run,
+                    default_access_level=base.default_access_level,
+                )
+            else:
+                config = base
+        self.config = config
+        self.config.ensure_data_dirs()
+        self.default_tags = default_tags or tags or []
+        self._embed_model = create_embedder(self.config, override=embed_model)
 
-        base_url = ollama_base_url or os.getenv("YBY_OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-        self._embed_model = embed_model or OllamaEmbedding(
-            model_name=embed_model_name,
-            base_url=base_url,
-        )
-        Settings.embed_model = self._embed_model
+        self._client = chromadb.PersistentClient(path=str(self.config.chroma_dir))
+        self._chroma_collection = self._client.get_or_create_collection(self.config.collection_name)
+        vector_store = ChromaVectorStore(chroma_collection=self._chroma_collection)
+        self._storage = StorageContext.from_defaults(vector_store=vector_store)
+        self._vector_store = vector_store
 
-        self._client = chromadb.PersistentClient(path=str(self.chroma_dir))
-        self._collection = self._client.get_or_create_collection(self.collection_name)
-        self._vector_store = ChromaVectorStore(chroma_collection=self._collection)
-        self._storage_context = StorageContext.from_defaults(vector_store=self._vector_store)
-        self._splitter = SentenceSplitter(
-            chunk_size=CHUNK_SIZE_TOKENS,
-            chunk_overlap=CHUNK_OVERLAP_TOKENS,
-        )
-        self._pdf_reader = PDFReader()
+    @property
+    def chroma_dir(self) -> Path:
+        return self.config.chroma_dir
 
     @property
     def manifest_path(self) -> Path:
-        return self.chroma_dir / MANIFEST_FILENAME
+        return self.config.chroma_dir / MANIFEST_FILENAME
 
-    def ingest_paths(self, paths: list[Path | str], *, force: bool = False) -> list[IngestResult]:
+    @property
+    def _collection(self) -> Any:
+        return self._chroma_collection
+
+    def ingest_paths(
+        self,
+        paths: list[Path | str] | None = None,
+        *,
+        force: bool = False,
+    ) -> IngestBatchSummary:
+        targets = self._collect_files(paths)
+        if len(targets) > self.config.max_files_per_run:
+            raise IngestionError(
+                f"limite de {self.config.max_files_per_run} arquivos por execução excedido"
+            )
+
         results: list[IngestResult] = []
-        for raw in paths:
-            path = Path(raw).resolve()
-            if path.is_dir():
-                for child in sorted(path.rglob("*")):
-                    if child.is_file() and child.suffix.lower() in SUPPORTED_SUFFIXES:
-                        results.append(self.ingest_file(child, force=force))
-            elif path.is_file():
+        failed = 0
+        for path in targets:
+            try:
                 results.append(self.ingest_file(path, force=force))
-        return results
+            except (UnsupportedDocumentError, IngestionError) as exc:
+                failed += 1
+                logger.error(
+                    json.dumps(
+                        {
+                            "event": "ingest_failed",
+                            "path": str(path),
+                            "error_type": type(exc).__name__,
+                            "message": str(exc),
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+        indexed = sum(1 for item in results if not item.skipped and item.chunks_indexed > 0)
+        skipped = sum(1 for item in results if item.skipped)
+        return IngestBatchSummary(indexed=indexed, skipped=skipped, failed=failed, results=results)
 
     def ingest_file(self, path: Path | str, *, force: bool = False) -> IngestResult:
-        file_path = Path(path).resolve()
+        candidate = Path(path)
+        file_path = assert_knowledge_path(candidate, self.config.knowledge_dir)
+
         suffix = file_path.suffix.lower()
         if suffix not in SUPPORTED_SUFFIXES:
             raise ValueError(f"tipo não suportado: {suffix}")
 
-        content_hash = _sha256_file(file_path)
-        manifest = self._load_manifest()
+        content_hash = sha256_file(file_path, max_bytes=self.config.max_file_bytes)
         source_key = str(file_path)
+        manifest = self._load_manifest()
         entry = manifest.get(source_key)
-        if not force and entry and entry.content_sha256 == content_hash:
+
+        if not force and entry and entry.content_hash == content_hash:
             return IngestResult(
                 source=source_key,
                 skipped=True,
@@ -136,26 +198,44 @@ class RagIngestor:
 
         self._delete_source_chunks(source_key)
 
-        document = self._load_document(file_path)
-        nodes = self._splitter.get_nodes_from_documents([document])
-        nodes = self._enrich_nodes(
-            nodes,
-            file_path=file_path,
-            content_hash=content_hash,
+        document = load_document(
+            file_path,
+            access_level=self.config.default_access_level,
+            default_tags=self.default_tags,
         )
+        doc_type = str(document.metadata.get("doc_type", file_path.suffix.lstrip(".")))
+        nodes = build_nodes(
+            document.text,
+            doc_type=doc_type,
+            config=self.config,
+            base_metadata=document.metadata,
+        )
+        nodes = attach_chunk_positions(nodes, content_hash=content_hash)
+
         if nodes:
             index = VectorStoreIndex.from_vector_store(
                 vector_store=self._vector_store,
-                storage_context=self._storage_context,
+                storage_context=self._storage,
             )
             index.insert_nodes(nodes)
 
-        stat = file_path.stat()
         manifest[source_key] = _ManifestEntry(
-            content_sha256=content_hash,
-            updated_at=_iso_from_timestamp(stat.st_mtime),
+            content_hash=content_hash,
+            updated_at=str(document.metadata.get("updated_at", "")),
         )
         self._save_manifest(manifest)
+
+        logger.info(
+            json.dumps(
+                {
+                    "event": "ingest_ok",
+                    "source": source_key,
+                    "chunks": len(nodes),
+                    "content_hash": content_hash,
+                },
+                ensure_ascii=False,
+            )
+        )
 
         return IngestResult(
             source=source_key,
@@ -164,52 +244,36 @@ class RagIngestor:
             content_sha256=content_hash,
         )
 
-    def _load_document(self, path: Path) -> Document:
-        suffix = path.suffix.lower()
-        doc_type: DocType = suffix.lstrip(".")  # type: ignore[assignment]
-        stat = path.stat()
-        created_at = _iso_from_timestamp(stat.st_ctime)
-        updated_at = _iso_from_timestamp(stat.st_mtime)
-        source = str(path)
+    def _collect_files(self, paths: list[Path | str] | None) -> list[Path]:
+        knowledge_root = self.config.knowledge_dir.resolve()
+        roots = [Path(item) for item in paths] if paths else [knowledge_root]
 
-        if suffix == ".pdf":
-            pages = self._pdf_reader.load_data(file=path)
-            text = "\n\n".join(page.text for page in pages if page.text)
-            title = path.stem
-            tags = list(self.tags)
-            language = _guess_language(text)
-        else:
-            text = path.read_text(encoding="utf-8", errors="replace")
-            title, tags, language = _metadata_from_text(text, path, self.tags)
+        collected: list[Path] = []
+        for raw in roots:
+            candidate = (
+                raw
+                if raw.is_absolute()
+                else (knowledge_root / raw).resolve()
+            )
+            try:
+                candidate.relative_to(knowledge_root)
+            except ValueError as exc:
+                raise UnsupportedDocumentError(
+                    f"caminho fora de data/knowledge: {raw}"
+                ) from exc
 
-        base_meta = {
-            "source": source,
-            "title": title,
-            "doc_type": doc_type,
-            "language": language,
-            "created_at": created_at,
-            "updated_at": updated_at,
-            "tags": _tags_to_chroma(tags),
-            "access_level": self.access_level,
-        }
-        return Document(text=text, metadata=base_meta)
-
-    def _enrich_nodes(self, nodes: list[BaseNode], *, file_path: Path, content_hash: str) -> list[BaseNode]:
-        total = len(nodes)
-        for index, node in enumerate(nodes):
-            node.metadata.setdefault("source", str(file_path))
-            node.metadata.setdefault("access_level", self.access_level)
-            node.metadata["chunk_index"] = index
-            node.metadata["chunk_total"] = total
-            if "tags" in node.metadata:
-                node.metadata["tags"] = _tags_to_chroma(_tags_from_chroma(node.metadata["tags"]))
-        return nodes
+            if candidate.is_dir():
+                for child in sorted(candidate.rglob("*")):
+                    if child.is_file() and child.suffix.lower() in SUPPORTED_SUFFIXES:
+                        collected.append(assert_knowledge_path(child, knowledge_root))
+            elif candidate.is_file():
+                collected.append(assert_knowledge_path(candidate, knowledge_root))
+        return collected
 
     def _delete_source_chunks(self, source: str) -> None:
         try:
             self._collection.delete(where={"source": source})
         except (ValueError, TypeError):
-            # Collection vazia ou API sem matches.
             pass
 
     def _load_manifest(self) -> dict[str, _ManifestEntry]:
@@ -227,74 +291,11 @@ class RagIngestor:
 
 
 def ingest_paths(
-    paths: list[Path | str],
+    paths: list[Path | str] | None = None,
     *,
-    chroma_dir: Path | None = None,
+    config: RagConfig | None = None,
     force: bool = False,
     embed_model: BaseEmbedding | None = None,
 ) -> list[IngestResult]:
-    ingestor = RagIngestor(chroma_dir=chroma_dir, embed_model=embed_model)
-    return ingestor.ingest_paths(paths, force=force)
-
-
-def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(65536), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def _iso_from_timestamp(ts: float) -> str:
-    return datetime.fromtimestamp(ts, tz=UTC).isoformat()
-
-
-def _guess_language(text: str) -> str:
-    sample = text[:2000].lower()
-    pt_hits = sum(
-        1
-        for token in ("ção", " não ", " para ", " você ", " são ")
-        if token in sample
-    )
-    return "pt-BR" if pt_hits >= 2 else "und"
-
-
-def _metadata_from_text(text: str, path: Path, default_tags: list[str]) -> tuple[str, list[str], str]:
-    body = text
-    tags = list(default_tags)
-    title = path.stem
-
-    match = _FRONTMATTER.match(text)
-    if match:
-        block = match.group(1)
-        body = text[match.end() :]
-        for line in block.splitlines():
-            if line.lower().startswith("title:"):
-                title = line.split(":", 1)[1].strip().strip('"')
-            elif line.lower().startswith("tags:"):
-                raw = line.split(":", 1)[1].strip()
-                tags = [part.strip() for part in raw.split(",") if part.strip()]
-
-    heading = _TITLE_MD.search(body)
-    if heading and title == path.stem:
-        title = heading.group(1).strip()
-
-    language = _guess_language(body)
-    return title, tags, language
-
-
-def _tags_to_chroma(tags: list[str]) -> str:
-    return json.dumps(tags, ensure_ascii=False)
-
-
-def _tags_from_chroma(value: Any) -> list[str]:
-    if isinstance(value, list):
-        return [str(item) for item in value]
-    if isinstance(value, str):
-        try:
-            parsed = json.loads(value)
-        except json.JSONDecodeError:
-            return [part.strip() for part in value.split(",") if part.strip()]
-        if isinstance(parsed, list):
-            return [str(item) for item in parsed]
-    return []
+    summary = RagIngestor(config=config, embed_model=embed_model).ingest_paths(paths, force=force)
+    return summary.results

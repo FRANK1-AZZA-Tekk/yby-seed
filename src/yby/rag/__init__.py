@@ -1,5 +1,24 @@
-"""RAG local (ingestão e consulta)."""
+"""RAG local YBY."""
 
+from src.yby.rag.config import RagConfig
+from src.yby.rag.errors import (
+    ConfigurationError,
+    IngestionError as IngestionErrorException,
+    RagError,
+    RetrievalError,
+    UnsupportedDocumentError,
+)
+from src.yby.rag.models import (
+    DocumentMetadata,
+    IngestionError,
+    IngestionResult,
+    KnowledgeChunk,
+    RagConfig as RagConfigSchema,
+    RetrievalResponse,
+    RetrievalResult,
+)
+
+# Compatibilidade com implementações posteriores (T2–T5); não fazem parte da Tarefa 1.
 from src.yby.rag.ingest import (
     CHUNK_OVERLAP_TOKENS,
     CHUNK_SIZE_TOKENS,
@@ -21,6 +40,19 @@ from src.yby.rag.retrieve import (
 )
 
 __all__ = [
+    "ConfigurationError",
+    "DocumentMetadata",
+    "IngestionError",
+    "IngestionErrorException",
+    "IngestionResult",
+    "KnowledgeChunk",
+    "RagConfig",
+    "RagConfigSchema",
+    "RagError",
+    "RetrievalError",
+    "RetrievalResponse",
+    "RetrievalResult",
+    "UnsupportedDocumentError",
     "CHUNK_OVERLAP_TOKENS",
     "CHUNK_SIZE_TOKENS",
     "DEFAULT_ACCESS_LEVEL",
