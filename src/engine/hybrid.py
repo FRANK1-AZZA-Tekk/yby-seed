@@ -37,7 +37,7 @@ from src.engine.providers import (
     TextProvider,
 )
 from src.engine.routing import RouteDecision, decide_route
-from src.engine.secret_gate import find_secret, redact_for_cloud
+from src.engine.secret_gate import find_secret, find_secret_in_outbound, redact_for_cloud
 
 SYSTEM_PROMPT = (
     "Você é o YBY SEED, um exocórtex pessoal. "
@@ -46,6 +46,14 @@ SYSTEM_PROMPT = (
 )
 
 ProviderName = Literal["local", "cloud", "none"]
+
+
+class _SensitiveBlocked(Exception):
+    """Segredo detectado no outbound pós-trim (não é falha de rede)."""
+
+    def __init__(self, kind: str) -> None:
+        self.kind = kind
+        super().__init__(kind)
 
 
 @dataclass(frozen=True)
@@ -146,6 +154,21 @@ class HybridEngine:
             )
         try:
             result = self._cloud_call(prompt, purpose="ollama_fallback", decision=decision)
+        except _SensitiveBlocked as blocked:
+            reply = self._block_sensitive(
+                decision,
+                purpose="ollama_fallback",
+                provider_label="openrouter",
+                kind=blocked.kind,
+                input_est=CloudUsageLog.estimate_tokens(prompt),
+            )
+            return EngineReply(
+                "",
+                "none",
+                "",
+                decision.reasons,
+                f"Ollama falhou ({local_error}). {reply.notice}",
+            )
         except ProviderError as cloud_error:
             return EngineReply(
                 "",
@@ -178,6 +201,14 @@ class HybridEngine:
 
         try:
             result = self._cloud_call(prompt, purpose="route_cloud", decision=decision)
+        except _SensitiveBlocked as blocked:
+            return self._block_sensitive(
+                decision,
+                purpose="route_cloud",
+                provider_label="openrouter",
+                kind=blocked.kind,
+                input_est=CloudUsageLog.estimate_tokens(prompt),
+            )
         except ProviderError as cloud_error:
             return self._local_after_cloud_failure(prompt, decision, cloud_error)
         return EngineReply(
@@ -244,6 +275,35 @@ class HybridEngine:
             ),
         )
 
+    def _block_sensitive(
+        self,
+        decision: RouteDecision,
+        *,
+        purpose: str,
+        provider_label: str,
+        kind: str,
+        input_est: int,
+    ) -> EngineReply:
+        event = self._base_event(
+            decision,
+            provider=provider_label,
+            purpose=purpose,
+            input_est=input_est,
+            result=EVENT_BLOCKED_SENSITIVE,
+        )
+        event["sensitive_kind"] = kind
+        self.cloud_log.append(event)
+        return EngineReply(
+            "",
+            "none",
+            "",
+            decision.reasons,
+            (
+                f"Nuvem bloqueada: o pedido parece conter dado sensível "
+                f"({kind}). Remova e tente de novo."
+            ),
+        )
+
     def _cloud_gate_reply(
         self,
         prompt: str,
@@ -252,33 +312,25 @@ class HybridEngine:
         purpose: str,
         provider_label: str = "openrouter",
     ) -> EngineReply | None:
+        input_est = CloudUsageLog.estimate_tokens(prompt)
         secret = find_secret(prompt)
+        if secret is None:
+            # M1: também escaneia o corpo pós-trim (e head+tail sem marker).
+            trimmed = trim_context(prompt, self.config.cloud_max_chars)
+            secret = find_secret_in_outbound(trimmed)
         if secret is not None:
-            event = self._base_event(
+            return self._block_sensitive(
                 decision,
-                provider=provider_label,
                 purpose=purpose,
-                input_est=CloudUsageLog.estimate_tokens(prompt),
-                result=EVENT_BLOCKED_SENSITIVE,
-            )
-            event["sensitive_kind"] = secret.kind
-            self.cloud_log.append(event)
-            return EngineReply(
-                "",
-                "none",
-                "",
-                decision.reasons,
-                (
-                    f"Nuvem bloqueada: o pedido parece conter dado sensível "
-                    f"({secret.kind}). Remova e tente de novo."
-                ),
+                provider_label=provider_label,
+                kind=secret.kind,
+                input_est=input_est,
             )
 
         evaluation = self.budget.evaluate(
             requires_confirmation=True,
             has_tty=self.has_tty_fn(),
         )
-        input_est = CloudUsageLog.estimate_tokens(prompt)
 
         if not evaluation.allowed:
             event = self._base_event(
@@ -364,7 +416,10 @@ class HybridEngine:
         decision: RouteDecision,
     ) -> CloudResult:
         trimmed = trim_context(prompt, self.config.cloud_max_chars)
-        # Defesa em profundidade: redige antes do POST (hard-block já passou no gate).
+        # Defesa em profundidade: reescaneia pós-trim antes de redigir/POST.
+        late = find_secret_in_outbound(trimmed)
+        if late is not None:
+            raise _SensitiveBlocked(late.kind)
         outbound = redact_for_cloud(trimmed)
         cache_model = self.config.cloud_model
         key = self.cache.make_key(outbound, model=cache_model, system=SYSTEM_PROMPT)

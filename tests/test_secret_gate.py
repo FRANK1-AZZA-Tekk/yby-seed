@@ -8,8 +8,19 @@ from src.engine.budget import CloudBudget
 from src.engine.cache import ResponseCache
 from src.engine.cloud_usage_log import CloudUsageLog, EVENT_BLOCKED_SENSITIVE, EVENT_COMPLETED
 from src.engine.hybrid import HybridEngine
-from src.engine.providers import CascadingCloudProvider, CloudProvider, CloudResult
-from src.engine.secret_gate import find_secret, redact_for_cloud
+from src.engine.context import TRUNCATION_MARKER, trim_context
+from src.engine.providers import (
+    CascadingCloudProvider,
+    CloudProvider,
+    CloudResult,
+    ProviderError,
+)
+from src.engine.secret_gate import (
+    find_secret,
+    find_secret_in_outbound,
+    normalize_for_secret_scan,
+    redact_for_cloud,
+)
 from tests.test_engine import FakeCloud, FakeOllama, _config
 
 
@@ -143,6 +154,168 @@ def test_cascade_fake_only_complete_still_works() -> None:
     assert isinstance(result, CloudResult)
     assert result.text == "ok-cloud"
     assert primary.calls
+
+
+def test_find_secret_stripe_anthropic_pem_jwt() -> None:
+    assert find_secret("sk_live_" + ("a" * 24)).kind == "api_key"
+    assert find_secret("sk_test_" + ("b" * 24)).kind == "api_key"
+    assert find_secret("sk-ant-api03-" + ("c" * 20)).kind == "api_key"
+    assert find_secret("-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----").kind == (
+        "private_key"
+    )
+    jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." + ("a" * 20) + "." + ("b" * 20)
+    assert find_secret(jwt).kind == "jwt"
+
+
+def test_zwsp_inside_sk_or_v1_still_blocked() -> None:
+    raw = "sk-or-v1-\u200babcdefghijklmnopqrstuvwxyz012345"
+    assert "\u200b" in raw
+    assert find_secret(raw) is not None
+    assert find_secret(raw).kind == "api_key"
+    assert "\u200b" not in normalize_for_secret_scan(raw)
+
+
+def test_split_key_across_trim_blocked(tmp_path) -> None:
+    """M1: cabeça+cauda reconstitui a chave após remover o marker."""
+
+    prefix = "sk-or-v1-"
+    suffix = "abcdefghijklmnopqrstuvwxyz012345"
+    max_chars = 120
+    keep = max_chars - len(TRUNCATION_MARKER)
+    head_len = keep * 2 // 3
+    tail_len = keep - head_len
+    head_pad = "H" * (head_len - len(prefix))
+    tail_pad = "T" * (tail_len - len(suffix))
+    # Ruído sem [A-Za-z0-9_-] para o regex não engolir o miolo como sufixo da chave.
+    prompt = head_pad + prefix + ("!" * 500) + suffix + tail_pad
+    assert find_secret(prompt) is None  # partida no texto completo
+    trimmed = trim_context(prompt, max_chars)
+    assert TRUNCATION_MARKER in trimmed
+    assert trimmed.startswith(head_pad + prefix)
+    assert trimmed.endswith(suffix + tail_pad)
+    assert find_secret_in_outbound(trimmed) is not None
+
+    log = CloudUsageLog(tmp_path / "cloud_usage.jsonl")
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log.path),
+            "YBY_CLOUD_REQUIRE_CONFIRM": "0",
+        }
+    )
+    session = _Session(_Resp(200, {"choices": [{"message": {"content": "x"}}]}))
+    chain = CascadingCloudProvider(
+        CloudProvider(
+            "https://openrouter.ai/api/v1",
+            api_key="k",
+            timeout=2,
+            session=session,
+        ),
+        primary_model="openrouter/free",
+    )
+    engine = HybridEngine(
+        _config(cache_ttl_seconds=0, cloud_max_chars=max_chars),
+        FakeOllama(),
+        chain,
+        cloud_chain=chain,
+        cache=ResponseCache(ttl_seconds=0),
+        cloud_log=log,
+        budget=budget,
+        confirm_fn=lambda _: True,
+        has_tty_fn=lambda: True,
+    )
+    reply = engine.reply(prompt, explicit_heavy=True)
+    assert reply.provider == "none"
+    assert session.posts == []
+    assert "sensível" in (reply.notice or "")
+    assert prefix not in log.path.read_text(encoding="utf-8")
+
+
+def test_ollama_fallback_blocks_secret(tmp_path) -> None:
+    log = CloudUsageLog(tmp_path / "cloud_usage.jsonl")
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log.path),
+            "YBY_CLOUD_REQUIRE_CONFIRM": "0",
+        }
+    )
+    session = _Session(_Resp(200, {"choices": [{"message": {"content": "x"}}]}))
+    chain = CascadingCloudProvider(
+        CloudProvider(
+            "https://openrouter.ai/api/v1",
+            api_key="k",
+            timeout=2,
+            session=session,
+        ),
+        primary_model="openrouter/free",
+    )
+    secret = "sk-or-v1-abcdefghijklmnopqrstuvwxyz012345"
+    engine = HybridEngine(
+        _config(cache_ttl_seconds=0),
+        FakeOllama(error=ProviderError("down")),
+        chain,
+        cloud_chain=chain,
+        cache=ResponseCache(ttl_seconds=0),
+        cloud_log=log,
+        budget=budget,
+        confirm_fn=lambda _: True,
+        has_tty_fn=lambda: True,
+    )
+    reply = engine.reply(f"oi {secret}")
+    assert reply.provider == "none"
+    assert session.posts == []
+    assert EVENT_BLOCKED_SENSITIVE in log.path.read_text(encoding="utf-8")
+
+
+def test_email_redacted_in_post_body(tmp_path) -> None:
+    log = CloudUsageLog(tmp_path / "cloud_usage.jsonl")
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log.path),
+            "YBY_CLOUD_REQUIRE_CONFIRM": "0",
+        }
+    )
+    session = _Session(
+        _Resp(200, {"choices": [{"message": {"content": "ok"}}], "usage": {}})
+    )
+    chain = CascadingCloudProvider(
+        CloudProvider(
+            "https://openrouter.ai/api/v1",
+            api_key="k",
+            timeout=2,
+            session=session,
+        ),
+        primary_model="openrouter/free",
+    )
+    engine = HybridEngine(
+        _config(cache_ttl_seconds=0),
+        FakeOllama(),
+        chain,
+        cloud_chain=chain,
+        cache=ResponseCache(ttl_seconds=0),
+        cloud_log=log,
+        budget=budget,
+        confirm_fn=lambda _: True,
+        has_tty_fn=lambda: True,
+    )
+    reply = engine.reply("pensa mais e avise user@example.com", explicit_heavy=False)
+    assert reply.provider == "cloud"
+    assert session.posts
+    body = session.posts[0]["json"]
+    assert isinstance(body, dict)
+    messages = body["messages"]
+    user_content = messages[1]["content"]
+    assert "user@example.com" not in user_content
+    assert "[EMAIL_REDACTED]" in user_content
+
+
+def test_truncation_without_secret_still_works() -> None:
+    text = "A" * 100 + "MEIO" + "B" * 100
+    out = trim_context(text, 80)
+    assert TRUNCATION_MARKER in out
+    assert find_secret_in_outbound(out) is None
 
 
 def test_cloud_warn_still_calls_cloud(tmp_path) -> None:
