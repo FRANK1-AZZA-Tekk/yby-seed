@@ -15,7 +15,7 @@ Pacote Python do YBY SEED (`pythonpath = ["."]` no `pyproject.toml`). Entrada CL
 | `cursor_fake/` | dry-run de plano validated (`yby cursor-fake`; sem MCP) |
 | `learn/` | aprendizado diário JSONL + relatório (`yby learn`; sem auto-merge) |
 | `artifacts/` | scaffold Python CLI + manifesto (sem install) |
-| `memory/` | vault Markdown |
+| `memory/` | vault Markdown + prefs com consentimento (`yby prefs`) |
 | `backup/` | backup local vault + logs redigidos (`yby backup`) |
 | `obs/` | CLI `yby usage` sobre `cloud_usage.jsonl` |
 | `voice/` | STT/TTS opcional (`listen` / `ask --voice`) |

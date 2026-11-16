@@ -2,7 +2,7 @@
 
 Auditoria factual do núcleo ativo. **Não** declara o SEED “pronto para produção”.
 
-Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **298 passed, 14 skipped**; smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–19 + 22–24 + 28 + Grok off + cloud default-off.
+Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **303 passed, 14 skipped**; smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–20 + 22–24 + 28 + Grok off + cloud default-off.
 
 ## Vocabulário
 
@@ -50,6 +50,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 - Execução: timeout com teto, truncagem de stdout/stderr, recusa sob `.yby/artifacts-manifest.json`.
 - Cursor fake: `yby cursor-fake simulate` dry-run de plano `validated` (sem MCP / sem escrita).
 - Aprendizado diário: `yby learn log/report` (JSONL local; sem auto-merge em `docs/LEARNING.md`).
+- Prefs no vault: `yby prefs` (consentimento para chaves sensíveis; sem Vector DB).
 
 ## Lacunas críticas (antes de ser “cérebro” do ecossistema)
 
@@ -58,7 +59,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 3. ~~**Grok** wiring morto~~ — **removido** (lote Grok off): destino único `YBY_CLOUD_*`.
 4. ~~**Backup vault**~~ — `yby backup` local (tar.gz + retenção); checklist Fase P Fase 5 ainda exige exercício no hub real.
 5. ~~**Observabilidade CLI**~~ — `yby usage` / `usage tail` sobre JSONL local (sem Datadog).
-6. **Memória**: sem FTS, sem prefs/consentimento, sem reindex CLI; `ask` não grava nota.
+6. **Memória**: prefs+consentimento feitos (lote 20); ainda sem FTS, sem reindex CLI; `ask` não grava nota.
 7. **ask ↛ brief** — fluxo de criação é manual, não conversacional contínuo.
 8. **Legado** `agents/`/`rag/`/`gateway/` ainda no disco — risco de confundir com o caminho ativo.
 

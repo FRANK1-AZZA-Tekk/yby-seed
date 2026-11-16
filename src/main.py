@@ -18,6 +18,7 @@ Comandos:
     gate    - Só decide (com envelope); não executa
     note    - Grava nota no vault
     recall  - Busca no vault
+    prefs   - Preferências no vault (chaves sensíveis exigem --consent)
     backup  - Backup local do vault + logs redigidos (sem nuvem)
     usage   - Resumo/tail do cloud_usage.jsonl + orçamento mensal
     learn   - Aprendizado diário (JSONL + relatório; sem auto-merge)
@@ -90,6 +91,13 @@ from src.learn.daily import (
     format_report as format_learn_report,
     learn_log_path_from_env,
     report_for_day,
+)
+from src.memory.prefs import (
+    PrefsError,
+    format_record,
+    get_pref,
+    list_prefs,
+    set_pref,
 )
 from src.memory.vault import VaultError, vault_from_env
 from src.obs.usage import (
@@ -807,6 +815,88 @@ def note(titulo: str, texto: tuple[str, ...]) -> None:
         )
         raise SystemExit(1) from exc
     click.echo(path)
+
+
+@cli.group()
+def prefs() -> None:
+    """Preferências no vault com consentimento para chaves sensíveis."""
+
+
+@prefs.command("list")
+def prefs_list() -> None:
+    """Lista preferências gravadas."""
+
+    load_dotenv(override=False)
+    try:
+        records = list_prefs(vault_from_env())
+    except (VaultError, PrefsError) as exc:
+        click.echo(
+            format_cli_error(
+                kind="prefs",
+                detail=str(exc),
+                next_step="defina YBY_VAULT_PATH e tente de novo",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    if not records:
+        click.echo("(nenhuma preferência)")
+        return
+    for record in records:
+        click.echo(format_record(record))
+
+
+@prefs.command("get")
+@click.argument("key")
+def prefs_get(key: str) -> None:
+    """Mostra uma preferência."""
+
+    load_dotenv(override=False)
+    try:
+        record = get_pref(vault_from_env(), key)
+    except (VaultError, PrefsError) as exc:
+        click.echo(
+            format_cli_error(
+                kind="prefs",
+                detail=str(exc),
+                next_step="use yby prefs list / set",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    click.echo(format_record(record))
+
+
+@prefs.command("set")
+@click.argument("key")
+@click.argument("value", nargs=-1, required=True)
+@click.option(
+    "--consent",
+    is_flag=True,
+    help="Obrigatório para share_notes_with_cloud / remember_failures.",
+)
+def prefs_set(key: str, value: tuple[str, ...], consent: bool) -> None:
+    """Define preferência. Chaves sensíveis exigem --consent."""
+
+    load_dotenv(override=False)
+    try:
+        record = set_pref(
+            vault_from_env(),
+            key,
+            " ".join(value).strip(),
+            consent=consent,
+        )
+    except (VaultError, PrefsError) as exc:
+        click.echo(
+            format_cli_error(
+                kind="prefs",
+                detail=str(exc),
+                next_step="para chaves sensíveis passe --consent; confira YBY_VAULT_PATH",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    click.echo(format_record(record))
 
 
 @cli.group()

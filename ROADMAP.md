@@ -150,7 +150,7 @@ Um lote por ciclo. Núcleo novo fino (`src/conversation/` etc.); **não** expand
 | **28** Revisão final SEED | **Feito** (auditoria; docs; sem feature) | Separar pronto/testado/validado; limitações reais | “Pronto para produção” sem evidência |
 | **18** Cursor fake | **Feito** (`yby cursor-fake simulate`; `src/cursor_fake/`) | Adaptador + plano `validated` (dry-run) | MCP real |
 | **19** Aprendizado diário | **Feito** (`yby learn log/report`; `src/learn/`) | JSONL + relatório diário UTC | Auto-merge |
-| 20 Memória segura | Fila | Preferências com consentimento no vault | Vector DB novo |
+| **20** Memória segura | **Feito** (`yby prefs`; `src/memory/prefs.py`) | Preferências com consentimento no vault | Vector DB novo |
 | 21 Pesquisa consentida | Fila | Gate consent + HTTP fake | Busca real |
 | **22** Observabilidade CLI | **Feito** (`yby usage` / `usage tail`; `src/obs/`) | CLI sobre `cloud_usage_log` + orçamento mensal | Datadog |
 | **23** Backup local | **Feito** (`yby backup create/list/restore`; `src/backup/`) | tar.gz vault+logs redigidos + retenção 7 + restore test | Backup nuvem |
