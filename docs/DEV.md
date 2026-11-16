@@ -26,6 +26,7 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 | `python yby.py note "título" texto da nota...` | grava no vault |
 | `python yby.py recall "consulta"` | busca no vault |
 | `python yby.py prefs list/get/set …` | preferências no vault; chaves sensíveis exigem `--consent` |
+| `python yby.py research "…" [--consent]` | pesquisa com gate de consentimento; HTTP fake (sem busca real) |
 | `python yby.py backup create/list/restore …` | tar.gz local do vault + logs redigidos (sem nuvem; restore em pasta alvo) |
 | `python yby.py usage` / `usage tail` | resumo do `cloud_usage.jsonl` + orçamento mensal (local) |
 | `python yby.py learn log/report …` | aprendizado diário em JSONL + relatório (sem auto-merge em docs) |
@@ -87,6 +88,7 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 | Observabilidade usage CLI | `src/obs/` |
 | Cursor fake (dry-run de plano) | `src/cursor_fake/` |
 | Aprendizado diário | `src/learn/` |
+| Pesquisa consentida (fake HTTP) | `src/research/` |
 | Código gerado perigoso | `src/security/ast_guard.py` |
 | CLI | `src/main.py`, `yby.py` |
 | Testes | `tests/` |

@@ -2,7 +2,7 @@
 
 Auditoria factual do núcleo ativo. **Não** declara o SEED “pronto para produção”.
 
-Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **303 passed, 14 skipped**; smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–20 + 22–24 + 28 + Grok off + cloud default-off.
+Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **309 passed, 14 skipped**; smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–24 + 28 + Grok off + cloud default-off.
 
 ## Vocabulário
 
@@ -51,6 +51,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 - Cursor fake: `yby cursor-fake simulate` dry-run de plano `validated` (sem MCP / sem escrita).
 - Aprendizado diário: `yby learn log/report` (JSONL local; sem auto-merge em `docs/LEARNING.md`).
 - Prefs no vault: `yby prefs` (consentimento para chaves sensíveis; sem Vector DB).
+- Pesquisa consentida: `yby research` (gate + HTTP fake; sem busca real).
 
 ## Lacunas críticas (antes de ser “cérebro” do ecossistema)
 

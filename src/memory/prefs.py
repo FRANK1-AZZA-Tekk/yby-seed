@@ -21,9 +21,12 @@ ALLOWED_KEYS = frozenset(
         "reply_style",
         "share_notes_with_cloud",
         "remember_failures",
+        "allow_web_search",
     }
 )
-CONSENT_REQUIRED = frozenset({"share_notes_with_cloud", "remember_failures"})
+CONSENT_REQUIRED = frozenset(
+    {"share_notes_with_cloud", "remember_failures", "allow_web_search"}
+)
 REPLY_STYLES = frozenset({"short", "teach"})
 
 
@@ -116,7 +119,7 @@ def set_pref(
         raise PrefsError(
             f"reply_style inválido: {cleaned!r}. Use um de: {', '.join(sorted(REPLY_STYLES))}."
         )
-    if normalized in {"share_notes_with_cloud", "remember_failures"}:
+    if normalized in CONSENT_REQUIRED:
         if cleaned not in {"0", "1", "true", "false", "yes", "no", "on", "off"}:
             raise PrefsError(
                 f"{normalized} deve ser booleano textual (0/1, true/false, yes/no, on/off)"

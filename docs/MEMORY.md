@@ -7,7 +7,8 @@ A memória do YBY é uma pasta de notas Markdown, no formato de um vault Obsidia
 - `python yby.py recall "consulta"` busca no índice local (`.yby/index.json`).
 - Preferências (lote 20): `python yby.py prefs list|get|set` em `.yby/prefs.json`.
   - Livres: `locale`, `reply_style` (`short`|`teach`).
-  - Exigem `--consent`: `share_notes_with_cloud`, `remember_failures`.
+  - Exigem `--consent`: `share_notes_with_cloud`, `remember_failures`, `allow_web_search`.
+  - `allow_web_search=1` autoriza `yby research` sem `--consent` one-shot (ainda HTTP fake).
   - Sem Vector DB novo; sem FTS; `ask` ainda não grava nota automaticamente.
 - O Syncthing sincroniza a pasta com o servidor de casa. O YBY só lê e grava arquivos; não implementa o Syncthing.
 - Exemplos sem segredos: [syncthing/vault-folder.example.yaml](syncthing/vault-folder.example.yaml) e [examples/syncthing/](../examples/syncthing/).

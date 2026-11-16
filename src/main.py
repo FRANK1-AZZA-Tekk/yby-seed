@@ -19,6 +19,7 @@ Comandos:
     note    - Grava nota no vault
     recall  - Busca no vault
     prefs   - Preferências no vault (chaves sensíveis exigem --consent)
+    research - Pesquisa consentida (HTTP fake; sem busca real)
     backup  - Backup local do vault + logs redigidos (sem nuvem)
     usage   - Resumo/tail do cloud_usage.jsonl + orçamento mensal
     learn   - Aprendizado diário (JSONL + relatório; sem auto-merge)
@@ -112,6 +113,11 @@ from src.plan.schemas import PlanStep
 from src.plan.store import load_or_create_plan_store
 from src.plan.validate import validate_plan
 from src.platform.hub import main as hub_main
+from src.research.consent import ResearchError
+from src.research.search import (
+    format_report as format_research_report,
+    search as research_search,
+)
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
 from src.voice.config import voice_config_from_env
 from src.voice.session import VoiceError, listen_once
@@ -873,7 +879,7 @@ def prefs_get(key: str) -> None:
 @click.option(
     "--consent",
     is_flag=True,
-    help="Obrigatório para share_notes_with_cloud / remember_failures.",
+    help="Obrigatório para chaves sensíveis (share_notes_with_cloud, remember_failures, allow_web_search).",
 )
 def prefs_set(key: str, value: tuple[str, ...], consent: bool) -> None:
     """Define preferência. Chaves sensíveis exigem --consent."""
@@ -1275,6 +1281,54 @@ def recall(consulta: str) -> None:
         return
     for hit in hits:
         click.echo(f"{hit.score:.2f} {hit.name}")
+
+
+@cli.command("research")
+@click.argument("consulta", nargs=-1, required=True)
+@click.option(
+    "--consent",
+    is_flag=True,
+    help="Consentimento one-shot (ou use prefs allow_web_search=1).",
+)
+@click.option("--json", "as_json", is_flag=True, help="Saída estruturada em JSON.")
+def research_cmd(consulta: tuple[str, ...], consent: bool, as_json: bool) -> None:
+    """Pesquisa consentida via HTTP fake (sem busca real na rede)."""
+
+    load_dotenv(override=False)
+    vault = None
+    try:
+        vault = vault_from_env()
+    except VaultError:
+        vault = None
+    try:
+        report = research_search(
+            " ".join(consulta).strip(),
+            consented=consent,
+            vault=vault,
+        )
+    except ResearchError as exc:
+        click.echo(
+            format_cli_error(
+                kind="research",
+                detail=str(exc),
+                next_step="passe --consent ou yby prefs set allow_web_search 1 --consent",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+    if as_json:
+        payload = {
+            "query": report.query,
+            "transport": report.transport,
+            "warning": report.warning,
+            "hits": [
+                {"title": h.title, "url": h.url, "snippet": h.snippet}
+                for h in report.hits
+            ],
+        }
+        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        click.echo(format_research_report(report))
 
 
 def _confirm_cloud(message: str) -> bool:
