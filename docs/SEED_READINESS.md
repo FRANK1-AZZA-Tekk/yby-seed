@@ -2,7 +2,7 @@
 
 Auditoria factual do núcleo ativo. **Não** declara o SEED “pronto para produção”.
 
-Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **288 passed, 14 skipped**; smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–17 + 28 + Grok off + cloud default-off + backup 23 + usage 22.
+Evidência desta revisão: `ruff check src tests` ok; `pytest -q` → **291 passed, 14 skipped**; smokes CLI (`gate`, `ask --explain`, `brief`→`plan` incompleto exit 1, `scaffold test-generated` bloqueado). Branch: lotes 13–17 + 22–24 + 28 + Grok off + cloud default-off.
 
 ## Vocabulário
 
@@ -47,10 +47,11 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 - Criação: `brief` → `plan` → `scaffold` → `validate`/`apply`/`revert`.
 - Backup local: `yby backup create/list/restore` (vault + logs redigidos; restore em pasta alvo).
 - Obs local: `yby usage` / `usage tail` (JSONL + teto mensal; sem Datadog).
+- Execução: timeout com teto, truncagem de stdout/stderr, recusa sob `.yby/artifacts-manifest.json`.
 
 ## Lacunas críticas (antes de ser “cérebro” do ecossistema)
 
-1. **Sem sandbox OS** — código/plano gerado não pode ser auto-executado com segurança.
+1. **Sem sandbox OS** — limites de timeout/saída e bloqueio sob scaffold (lote 24); ainda sem isolamento de SO completo.
 2. ~~**Consentimento de nuvem** default-off~~ — `YBY_CLOUD_MODE` padrão `local_only` + enum estrito; library `confirm_fn=None` ainda auto-aprova quando mode=`ask`.
 3. ~~**Grok** wiring morto~~ — **removido** (lote Grok off): destino único `YBY_CLOUD_*`.
 4. ~~**Backup vault**~~ — `yby backup` local (tar.gz + retenção); checklist Fase P Fase 5 ainda exige exercício no hub real.
@@ -73,7 +74,7 @@ scaffold test-generated → BLOQUEADO (sem sandbox OS)
 2. ~~**Consentimento nuvem default-off**~~ — feito (`local_only` + validação).
 3. ~~**Backup local**~~ — feito (`yby backup`; restore em pasta alvo).
 4. ~~**Obs CLI**~~ — feito (`yby usage`).
-5. **Sandbox / bloquear** execução ampliada (lotes 24 + 17 já bloqueiam gerado).
+5. ~~**Sandbox / bloquear** execução ampliada~~ — lote 24 (limites) + 17 (gerado); sandbox OS completo ainda fora.
 6. Só então contratos de dispositivos / wearable (lote 27) e integração Cursor real (18+).
 
 ## O que esta revisão NÃO afirma

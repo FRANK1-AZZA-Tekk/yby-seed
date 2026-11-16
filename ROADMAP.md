@@ -154,7 +154,7 @@ Um lote por ciclo. Núcleo novo fino (`src/conversation/` etc.); **não** expand
 | 21 Pesquisa consentida | Fila | Gate consent + HTTP fake | Busca real |
 | **22** Observabilidade CLI | **Feito** (`yby usage` / `usage tail`; `src/obs/`) | CLI sobre `cloud_usage_log` + orçamento mensal | Datadog |
 | **23** Backup local | **Feito** (`yby backup create/list/restore`; `src/backup/`) | tar.gz vault+logs redigidos + retenção 7 + restore test | Backup nuvem |
-| 24 Endurecer execução | Fila | Timeouts/limites; bloquear código gerado | Sandbox OS completo |
+| **24** Endurecer execução | **Feito** (`src/actions/limits.py`; teto timeout/saída; bloqueio sob scaffold) | Timeouts/limites; bloquear código gerado | Sandbox OS completo |
 | 25 UX CLI | Fila | Atritos confirmados só | Mudar política D10 |
 | 26 Qualidade contínua | Fila | Falhas confirmadas + docs | Feature nova |
 | 27 Contratos dispositivos | Fila | Schemas versionados + fakes | Firmware / acoplar celular-relógio |

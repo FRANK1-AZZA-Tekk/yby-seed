@@ -34,7 +34,8 @@ import click
 from dotenv import load_dotenv
 from loguru import logger
 
-from src.actions.runner import DEFAULT_TIMEOUT, run_command
+from src.actions.limits import DEFAULT_TIMEOUT, RunnerLimitError, normalize_timeout
+from src.actions.runner import run_command
 from src.agent_loop.loop import ControlledAgentLoop
 from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
 from src.agent_loop.tools import vault_registry_or_skip
@@ -125,19 +126,43 @@ def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
         click.echo('Informe um comando. Exemplo: yby run "ls"', err=True)
         raise SystemExit(1)
 
+    try:
+        effective_timeout = normalize_timeout(timeout)
+    except RunnerLimitError as exc:
+        click.echo(
+            format_cli_error(
+                kind="run",
+                detail=str(exc),
+                next_step="use --timeout entre 0.1s e YBY_RUN_TIMEOUT_MAX (padrão 120)",
+            ),
+            err=True,
+        )
+        raise SystemExit(1) from exc
+
     policy = load_policy(default_policy_path())
     project_root = default_policy_path().parents[1]
     result = run_command(
         texto,
         policy=policy,
         project_root=project_root,
-        timeout=timeout,
+        timeout=effective_timeout,
         input_fn=lambda: click.prompt("s/n", prompt_suffix=" "),
         output_fn=click.echo,
     )
 
     if not result.approved:
         click.echo(format_command_decision(texto, result.decision), err=True)
+        raise SystemExit(1)
+
+    if result.approved and not result.executed and result.stderr:
+        click.echo(
+            format_cli_error(
+                kind="run",
+                detail=result.stderr,
+                next_step="não execute código de scaffold aplicado; sem sandbox OS no v1",
+            ),
+            err=True,
+        )
         raise SystemExit(1)
 
     if result.stdout:
@@ -150,7 +175,7 @@ def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
             click.echo(err=True)
 
     if result.timed_out:
-        click.echo(f"timeout após {timeout:g}s", err=True)
+        click.echo(f"timeout após {effective_timeout:g}s", err=True)
         raise SystemExit(124)
     raise SystemExit(0 if result.exit_code == 0 else (result.exit_code or 1))
 

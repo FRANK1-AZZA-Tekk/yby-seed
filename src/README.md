@@ -8,7 +8,7 @@ Pacote Python do YBY SEED (`pythonpath = ["."]` no `pyproject.toml`). Entrada CL
 |---|---|
 | `engine/` | HybridEngine, roteamento local/nuvem, cache |
 | `safety/` | allowlist + decisão (não executa) |
-| `actions/` | subprocess após a porta |
+| `actions/` | subprocess após a porta (timeout/saída/bloqueio scaffold) |
 | `conversation/` | envelope professor PT-BR (`ask --explain`, gate/run) |
 | `brief/` | YBY-BRIEF (entrevista → proposta; sem código) |
 | `plan/` | YBY-PLAN (etapas vs allowlist; sem execução) |
