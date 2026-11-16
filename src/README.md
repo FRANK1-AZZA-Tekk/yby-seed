@@ -12,6 +12,7 @@ Pacote Python do YBY SEED (`pythonpath = ["."]` no `pyproject.toml`). Entrada CL
 | `conversation/` | envelope professor PT-BR (`ask --explain`, gate/run) |
 | `brief/` | YBY-BRIEF (entrevista → proposta; sem código) |
 | `plan/` | YBY-PLAN (etapas vs allowlist; sem execução) |
+| `artifacts/` | scaffold Python CLI + manifesto (sem install) |
 | `memory/` | vault Markdown |
 | `voice/` | STT/TTS opcional (`listen` / `ask --voice`) |
 | `platform/` | hub keepalive (serviço systemd) |

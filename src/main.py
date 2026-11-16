@@ -20,6 +20,7 @@ Comandos:
     recall  - Busca no vault
     brief   - Entrevista YBY-BRIEF (sem gerar código/plano)
     plan    - Plano verificável a partir de brief (não executa)
+    scaffold - Propõe/aplica artefatos Python CLI (sem install)
     agent   - Loop de agente P0 (opt-in; não altera o ask)
 """
 
@@ -44,6 +45,12 @@ from src.brief.interview import (
 )
 from src.brief.schemas import BRIEF_FIELDS
 from src.brief.store import load_or_create_store
+from src.artifacts.generator import (
+    ArtifactError,
+    apply_manifest,
+    propose_scaffold,
+    revert_applied,
+)
 from src.plan.builder import PlanError, build_plan_from_brief, revise_plan
 from src.plan.schemas import PlanStep
 from src.plan.store import load_or_create_plan_store
@@ -523,6 +530,117 @@ def plan_revise(
     click.echo(f"id: {updated.id}")
     click.echo(f"version: {updated.version}")
     click.echo(f"salvo: {path}")
+
+
+@cli.group()
+def scaffold() -> None:
+    """Gerador de artefatos (Python CLI). Sem pip install / deploy."""
+
+
+@scaffold.command("propose")
+@click.argument("plan_id")
+@click.argument("target", type=click.Path(file_okay=False, path_type=Path))
+@click.option("--name", required=True, help="Nome do pacote Python.")
+@click.option("--objective", default="scaffold local YBY", show_default=True)
+@click.option(
+    "--plan-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
+    "--out",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Salva manifesto JSON da proposta.",
+)
+def scaffold_propose(
+    plan_id: str,
+    target: Path,
+    name: str,
+    objective: str,
+    plan_dir: Path | None,
+    out: Path | None,
+) -> None:
+    """Propõe scaffold em memória/manifesto. Não escreve o projeto ainda."""
+
+    load_dotenv(override=False)
+    try:
+        plan = load_or_create_plan_store(plan_dir).load(plan_id)
+        manifest, contents = propose_scaffold(
+            plan, target, name=name, objective=objective
+        )
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    except ArtifactError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    payload = {
+        "manifest": manifest.model_dump(),
+        "files": sorted(contents),
+    }
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text + "\n", encoding="utf-8")
+        # stash contents next to manifest for apply
+        stash = out.with_suffix(".contents.json")
+        stash.write_text(
+            json.dumps(contents, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        click.echo(f"proposta: {out}")
+        click.echo(f"conteudos: {stash}")
+    click.echo(text)
+
+
+@scaffold.command("apply")
+@click.argument("proposal", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--approve-overwrite",
+    is_flag=True,
+    help="Permite substituir arquivo existente (default: recusa).",
+)
+def scaffold_apply(proposal: Path, approve_overwrite: bool) -> None:
+    """Aplica proposta salva por `scaffold propose --out`."""
+
+    payload = json.loads(proposal.read_text(encoding="utf-8"))
+    from src.artifacts.manifest import ArtifactManifest
+
+    try:
+        manifest = ArtifactManifest.model_validate(payload["manifest"])
+        stash = proposal.with_suffix(".contents.json")
+        if not stash.is_file():
+            raise ArtifactError(f"faltam conteúdos: {stash}")
+        contents = json.loads(stash.read_text(encoding="utf-8"))
+        applied = apply_manifest(
+            manifest, contents, approve_overwrite=approve_overwrite
+        )
+    except (ArtifactError, KeyError, json.JSONDecodeError) as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(f"applied: {applied.target_dir}")
+    click.echo(json.dumps(applied.model_dump(), ensure_ascii=False, indent=2))
+
+
+@scaffold.command("revert")
+@click.argument("target", type=click.Path(exists=True, file_okay=False, path_type=Path))
+def scaffold_revert(target: Path) -> None:
+    """Remove arquivos do manifesto aplicado no alvo."""
+
+    from src.artifacts.manifest import ArtifactManifest
+
+    man = target / ".yby" / "artifacts-manifest.json"
+    if not man.is_file():
+        click.echo("manifesto não encontrado", err=True)
+        raise SystemExit(1)
+    try:
+        manifest = ArtifactManifest.model_validate_json(man.read_text(encoding="utf-8"))
+        reverted = revert_applied(manifest)
+    except ArtifactError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(f"status: {reverted.status}")
 
 
 @cli.command()

@@ -145,7 +145,7 @@ Um lote por ciclo. **Não** implementar 14–27 de uma vez. Núcleo novo fino (`
 | **Grok off** | Fila (segurança nuvem; pode inverter ordem sob OK) | Tirar Grok do roteador/failover; docs/testes | Novo provedor |
 | **14** YBY-BRIEF | **Feito** (`yby brief start/answer/show/propose`; `src/brief/`) | Pydantic + path vault opcional; retomada; proposta só se completo | Gerar código / plano executável |
 | **15** Plano verificável | **Feito** (`yby plan from-brief/show/validate/revise`; `src/plan/`) | Contrato de etapas vs allowlist; versionado | Executar plano |
-| 16 Gerador artefatos | Fila | Dir + manifesto hashes (CLI local) | install/deploy; Next/React sem OK |
+| **16** Gerador artefatos | **Feito** (`yby scaffold propose/apply/revert`; `src/artifacts/`) | Dir novo + manifesto hashes (Python CLI) | install/deploy; Next/React sem OK |
 | 17 Validador | Fila | sintaxe/AST; bloquear run sem sandbox | `eval` |
 | 18 Cursor fake | Fila | Adaptador + plano aprovado | MCP real |
 | 19 Aprendizado diário | Fila | JSONL + relatório | Auto-merge |

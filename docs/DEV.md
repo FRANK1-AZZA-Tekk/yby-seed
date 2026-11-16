@@ -31,6 +31,9 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 | `python yby.py brief propose <id>` | proposta só se completo (não é plano) |
 | `python yby.py plan from-brief <brief_id>` | gera plano validado (não executa) |
 | `python yby.py plan show/validate/revise …` | inspeciona / revalida / nova versão |
+| `python yby.py scaffold propose <plan_id> <dir> --name …` | propõe scaffold Python CLI (manifesto) |
+| `python yby.py scaffold apply <proposal.json>` | aplica após aprovação (sem pip install) |
+| `python yby.py scaffold revert <dir>` | remove arquivos do manifesto |
 | `python yby.py listen` | push-to-talk: Whisper → ask → Piper |
 | `python yby.py ask --voice "..."` | mesmo fluxo com prompt opcional |
 | `python yby.py hub` | keepalive do hub (Ollama); `--once` para uma checagem |
@@ -65,6 +68,7 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 | Envelope professor (`--explain` / gate) | `src/conversation/` |
 | Entrevista YBY-BRIEF | `src/brief/` |
 | Plano verificável | `src/plan/` |
+| Scaffold de artefatos | `src/artifacts/` |
 | Hub keepalive | `src/platform/`, `scripts/install-hub-service.sh` |
 | Allowlist e decisão de comando | `src/safety/`, `config/safety-allowlist.txt` |
 | Execução após a porta | `src/actions/` |
