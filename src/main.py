@@ -18,6 +18,7 @@ Comandos:
     gate    - Só decide (com envelope); não executa
     note    - Grava nota no vault
     recall  - Busca no vault
+    brief   - Entrevista YBY-BRIEF (sem gerar código/plano)
     agent   - Loop de agente P0 (opt-in; não altera o ask)
 """
 
@@ -33,6 +34,15 @@ from src.actions.runner import DEFAULT_TIMEOUT, run_command
 from src.agent_loop.loop import ControlledAgentLoop
 from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
 from src.agent_loop.tools import vault_registry_or_skip
+from src.brief.interview import (
+    BriefError,
+    answer_field,
+    format_status,
+    start_brief,
+    try_propose,
+)
+from src.brief.schemas import BRIEF_FIELDS
+from src.brief.store import load_or_create_store
 from src.conversation.explain import (
     format_cli_error,
     format_command_decision,
@@ -244,6 +254,126 @@ def gate(comando: tuple[str, ...]) -> None:
         output_fn=click.echo,
     )
     raise SystemExit(0 if approved else 1)
+
+
+@cli.group()
+def brief() -> None:
+    """Entrevista YBY-BRIEF: ideia → campos → proposta (não executa, não gera código)."""
+
+
+@brief.command("start")
+@click.argument("ideia", nargs=-1, required=True)
+@click.option(
+    "--dir",
+    "store_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Pasta de briefs (default: YBY_VAULT_PATH/.yby/briefs ou ./.yby/briefs).",
+)
+def brief_start(ideia: tuple[str, ...], store_dir: Path | None) -> None:
+    """Inicia um brief a partir de uma ideia em linguagem natural."""
+
+    load_dotenv(override=False)
+    try:
+        draft, questions = start_brief(" ".join(ideia))
+        path = load_or_create_store(store_dir).save(draft)
+    except BriefError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(f"id: {draft.id}")
+    click.echo(f"salvo: {path}")
+    click.echo(format_status(draft))
+    if questions:
+        click.echo("perguntas:")
+        for index, question in enumerate(questions, start=1):
+            click.echo(f"  {index}. {question}")
+
+
+@brief.command("answer")
+@click.argument("brief_id")
+@click.argument("campo")
+@click.argument("texto", nargs=-1, required=True)
+@click.option(
+    "--dir",
+    "store_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+def brief_answer(
+    brief_id: str, campo: str, texto: tuple[str, ...], store_dir: Path | None
+) -> None:
+    """Responde um campo (retomada). Campos: objective, audience, scope, …"""
+
+    load_dotenv(override=False)
+    store = load_or_create_store(store_dir)
+    try:
+        draft = store.load(brief_id)
+        answer_field(draft, campo, " ".join(texto))
+        store.save(draft)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    except BriefError as exc:
+        click.echo(str(exc), err=True)
+        known = ", ".join(key for key, _ in BRIEF_FIELDS)
+        click.echo(f"campos: {known}", err=True)
+        raise SystemExit(1) from exc
+    click.echo(format_status(draft))
+
+
+@brief.command("show")
+@click.argument("brief_id")
+@click.option(
+    "--dir",
+    "store_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
+    "--cloud-safe",
+    is_flag=True,
+    help="JSON sem segredos (omite campos marcados sensíveis).",
+)
+def brief_show(brief_id: str, store_dir: Path | None, cloud_safe: bool) -> None:
+    """Mostra o brief (retomada)."""
+
+    load_dotenv(override=False)
+    try:
+        draft = load_or_create_store(store_dir).load(brief_id)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    if cloud_safe:
+        click.echo(json.dumps(draft.cloud_safe_dict(), ensure_ascii=False, indent=2))
+        return
+    click.echo(format_status(draft))
+    click.echo(json.dumps(draft.model_dump(), ensure_ascii=False, indent=2))
+
+
+@brief.command("propose")
+@click.argument("brief_id")
+@click.option(
+    "--dir",
+    "store_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+)
+def brief_propose(brief_id: str, store_dir: Path | None) -> None:
+    """Gera proposta só se o brief estiver completo. Não gera plano nem código."""
+
+    load_dotenv(override=False)
+    store = load_or_create_store(store_dir)
+    try:
+        draft = store.load(brief_id)
+        proposal = try_propose(draft)
+        store.save(draft)
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    except BriefError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+    click.echo(proposal)
 
 
 @cli.command()

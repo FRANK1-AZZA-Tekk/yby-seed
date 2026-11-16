@@ -25,6 +25,10 @@ Nunca commite `.env` nem chaves. O template é `.env.example`.
 | `python yby.py gate "..."` | só decide (run/ask/refuse) com envelope; não executa |
 | `python yby.py note "título" texto da nota...` | grava no vault |
 | `python yby.py recall "consulta"` | busca no vault |
+| `python yby.py brief start "ideia"` | inicia YBY-BRIEF (entrevista; sem código) |
+| `python yby.py brief answer <id> <campo> ...` | preenche campo / retoma |
+| `python yby.py brief show <id> [--cloud-safe]` | mostra brief |
+| `python yby.py brief propose <id>` | proposta só se completo (não é plano) |
 | `python yby.py listen` | push-to-talk: Whisper → ask → Piper |
 | `python yby.py ask --voice "..."` | mesmo fluxo com prompt opcional |
 | `python yby.py hub` | keepalive do hub (Ollama); `--once` para uma checagem |
@@ -57,6 +61,7 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 |---|---|
 | Resposta / provedores / roteamento / cache | `src/engine/` |
 | Envelope professor (`--explain` / gate) | `src/conversation/` |
+| Entrevista YBY-BRIEF | `src/brief/` |
 | Hub keepalive | `src/platform/`, `scripts/install-hub-service.sh` |
 | Allowlist e decisão de comando | `src/safety/`, `config/safety-allowlist.txt` |
 | Execução após a porta | `src/actions/` |
