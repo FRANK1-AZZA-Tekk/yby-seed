@@ -1,0 +1,1 @@
+"""Pacote YBY — extensões (RAG, agente) fora do núcleo `ask`."""
