@@ -135,6 +135,17 @@ Trilha prática para levar o YBY SEED de **CLI local confiável** a **agentes pr
 
 Itens são **issues futuras** no sentido de planejamento; não implicam código neste PR. Prioridade: **P0** essencial próximo MVP agente → **P3** futuro YBY.
 
+### Próximo lote (após política de comandos D10) — só planejamento
+
+Não implementar neste ciclo. Ordem sugerida:
+
+1. Consentimento de nuvem bloqueado por padrão
+2. Semântica de `local_only` e validação da configuração
+3. Proteção de segredos em JSON e `Authorization: Bearer`
+4. Reindexação consistente do vault
+5. Verificação independente do sucesso do agente
+6. Isolamento pelo SO antes de ampliar execução de código gerado
+
 ### P0 — essencial para o próximo MVP agente
 
 | Título | Objetivo | Critério de aceite | Dependências | Risco de segurança |

@@ -1,8 +1,10 @@
 # Allowlist do YBY SEED. Linhas em branco e comentários (#) são ignorados.
-# [read]   comando somente leitura: roda direto
-# [git]    binário git: roda direto, salvo se cair em [refuse]
-# [scripts] pastas do projeto cujos scripts rodam direto
-# [refuse] trecho que bloqueia o comando, mesmo se estiver na allowlist
+# [read]   token bare (sem path) de inspeção; opções mutáveis (ex. date --set) → ask
+#          paths de arquivo ainda não são sandboxed (cat .env pode ser run)
+# [git]    só o token bare `git`; inspeção status/diff/log/show/branch/rev-parse/describe
+#          sem -c/-C/--git-dir/etc.; ! e reset --hard/clean -f/push -f → refuse
+# [scripts] pastas conhecidas: script sob elas pede confirmação (não auto-executa)
+# [refuse] trecho que bloqueia (texto cru, argv e git normalizado); complemento estrutural
 
 [read]
 ls

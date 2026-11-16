@@ -2,11 +2,11 @@
 
 `src/safety` decide e confirma. Este módulo só chama o subprocesso quando a
 decisão é `run`, ou `ask` com sim. `refuse` nunca chega ao subprocesso.
+O executor usa exatamente `decision.argv` e `decision.workdir` autorizados.
 """
 
 from __future__ import annotations
 
-import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,7 +54,13 @@ def run_command(
 
     root = Path(project_root) if project_root is not None else default_policy_path().parents[1]
     active_policy = policy if policy is not None else load_policy(default_policy_path())
-    decision = decide(command, policy=active_policy, project_root=root)
+    workdir = Path(cwd) if cwd is not None else root
+    decision = decide(
+        command,
+        policy=active_policy,
+        project_root=root,
+        workdir=workdir,
+    )
 
     if decision.action == "refuse":
         output_fn(f"refuse: {decision.reason}")
@@ -83,17 +89,26 @@ def run_command(
             stderr="",
         )
 
-    argv = _argv(command)
-    workdir = Path(cwd) if cwd is not None else root
+    if not decision.argv:
+        output_fn("sem argv autorizado; não executado.")
+        return RunResult(
+            decision=decision,
+            approved=True,
+            executed=False,
+            exit_code=None,
+            stdout="",
+            stderr="",
+        )
+
     execute = runner or _default_runner
 
     try:
         completed = execute(
-            argv,
+            decision.argv,
             capture_output=True,
             text=True,
             timeout=timeout,
-            cwd=str(workdir),
+            cwd=decision.workdir,
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
@@ -119,10 +134,6 @@ def run_command(
         stdout=completed.stdout or "",
         stderr=completed.stderr or "",
     )
-
-
-def _argv(command: str) -> Sequence[str]:
-    return shlex.split(command.strip(), posix=True)
 
 
 def _default_runner(

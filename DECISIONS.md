@@ -60,13 +60,21 @@ O YBY SEED roda num servidor doméstico sempre ligado. Esse servidor é o PC Hub
 
 Operação: unit systemd de usuário (`scripts/yby-hub.service` + `scripts/install-hub-service.sh`) mantém um keepalive fino (`python -m src.platform.hub` / `yby hub`) que só checa o Ollama — **não** sobe o gateway MQTT. Vault via Syncthing (`examples/syncthing/`, `docs/syncthing/`). Cache de respostas e limite de contexto antes da nuvem. Detalhe: [docs/PLATFORM.md](docs/PLATFORM.md).
 
-## D10 — Segurança de comandos (2026-11-11)
+## D10 — Segurança de comandos (2026-11-11; atualizado 2026-11-16)
 
-A allowlist cobre comandos somente leitura (`ls`, `cat`, `df`, estado do sistema e equivalentes), comandos `git` e scripts dentro da pasta do YBY. Qualquer outro comando pede sim ou não no terminal. Padrões destrutivos óbvios são recusados.
+Allowlist em [config/safety-allowlist.txt](config/safety-allowlist.txt). Classificação em `src/safety`; execução em `src/actions` com `shell=False`, usando o mesmo `argv` e `workdir` gravados na `Decision`.
 
-O módulo `src/safety` classifica o comando em run, ask ou refuse e faz a pergunta no terminal. Ele não executa o comando. O `ask` também não executa shell.
+**Run (automático):** token bare em `[read]` sem opção mutável conhecida (hoje: `date -s`/`--set` não entram); `git` bare com subcomando de inspeção `status`/`diff`/`log`/`show`/`branch` (sem delete/move/copy)/`rev-parse`/`describe`, sem globals `-c`/`-C`/`--git-dir`/`--work-tree`/`--config-env`/`--exec-path`/….
 
-A camada `src/actions` é quem executa: só chama o subprocesso depois de `run`, ou de `ask` com sim. `refuse` nunca chega ao shell. O CLI é `python yby.py run "..."`. `gate` continua só decidindo.
+**Ask (confirmação):** fora da allowlist; executável com path (`./git`, `/tmp/git`); `git config`/push/commit e demais subcomandos; globals git arriscados; `date --set`; scripts sob `[scripts]` (a pasta não confere auto-exec); encadeamento de shell; parse `shlex` inválido. Sem TTY/`EOFError`/`OSError` na confirmação → não executa.
+
+**Refuse:** padrões `[refuse]` (texto cru, argv pós-`shlex`, git normalizado) e checagens estruturais (`git` com `!`, `reset --hard`, `clean` forçado, `push --force`/`-f`). `refuse` e `ask` sem sim válido não chamam subprocesso. `argv` vazio após “sim” também não executa.
+
+**Limitações / riscos residuais:** `[read]` não sandboxa paths (`cat .env` pode ser `run`); variáveis `GIT_*`/hooks por ambiente não inspecionadas; unificação argv/cwd não é prova formal; sem isolamento de OS para código gerado.
+
+**Próximos passos (outro lote — não implementar aqui):** consentimento de nuvem bloqueado por padrão; semântica `local_only` e validação de config; proteção de segredos em JSON e `Authorization: Bearer`; reindexação consistente do vault; verificação independente do sucesso do agente; isolamento pelo SO antes de ampliar execução de código gerado.
+
+O CLI é `python yby.py run "..."` / `gate` (só decide).
 
 ## D11 — Voz local (2026-11-11)
 
