@@ -1,6 +1,6 @@
 # RAG local — desenho (MVP YBY SEED)
 
-Status: **Tarefa 1 — fundação**. Ingestão (T2), recuperação (T3), ferramentas (T4) e agente (T5) são etapas seguintes.
+Status: **Tarefas 1–3** (fundação, ingestão, recuperação). Ferramentas (T4) e agente (T5) são etapas seguintes.
 
 Alinhamento: D1 (PC-first), D4/D5 (local, sem Docker no núcleo), D8 (vault), D10 (shell separado), [`ROADMAP.md`](../ROADMAP.md) P1.
 
@@ -33,12 +33,20 @@ Módulos: `loaders.py`, `chunking.py`, `embedder.py`, `ingest.py`.
 7. Metadados por chunk incluem `content_hash`, `chunk_index`, `chunk_total`.
 8. Logs JSON sem conteúdo do documento (`yby.rag.ingest`).
 
-## Fluxo de recuperação (T3)
+## Fluxo de recuperação (T3) — implementado
 
-1. Embed da query (mesmo modelo).
-2. Busca `top_k` (padrão 5, máx. 10) com filtros opcionais.
-3. Retornar chunks com `source`, score e metadados — **nunca** arquivo inteiro.
-4. Montar `context_text` com teto de caracteres.
+Módulo: `retrieve.py` (`RagRetriever`, `search_knowledge`).
+
+1. Valida query não vazia; exige índice com `count() >= 1` (`RetrievalError` se vazio).
+2. Embedding da query via `create_embedder()` (Ollama `nomic-embed-text` ou mock nos testes).
+3. Busca vetorial Chroma/LlamaIndex com `top_k` limitado a `max_results`.
+4. Filtros de metadados: `doc_type`, `access_level`, `language`; `tags` com pós-filtro (oversample).
+5. ACL pós-busca: `caller_access_level` (`public` \| `team` \| `private`) — nunca expõe nível acima da permissão do chamador.
+6. Hits estruturados: `text`, `score`, `source` **relativo** a `knowledge_dir`, `title`, `doc_type`, `tags`, `access_level`, `chunk_index`, `chunk_total`, `content_hash`, `language`.
+7. `context_text` com aviso anti-injeção e teto `YBY_RAG_MAX_CONTEXT_CHARS` (padrão 4000).
+8. Log JSON (`yby.rag.retrieve`): hash parcial da query, contagens e `source` relativos — sem corpo dos chunks.
+
+**Reranking local:** não incluído neste MVP; melhoria futura (ex. boosting léxico sobre o `top_k` vetorial) sem APIs externas.
 
 ## Metadados obrigatórios
 

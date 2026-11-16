@@ -63,11 +63,19 @@ class KnowledgeChunk(BaseModel):
 
 
 class RetrievalResult(BaseModel):
-    """Um hit de busca semântica."""
+    """Um hit de busca semântica (campos estruturados + metadados brutos opcionais)."""
 
     text: str
     score: float
     source: str
+    title: str = ""
+    doc_type: DocType | str = ""
+    tags: list[str] = Field(default_factory=list)
+    access_level: AccessLevel | str = "private"
+    chunk_index: int = Field(ge=0, default=0)
+    chunk_total: int = Field(ge=1, default=1)
+    content_hash: str = ""
+    language: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

@@ -23,6 +23,7 @@ _DEFAULT_TIMEOUT_SECONDS = 30.0
 _DEFAULT_ACCESS_LEVEL = "private"
 _DEFAULT_MAX_FILE_BYTES = 10 * 1024 * 1024
 _DEFAULT_MAX_FILES_PER_RUN = 100
+_DEFAULT_MAX_CONTEXT_CHARS = 4000
 
 
 def _repo_root() -> Path:
@@ -68,6 +69,7 @@ class RagConfig:
     max_file_bytes: int = _DEFAULT_MAX_FILE_BYTES
     max_files_per_run: int = _DEFAULT_MAX_FILES_PER_RUN
     default_access_level: str = _DEFAULT_ACCESS_LEVEL
+    max_context_chars: int = _DEFAULT_MAX_CONTEXT_CHARS
 
     def __post_init__(self) -> None:
         if self.chunk_overlap_tokens >= self.chunk_size_tokens:
@@ -82,6 +84,8 @@ class RagConfig:
             raise ConfigurationError("max_file_bytes deve ser >= 1")
         if self.max_files_per_run < 1:
             raise ConfigurationError("max_files_per_run deve ser >= 1")
+        if self.max_context_chars < 1:
+            raise ConfigurationError("max_context_chars deve ser >= 1")
 
     @property
     def chunk_overlap_ratio(self) -> float:
@@ -104,6 +108,7 @@ class RagConfig:
             timeout_seconds=_DEFAULT_TIMEOUT_SECONDS,
             max_file_bytes=_DEFAULT_MAX_FILE_BYTES,
             max_files_per_run=_DEFAULT_MAX_FILES_PER_RUN,
+            max_context_chars=_DEFAULT_MAX_CONTEXT_CHARS,
         )
 
     @classmethod
@@ -167,6 +172,11 @@ class RagConfig:
                 "YBY_RAG_MAX_FILES_PER_RUN",
                 os.getenv("YBY_RAG_MAX_FILES_PER_RUN", ""),
                 _DEFAULT_MAX_FILES_PER_RUN,
+            ),
+            max_context_chars=_positive_int(
+                "YBY_RAG_MAX_CONTEXT_CHARS",
+                os.getenv("YBY_RAG_MAX_CONTEXT_CHARS", ""),
+                _DEFAULT_MAX_CONTEXT_CHARS,
             ),
         )
 
