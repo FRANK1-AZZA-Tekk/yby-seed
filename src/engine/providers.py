@@ -138,17 +138,31 @@ class OllamaProvider:
 
     def complete(self, prompt: str, *, model: str, system: str) -> str:
         url = f"{self.base_url}/api/generate"
-        try:
-            response = self._session.post(
-                url,
-                json=build_ollama_generate_payload(prompt, model=model, system=system),
-                timeout=_request_timeout(self.timeout),
-            )
-        except requests.RequestException as exc:
-            raise ProviderUnreachable(f"Ollama indisponível em {self.base_url} ({exc})") from exc
+        body = build_ollama_generate_payload(prompt, model=model, system=system)
+        timeout = _request_timeout(self.timeout)
+        response: Any = None
+        last_error: requests.RequestException | None = None
+        for attempt in (1, 2):
+            try:
+                response = self._session.post(url, json=body, timeout=timeout)
+            except requests.RequestException as exc:
+                last_error = exc
+                if attempt == 1:
+                    time.sleep(0.25)
+                    continue
+                raise ProviderUnreachable(
+                    f"Ollama indisponível em {self.base_url} ({exc})"
+                ) from exc
+            last_error = None
+            break
 
-        if response.status_code >= 400:
-            raise ProviderError(f"Ollama respondeu HTTP {response.status_code} em {self.base_url}.")
+        if last_error is not None:
+            raise ProviderUnreachable(
+                f"Ollama indisponível em {self.base_url} ({last_error})"
+            ) from last_error
+        if response is None or response.status_code >= 400:
+            status = getattr(response, "status_code", "?")
+            raise ProviderError(f"Ollama respondeu HTTP {status} em {self.base_url}.")
 
         payload = _json_object(response, "Ollama")
         return _ollama_text(payload, model)

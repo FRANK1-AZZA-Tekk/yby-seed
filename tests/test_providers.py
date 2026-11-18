@@ -263,3 +263,24 @@ def test_ollama_conexao_recusada_compativel() -> None:
     provider = OllamaProvider("http://127.0.0.1:11434", timeout=1, session=session)
     with pytest.raises(ProviderUnreachable):
         provider.complete("oi", model="qwen2.5-coder:3b", system="sistema")
+
+
+def test_ollama_retry_em_falha_de_conexao(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("src.engine.providers.time.sleep", lambda _delay: None)
+
+    class _FlakyConn:
+        def __init__(self) -> None:
+            self.posts: list[dict[str, object]] = []
+            self._n = 0
+
+        def post(self, url: str, **kwargs: object) -> _Resp:
+            self.posts.append({"url": url, **kwargs})
+            self._n += 1
+            if self._n == 1:
+                raise requests.ConnectionError("reset")
+            return _Resp(200, {"response": "ok local"})
+
+    flaky = _FlakyConn()
+    provider = OllamaProvider("http://127.0.0.1:11434", timeout=1, session=flaky)
+    assert provider.complete("oi", model="qwen2.5-coder:3b", system="s") == "ok local"
+    assert len(flaky.posts) == 2
