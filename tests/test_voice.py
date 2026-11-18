@@ -73,14 +73,27 @@ def test_teto_de_gravacao_vem_do_ambiente(monkeypatch) -> None:
 
 
 def test_mic_avisa_ao_atingir_teto(monkeypatch, tmp_path: Path) -> None:
+    import sys
     import types
-
-    import numpy as np
 
     from src.voice import mic as mic_mod
 
     notices: list[str] = []
     config = _cfg(max_seconds=1, sample_rate=4)
+
+    class _Chunk:
+        def __init__(self, n: int = 4) -> None:
+            self._n = n
+            self._bytes = b"\x00\x00" * n
+
+        def copy(self) -> "_Chunk":
+            return _Chunk(self._n)
+
+        def __len__(self) -> int:
+            return self._n
+
+        def tobytes(self) -> bytes:
+            return self._bytes
 
     class _Stream:
         def __enter__(self):
@@ -91,15 +104,17 @@ def test_mic_avisa_ao_atingir_teto(monkeypatch, tmp_path: Path) -> None:
 
     def _input_stream(**kwargs):
         callback = kwargs["callback"]
-        chunk = np.zeros((4, 1), dtype=np.int16)
+        chunk = _Chunk(4)
         callback(chunk, 4, None, None)
         callback(chunk, 4, None, None)
         return _Stream()
 
+    fake_np = types.ModuleType("numpy")
+    fake_np.concatenate = lambda frames, axis=0: _Chunk(sum(len(f) for f in frames))
     fake_sd = types.SimpleNamespace(InputStream=_input_stream)
     monkeypatch.setattr(mic_mod, "check_mic", lambda: (True, "ok"))
-    monkeypatch.setitem(__import__("sys").modules, "sounddevice", fake_sd)
-    monkeypatch.setitem(__import__("sys").modules, "numpy", np)
+    monkeypatch.setitem(sys.modules, "sounddevice", fake_sd)
+    monkeypatch.setitem(sys.modules, "numpy", fake_np)
 
     path = mic_mod.record_until_enter(
         config,
