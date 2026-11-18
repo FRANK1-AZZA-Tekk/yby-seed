@@ -5,6 +5,8 @@ Como rodar e onde tocar código no v1 (PC Hub). Decisões vigentes: [DECISIONS.m
 ## Setup
 
 ```bash
+make setup                            # venv + requirements + requirements-dev
+# ou:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -14,6 +16,8 @@ cp .env.example .env                  # preencha chaves só no .env local
 ```
 
 Nunca commite `.env` nem chaves. O template é `.env.example`.
+
+Depois do setup: `make doctor` (ambiente) e `make test` (pytest).
 
 ## Comandos CLI
 
@@ -72,15 +76,16 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 
 O `ask` atual fala com Ollama/nuvem direto via `src/engine`; o proxy LiteLLM é opcional/legado de custo.
 
-## Testes
+## Testes e CI
 
 ```bash
-ruff check src tests   # igual ao CI
-pytest -q
-# ou: make check
+make doctor            # Python, arquivos-chave, imports, alvos Make
+make lint              # ruff check src tests
+make test              # pytest tests -q
+make check             # doctor + lint + test
 ```
 
-O CI roda o mesmo em push/PR. Não precisa de Docker para o núcleo.
+O CI em push/`main` e em todo PR roda os mesmos três alvos e falha o check se algum quebrar. Detalhe e Bugbot: [CI.md](CI.md). Não precisa de Docker para o núcleo.
 
 ## O que não fazer
 

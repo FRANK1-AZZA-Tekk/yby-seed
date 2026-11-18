@@ -1,8 +1,17 @@
+# CI bloqueante — sem secrets, sem deploy, sem comandos destrutivos.
 name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint-and-test:
@@ -15,16 +24,21 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
 
+      - name: Doctor
+        run: make doctor
+
       - name: Lint
-        run: ruff check src tests
+        run: make lint
 
       - name: Test
-        run: pytest tests -q
-        env:
-          PYTHONPATH: ${{ github.workspace }}
+        run: make test

@@ -4,3 +4,4 @@ __pycache__/
 data/
 .env
 logs/
+pr-review-comment.md
