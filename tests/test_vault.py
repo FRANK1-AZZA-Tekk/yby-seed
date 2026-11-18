@@ -37,9 +37,12 @@ def test_indice_usa_escrita_atomica(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(os, "replace", _spy)
     vault.write_note("atomica", "corpo seguro")
     assert replaces
+    note_path = tmp_path / "atomica.md"
+    assert any(dst == str(note_path) for _src, dst in replaces)
     assert replaces[-1][1] == str(vault.index_path)
     assert vault.index_path.is_file()
-    assert (tmp_path / "atomica.md").is_file()
+    assert note_path.is_file()
+    assert note_path.read_text(encoding="utf-8") == "corpo seguro"
 
 
 def test_busca_enxerga_nota_editada_fora_do_write(tmp_path: Path) -> None:

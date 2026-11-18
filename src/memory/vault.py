@@ -37,7 +37,10 @@ class Vault:
     def write_note(self, name: str, body: str) -> Path:
         path = self._note_path(name)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(body, encoding="utf-8")
+        # Mesmo padrão do índice: crash no meio do write não deixa .md pela metade.
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary.write_text(body, encoding="utf-8")
+        os.replace(temporary, path)
         self._update_index(self._relative(path), body)
         return path
 
