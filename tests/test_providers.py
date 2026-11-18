@@ -46,7 +46,8 @@ def test_ollama_payload_defaults_keep_alive_e_num_ctx() -> None:
     assert body["keep_alive"] == "30m"
     assert body["options"]["num_ctx"] == 4096
     assert body["options"]["num_predict"] == 1024
-    assert body["think"] is False
+    # think:false no generate vaza markup; omitir o campo (ollama#18044).
+    assert "think" not in body
     assert body["stream"] is False
 
 
@@ -137,6 +138,43 @@ def test_ollama_usa_thinking_quando_response_vem_vazio() -> None:
     assert text == "raciocinio util"
     timeout = session.posts[0]["timeout"]
     assert timeout == (1, 1)
+
+
+def test_ollama_remove_markup_think_vazado_em_response() -> None:
+    session = _Session(
+        _Resp(
+            200,
+            {
+                "response": (
+                    "<think>\npasso interno\n</think>\n"
+                    "resposta limpa"
+                ),
+                "thinking": None,
+            },
+        )
+    )
+    text = OllamaProvider("http://127.0.0.1:11434", timeout=1, session=session).complete(
+        "p",
+        model="qwen3",
+        system="s",
+    )
+    assert text == "resposta limpa"
+
+    orphan = _Session(
+        _Resp(
+            200,
+            {
+                "response": "raciocinio solto\n</think>\nOK final",
+                "thinking": None,
+            },
+        )
+    )
+    text = OllamaProvider("http://127.0.0.1:11434", timeout=1, session=orphan).complete(
+        "p",
+        model="qwen3",
+        system="s",
+    )
+    assert text == "OK final"
 
 
 def test_ollama_vazio_informa_done_reason() -> None:

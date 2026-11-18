@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -12,7 +13,11 @@ import requests
 DEFAULT_OLLAMA_KEEP_ALIVE = "30m"
 DEFAULT_OLLAMA_NUM_CTX = 4096
 DEFAULT_OLLAMA_NUM_PREDICT = 1024
-_RETRY_STATUS = frozenset({429, 502, 503, 504})
+_RETRY_STATUS = frozenset({408, 429, 502, 503, 504})
+# Ollama #18044: think:false no /api/generate pode vazar markup em response.
+_THINK_BLOCK = re.compile(r"<think\b[^>]*>[\s\S]*?</think>", re.IGNORECASE)
+_THINK_OPEN = re.compile(r"<think\b[^>]*>", re.IGNORECASE)
+_THINK_CLOSE = "</think>"
 
 
 class ProviderError(Exception):
@@ -88,23 +93,27 @@ def build_ollama_generate_payload(
 ) -> dict[str, Any]:
     """Corpo JSON de `POST /api/generate`.
 
-    `think` fica no topo (não em `options`): em modelos com raciocínio o
-    Ollama ignora `options.think` e gasta `num_predict` inteiro no campo
-    `thinking`, devolvendo `response` vazio. `num_ctx` 4096 cabe na GTX 1650
-    4 GB sem spill para CPU. `num_predict` limita a geração para caber no
-    timeout antes de cair na nuvem.
+    `think` só entra no topo quando ligado (não em `options`). Enviar
+    `think: false` no generate pode vazar markup em `response`
+    (ollama#18044). `num_ctx` 4096 cabe na GTX 1650 4 GB. `num_predict`
+    limita a geração para caber no timeout antes de cair na nuvem.
     """
 
     keep_alive, num_ctx, num_predict, think = _ollama_runtime_tuning()
-    return {
+    # Omitir think=false: no /api/generate isso desliga o parser e vaza
+    # <think> em response (ollama/ollama#18044). Sem o campo, o modelo
+    # separa thinking/response. Só envia think quando o usuário liga.
+    payload: dict[str, Any] = {
         "model": model,
         "prompt": prompt,
         "system": system,
         "stream": False,
-        "think": think,
         "keep_alive": keep_alive,
         "options": {"num_ctx": num_ctx, "num_predict": num_predict},
     }
+    if think:
+        payload["think"] = True
+    return payload
 
 
 def _request_timeout(total: float) -> tuple[float, float]:
@@ -293,6 +302,19 @@ def _retry_wait(response: Any) -> float:
     return min(delay, 5.0)
 
 
+def _strip_think_markup(text: str) -> str:
+    """Remove blocos <think> vazados em response (e fechamento órfão)."""
+
+    cleaned = _THINK_BLOCK.sub("", text)
+    lower = cleaned.casefold()
+    close = _THINK_CLOSE.casefold()
+    idx = lower.rfind(close)
+    if idx >= 0:
+        cleaned = cleaned[idx + len(_THINK_CLOSE) :]
+    cleaned = _THINK_OPEN.split(cleaned, maxsplit=1)[0]
+    return cleaned.strip()
+
+
 def _ollama_text(payload: dict[str, Any], model: str) -> str:
     error = payload.get("error")
     if isinstance(error, str) and error.strip():
@@ -300,7 +322,7 @@ def _ollama_text(payload: dict[str, Any], model: str) -> str:
 
     response = payload.get("response")
     thinking = payload.get("thinking")
-    text = response.strip() if isinstance(response, str) else ""
+    text = _strip_think_markup(response) if isinstance(response, str) else ""
     if not text and isinstance(thinking, str):
         text = thinking.strip()
     if text:
