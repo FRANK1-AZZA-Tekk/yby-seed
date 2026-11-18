@@ -10,6 +10,7 @@ from src.agent_loop.loop import ControlledAgentLoop
 from src.agent_loop.planner import ScriptedPlanner
 from src.agent_loop.schemas import parse_planner_step
 from src.agent_loop.tools import default_tool_registry
+from src.engine.providers import ProviderError
 
 
 def test_parse_planner_step_tool() -> None:
@@ -104,6 +105,21 @@ def test_tool_error_stops_without_shell() -> None:
     result = loop.run("falha tool")
     assert result.status == "error"
     assert result.steps[-1].error is not None
+
+
+def test_provider_error_vira_status_error() -> None:
+    class _Down:
+        def plan(self, **_kwargs: object) -> object:
+            raise ProviderError("Ollama indisponível.")
+
+    loop = ControlledAgentLoop(
+        registry=default_tool_registry(include_vault=False),
+        planner=_Down(),  # type: ignore[arg-type]
+        max_iterations=2,
+    )
+    result = loop.run("oi")
+    assert result.status == "error"
+    assert "indisponível" in (result.steps[-1].error or "")
 
 
 def test_result_serializable_json() -> None:

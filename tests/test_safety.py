@@ -100,7 +100,11 @@ def test_git_destrutivo_com_flags_fora_de_ordem() -> None:
     assert decide("git reset HEAD --hard", policy=policy, project_root=root).action == "refuse"
     assert decide("git clean -df", policy=policy, project_root=root).action == "refuse"
     assert decide("git status", policy=policy, project_root=root).action == "run"
-    assert decide("git push origin main", policy=policy, project_root=root).action == "run"
+    assert decide("git diff", policy=policy, project_root=root).action == "run"
+    assert decide("git push origin main", policy=policy, project_root=root).action == "ask"
+    assert decide("git commit -m x", policy=policy, project_root=root).action == "ask"
+    assert decide("git checkout .", policy=policy, project_root=root).action == "ask"
+    assert decide("git branch -D feature", policy=policy, project_root=root).action == "ask"
     glued = decide("git push origin --force && true", policy=policy, project_root=root)
     assert glued.action == "refuse"
 
