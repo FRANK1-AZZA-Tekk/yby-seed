@@ -48,15 +48,22 @@ def record_until_enter(
     stop = threading.Event()
     captured = 0
     budget = config.sample_rate * config.max_seconds
+    budget_notice = False
 
     def _callback(indata, _frames, _time, status) -> None:  # noqa: ANN001
-        nonlocal captured
+        nonlocal captured, budget_notice
         if status:
             say(f"aviso do microfone: {status}")
         if stop.is_set() or captured >= budget:
             return
         frames.append(indata.copy())
         captured += len(indata)
+        if captured >= budget and not budget_notice:
+            budget_notice = True
+            say(
+                f"Limite de gravação ({config.max_seconds}s) atingido; "
+                "aperte Enter para seguir."
+            )
 
     say("Gravando… aperte Enter para parar.")
     try:
