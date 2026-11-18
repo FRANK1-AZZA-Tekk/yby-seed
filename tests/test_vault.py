@@ -25,6 +25,23 @@ def test_nota_e_busca(tmp_path: Path) -> None:
     assert hits[0].name == "diario.md"
 
 
+def test_indice_usa_escrita_atomica(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    vault = Vault(tmp_path)
+    replaces: list[tuple[str, str]] = []
+    real_replace = os.replace
+
+    def _spy(src: str | os.PathLike[str], dst: str | os.PathLike[str]) -> None:
+        replaces.append((str(src), str(dst)))
+        real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", _spy)
+    vault.write_note("atomica", "corpo seguro")
+    assert replaces
+    assert replaces[-1][1] == str(vault.index_path)
+    assert vault.index_path.is_file()
+    assert (tmp_path / "atomica.md").is_file()
+
+
 def test_busca_enxerga_nota_editada_fora_do_write(tmp_path: Path) -> None:
     vault = Vault(tmp_path)
     vault.write_note("diario", "assunto antigo")

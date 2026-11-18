@@ -190,6 +190,8 @@ def test_cli_run_usa_a_camada(monkeypatch, tmp_path: Path) -> None:
 
 def test_execucao_nao_herda_chaves(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "segredo")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIA")
+    monkeypatch.setenv("SSH_PRIVATE_KEY", "-----")
     monkeypatch.setenv("GATEWAY_TOKEN", "tok")
     monkeypatch.setenv("PATH", "/usr/bin")
     policy = _policy(tmp_path)
@@ -204,6 +206,8 @@ def test_execucao_nao_herda_chaves(tmp_path: Path, monkeypatch) -> None:
     env = runner.calls[0]["env"]
     assert isinstance(env, dict)
     assert "OPENROUTER_API_KEY" not in env
+    assert "AWS_ACCESS_KEY_ID" not in env
+    assert "SSH_PRIVATE_KEY" not in env
     assert "GATEWAY_TOKEN" not in env
     assert env["PATH"] == "/usr/bin"
 

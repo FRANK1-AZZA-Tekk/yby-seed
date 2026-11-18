@@ -111,7 +111,10 @@ class Vault:
                 name: {"v": vector, "m": mtime} for name, (vector, mtime) in records.items()
             }
         }
-        self.index_path.write_text(json.dumps(payload), encoding="utf-8")
+        # Escrita atômica: crash no meio do write_text corrompia o índice.
+        temporary = self.index_path.with_suffix(self.index_path.suffix + ".tmp")
+        temporary.write_text(json.dumps(payload), encoding="utf-8")
+        os.replace(temporary, self.index_path)
 
     def _update_index(self, name: str, body: str) -> None:
         records = self._load_records()

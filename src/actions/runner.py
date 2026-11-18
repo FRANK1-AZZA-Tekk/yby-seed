@@ -151,6 +151,8 @@ def _default_runner(
 
 _SECRET_MARKERS = (
     "API_KEY",
+    "ACCESS_KEY",
+    "PRIVATE_KEY",
     "TOKEN",
     "SECRET",
     "PASSWORD",

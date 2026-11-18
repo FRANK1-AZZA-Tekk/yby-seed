@@ -51,6 +51,19 @@ def test_wav_temporario_fecha_o_descritor() -> None:
         path.unlink(missing_ok=True)
 
 
+def test_tts_temporario_fecha_o_descritor() -> None:
+    from src.voice.tts import _temp_wav
+
+    path = _temp_wav()
+    try:
+        assert path.suffix == ".wav"
+        assert path.is_file()
+        with path.open("rb") as handle:
+            assert handle.read() == b""
+    finally:
+        path.unlink(missing_ok=True)
+
+
 def test_teto_de_gravacao_vem_do_ambiente(monkeypatch) -> None:
     from src.voice.config import VoiceConfig
 
