@@ -28,6 +28,7 @@ class VoiceConfig:
     piper_bin: str
     piper_model: str
     play_bin: str
+    max_seconds: int = 120
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> VoiceConfig:
@@ -41,6 +42,10 @@ class VoiceConfig:
         sample_rate = int(sample_raw) if sample_raw else DEFAULT_SAMPLE_RATE
         if sample_rate < 8_000:
             raise ValueError("YBY_VOICE_SAMPLE_RATE deve ser >= 8000.")
+        max_raw = source.get("YBY_VOICE_MAX_SECONDS", "").strip()
+        max_seconds = int(max_raw) if max_raw else 120
+        if max_seconds < 1:
+            raise ValueError("YBY_VOICE_MAX_SECONDS deve ser >= 1.")
 
         return cls(
             whisper_model=_text(source, "YBY_WHISPER_MODEL") or DEFAULT_WHISPER_MODEL,
@@ -50,6 +55,7 @@ class VoiceConfig:
             piper_bin=_text(source, "YBY_PIPER_BIN") or DEFAULT_PIPER_BIN,
             piper_model=_text(source, "YBY_PIPER_MODEL"),
             play_bin=_text(source, "YBY_PLAY_BIN") or DEFAULT_PLAY_BIN,
+            max_seconds=max_seconds,
         )
 
 

@@ -91,18 +91,27 @@ def run_loop(
         logger.error("URL Ollama fora do loopback: %s", base_url)
         return 2
 
+    client = session
+    owns_client = False
+    if client is None:
+        client = requests.Session()
+        owns_client = True
     tick = 0
     logger.info("YBY hub ativo; Ollama=%s; intervalo=%ss", base_url, interval)
-    while max_ticks is None or tick < max_ticks:
-        status = check_ollama(base_url, timeout=timeout, session=session)
-        if status == "ok":
-            logger.info("ollama=%s", status)
-        else:
-            logger.warning("ollama falhou: %s", status)
-        tick += 1
-        if max_ticks is not None and tick >= max_ticks:
-            break
-        time.sleep(interval)
+    try:
+        while max_ticks is None or tick < max_ticks:
+            status = check_ollama(base_url, timeout=timeout, session=client)
+            if status == "ok":
+                logger.info("ollama=%s", status)
+            else:
+                logger.warning("ollama falhou: %s", status)
+            tick += 1
+            if max_ticks is not None and tick >= max_ticks:
+                break
+            time.sleep(interval)
+    finally:
+        if owns_client:
+            client.close()
     return 0
 
 

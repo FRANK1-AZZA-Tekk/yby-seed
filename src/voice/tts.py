@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -47,7 +48,7 @@ def speak(text: str, config: VoiceConfig) -> Path:
     if not ok:
         raise TtsError(message)
 
-    out = Path(tempfile.mkstemp(prefix="yby-tts-", suffix=".wav")[1])
+    out = _temp_wav()
     try:
         proc = subprocess.run(
             [
@@ -75,6 +76,14 @@ def speak(text: str, config: VoiceConfig) -> Path:
 
     _play(out, config)
     return out
+
+
+def _temp_wav() -> Path:
+    """WAV temporário. `mkstemp` devolve um fd que precisa ser fechado."""
+
+    fd, name = tempfile.mkstemp(prefix="yby-tts-", suffix=".wav")
+    os.close(fd)
+    return Path(name)
 
 
 def _play(wav_path: Path, config: VoiceConfig) -> None:

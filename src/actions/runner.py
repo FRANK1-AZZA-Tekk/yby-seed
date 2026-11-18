@@ -6,6 +6,7 @@ decisão é `run`, ou `ask` com sim. `refuse` nunca chega ao subprocesso.
 
 from __future__ import annotations
 
+import os
 import shlex
 import subprocess
 from dataclasses import dataclass
@@ -95,6 +96,7 @@ def run_command(
             timeout=timeout,
             cwd=str(workdir),
             check=False,
+            env=scrubbed_env(),
         )
     except subprocess.TimeoutExpired as exc:
         stdout = _as_text(exc.stdout)
@@ -133,6 +135,7 @@ def _default_runner(
     timeout: float,
     cwd: str,
     check: bool,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         list(argv),
@@ -142,7 +145,39 @@ def _default_runner(
         cwd=cwd,
         check=check,
         shell=False,
+        env=env if env is not None else scrubbed_env(),
     )
+
+
+_SECRET_MARKERS = (
+    "API_KEY",
+    "ACCESS_KEY",
+    "PRIVATE_KEY",
+    "TOKEN",
+    "SECRET",
+    "PASSWORD",
+    "PASSWD",
+    "CREDENTIAL",
+    "DATABASE_URL",
+    "AUTH",  # REDISCLI_AUTH, SSH_AUTH_SOCK (ponteiro de credencial)
+    "MYSQL_PWD",
+    "REDIS_URL",
+    "MONGO_URL",
+    "MONGODB_URI",
+    "GH_PAT",
+    "GITHUB_PAT",
+)
+
+
+def scrubbed_env(source: dict[str, str] | None = None) -> dict[str, str]:
+    """Ambiente do subprocesso sem chaves do `.env`. PATH e HOME ficam."""
+
+    env = dict(os.environ if source is None else source)
+    for name in list(env):
+        upper = name.upper()
+        if any(marker in upper for marker in _SECRET_MARKERS):
+            env.pop(name, None)
+    return env
 
 
 def _as_text(value: str | bytes | None) -> str:

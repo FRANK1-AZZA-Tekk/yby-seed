@@ -41,14 +41,27 @@ from src.safety.policy import confirm, decide, default_policy_path, load_policy
 from src.voice.config import voice_config_from_env
 from src.voice.session import VoiceError, listen_once
 
-# Configura logging
-logger.add("logs/yby_seed_{time}.log", rotation="1 day", retention="7 days")
+_LOG_READY = False
+
+
+def _configure_logging() -> None:
+    """Arquivo de log só quando o CLI roda. Importar o módulo não cria `logs/`."""
+
+    global _LOG_READY
+    if _LOG_READY:
+        return
+    _LOG_READY = True
+    try:
+        Path("logs").mkdir(exist_ok=True)
+        logger.add("logs/yby_seed_{time}.log", rotation="1 day", retention="7 days")
+    except OSError:
+        return
 
 
 @click.group()
 def cli():
     """YBY SEED - Programação em Linguagem Natural"""
-    pass
+    _configure_logging()
 
 
 @cli.command(

@@ -38,6 +38,96 @@ class _ScriptedEngine:
         return self.reply_value
 
 
+def test_wav_temporario_fecha_o_descritor() -> None:
+    from src.voice.mic import _temp_wav
+
+    path = _temp_wav()
+    try:
+        assert path.suffix == ".wav"
+        assert path.is_file()
+        with path.open("rb") as handle:
+            assert handle.read() == b""
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def test_tts_temporario_fecha_o_descritor() -> None:
+    from src.voice.tts import _temp_wav
+
+    path = _temp_wav()
+    try:
+        assert path.suffix == ".wav"
+        assert path.is_file()
+        with path.open("rb") as handle:
+            assert handle.read() == b""
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def test_teto_de_gravacao_vem_do_ambiente(monkeypatch) -> None:
+    from src.voice.config import VoiceConfig
+
+    monkeypatch.setenv("YBY_VOICE_MAX_SECONDS", "30")
+    config = VoiceConfig.from_env()
+    assert config.max_seconds == 30
+
+
+def test_mic_avisa_ao_atingir_teto(monkeypatch, tmp_path: Path) -> None:
+    import sys
+    import types
+
+    from src.voice import mic as mic_mod
+
+    notices: list[str] = []
+    config = _cfg(max_seconds=1, sample_rate=4)
+
+    class _Chunk:
+        def __init__(self, n: int = 4) -> None:
+            self._n = n
+            self._bytes = b"\x00\x00" * n
+
+        def copy(self) -> "_Chunk":
+            return _Chunk(self._n)
+
+        def __len__(self) -> int:
+            return self._n
+
+        def tobytes(self) -> bytes:
+            return self._bytes
+
+    class _Stream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+    def _input_stream(**kwargs):
+        callback = kwargs["callback"]
+        chunk = _Chunk(4)
+        callback(chunk, 4, None, None)
+        callback(chunk, 4, None, None)
+        return _Stream()
+
+    fake_np = types.ModuleType("numpy")
+    fake_np.concatenate = lambda frames, axis=0: _Chunk(sum(len(f) for f in frames))
+    fake_sd = types.SimpleNamespace(InputStream=_input_stream)
+    monkeypatch.setattr(mic_mod, "check_mic", lambda: (True, "ok"))
+    monkeypatch.setitem(sys.modules, "sounddevice", fake_sd)
+    monkeypatch.setitem(sys.modules, "numpy", fake_np)
+
+    path = mic_mod.record_until_enter(
+        config,
+        input_fn=lambda _p: "",
+        output_fn=notices.append,
+    )
+    try:
+        assert any("Limite de gravação" in line for line in notices)
+        assert path.is_file()
+    finally:
+        path.unlink(missing_ok=True)
+
+
 def test_check_stt_sem_pacote(monkeypatch) -> None:
     import builtins
 
@@ -149,6 +239,7 @@ def test_listen_once_fluxo_completo(monkeypatch, tmp_path: Path) -> None:
     assert turn.tts_path == out
     assert engine.calls == [{"prompt": "explica lista", "explicit_heavy": False}]
     assert not wav.exists()  # limpeza do áudio de entrada
+    assert not out.exists()  # WAV do TTS apagado depois de tocar
 
 
 def test_listen_once_tts_opcional(monkeypatch, tmp_path: Path) -> None:

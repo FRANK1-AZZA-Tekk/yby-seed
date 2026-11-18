@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 from src.engine.budget import CloudBudget, CODE_BLOCKED_BUDGET, CODE_BLOCKED_LOCAL_ONLY, CODE_BLOCKED_NO_TTY
@@ -86,6 +88,7 @@ class HybridEngine:
                 lambda: sys.stdin.isatty() and sys.stdout.isatty()
             )
         self._cloud_session_confirmed = False
+        self._budget_warn: str | None = None
 
     def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
         decision = decide_route(
@@ -101,10 +104,14 @@ class HybridEngine:
         return self._local_first(prompt, decision)
 
     def _local_first(self, prompt: str, decision: RouteDecision) -> EngineReply:
+        cached = self._lookup(prompt, model=self.config.local_model)
+        if cached is not None:
+            return EngineReply(cached, "local", self.config.local_model, decision.reasons, None)
         try:
             text = self.ollama.complete(prompt, model=self.config.local_model, system=SYSTEM_PROMPT)
         except ProviderError as exc:
             return self._cloud_after_local_failure(prompt, decision, exc)
+        self._store(prompt, text, model=self.config.local_model)
         return EngineReply(text, "local", self.config.local_model, decision.reasons, None)
 
     def _cloud_after_local_failure(
@@ -113,6 +120,18 @@ class HybridEngine:
         decision: RouteDecision,
         local_error: ProviderError,
     ) -> EngineReply:
+        cached = self._lookup_cloud(prompt)
+        if cached is not None:
+            return EngineReply(
+                cached,
+                "cloud",
+                self.config.cloud_model,
+                decision.reasons,
+                (
+                    f"Ollama falhou ({local_error}). "
+                    f"Respondi com o cache local ({self.config.cloud_model})."
+                ),
+            )
         if not self.cloud.has_credentials():
             return EngineReply(
                 "",
@@ -148,31 +167,48 @@ class HybridEngine:
                 decision.reasons,
                 f"Ollama falhou ({local_error}). A nuvem também falhou ({cloud_error}).",
             )
+        notice = (
+            f"Ollama falhou ({local_error}). "
+            f"Respondi pela nuvem ({result.model} via {result.via})."
+        )
+        if self._budget_warn:
+            notice = f"{self._budget_warn} {notice}"
         return EngineReply(
             result.text,
             "cloud",
             result.model,
             decision.reasons,
-            (
-                f"Ollama falhou ({local_error}). "
-                f"Respondi pela nuvem ({result.model} via {result.via})."
-            ),
+            notice,
         )
 
     def _cloud_first(self, prompt: str, decision: RouteDecision) -> EngineReply:
         why = "; ".join(decision.reasons)
+        cached = self._lookup_cloud(prompt)
+        if cached is not None:
+            return EngineReply(cached, "cloud", self.config.cloud_model, decision.reasons, None)
         if not self.cloud.has_credentials():
             return self._local_without_cloud_key(prompt, decision, why)
 
         blocked = self._cloud_gate_reply(prompt, decision, purpose="route_cloud")
         if blocked is not None:
-            return blocked
+            # D12: teto/TTY/local_only não deve matar o ask se o Ollama responde.
+            return self._local_after_cloud_block(
+                prompt,
+                decision,
+                blocked.notice or "nuvem bloqueada",
+            )
 
         try:
             result = self._cloud_call(prompt, purpose="route_cloud")
         except ProviderError as cloud_error:
             return self._local_after_cloud_failure(prompt, decision, cloud_error)
-        return EngineReply(result.text, "cloud", result.model, decision.reasons, None)
+        return EngineReply(
+            result.text,
+            "cloud",
+            result.model,
+            decision.reasons,
+            self._budget_warn,
+        )
 
     def _local_without_cloud_key(
         self,
@@ -183,22 +219,11 @@ class HybridEngine:
         prefix = (
             f"Pedido encaminhado à nuvem ({why}). YBY_CLOUD_API_KEY não está definida."
         )
-        try:
-            text = self.ollama.complete(prompt, model=self.config.local_model, system=SYSTEM_PROMPT)
-        except ProviderError as local_error:
-            return EngineReply(
-                "",
-                "none",
-                "",
-                decision.reasons,
-                f"{prefix} Ollama também falhou ({local_error}).",
-            )
-        return EngineReply(
-            text,
-            "local",
-            self.config.local_model,
-            decision.reasons,
-            f"{prefix} Respondi com o modelo local {self.config.local_model}.",
+        return self._reply_from_local(
+            prompt,
+            decision,
+            prefix=prefix,
+            failure_prefix=prefix,
         )
 
     def _local_after_cloud_failure(
@@ -207,25 +232,65 @@ class HybridEngine:
         decision: RouteDecision,
         cloud_error: ProviderError,
     ) -> EngineReply:
+        prefix = f"Nuvem falhou ({cloud_error})."
+        return self._reply_from_local(
+            prompt,
+            decision,
+            prefix=prefix,
+            failure_prefix=prefix,
+        )
+
+    def _local_after_cloud_block(
+        self,
+        prompt: str,
+        decision: RouteDecision,
+        reason: str,
+    ) -> EngineReply:
+        clean = reason.strip().rstrip(".")
+        prefix = f"Nuvem indisponível ({clean})."
+        return self._reply_from_local(
+            prompt,
+            decision,
+            prefix=prefix,
+            failure_prefix=prefix,
+        )
+
+    def _reply_from_local(
+        self,
+        prompt: str,
+        decision: RouteDecision,
+        *,
+        prefix: str,
+        failure_prefix: str,
+    ) -> EngineReply:
+        cached = self._lookup(prompt, model=self.config.local_model)
+        if cached is not None:
+            return EngineReply(
+                cached,
+                "local",
+                self.config.local_model,
+                decision.reasons,
+                f"{prefix} Respondi com o cache local ({self.config.local_model}).",
+            )
         try:
-            text = self.ollama.complete(prompt, model=self.config.local_model, system=SYSTEM_PROMPT)
+            text = self.ollama.complete(
+                prompt, model=self.config.local_model, system=SYSTEM_PROMPT
+            )
         except ProviderError as local_error:
             return EngineReply(
                 "",
                 "none",
                 "",
                 decision.reasons,
-                f"Nuvem falhou ({cloud_error}). Ollama também falhou ({local_error}).",
+                f"{failure_prefix} Ollama também falhou ({local_error}).",
             )
+        self._store(prompt, text, model=self.config.local_model)
         return EngineReply(
             text,
             "local",
             self.config.local_model,
             decision.reasons,
-            (
-                f"Nuvem falhou ({cloud_error}). "
-                f"Respondi com o modelo local {self.config.local_model}."
-            ),
+            f"{prefix} Respondi com o modelo local {self.config.local_model}.",
         )
 
     def _cloud_gate_reply(
@@ -242,6 +307,7 @@ class HybridEngine:
         )
         model = self.config.cloud_model
         input_est = CloudUsageLog.estimate_tokens(prompt)
+        self._budget_warn = None
 
         if not evaluation.allowed:
             event = {
@@ -256,9 +322,8 @@ class HybridEngine:
             self.cloud_log.append(event)
             return EngineReply("", "none", "", decision.reasons, evaluation.reason)
 
-        cache_hit = self._cache_hit(prompt)
-        if cache_hit:
-            return None
+        if evaluation.reason.startswith("Aviso:"):
+            self._budget_warn = evaluation.reason
 
         self.cloud_log.append(
             {
@@ -310,10 +375,17 @@ class HybridEngine:
             )
         return None
 
-    def _cache_hit(self, prompt: str) -> bool:
+    def _lookup(self, prompt: str, *, model: str) -> str | None:
+        key = self.cache.make_key(prompt, model=model, system=SYSTEM_PROMPT)
+        return self.cache.get(key)
+
+    def _lookup_cloud(self, prompt: str) -> str | None:
         trimmed = trim_context(prompt, self.config.cloud_max_chars)
-        key = self.cache.make_key(trimmed, model=self.config.cloud_model, system=SYSTEM_PROMPT)
-        return self.cache.get(key) is not None
+        return self._lookup(trimmed, model=self.config.cloud_model)
+
+    def _store(self, prompt: str, text: str, *, model: str) -> None:
+        key = self.cache.make_key(prompt, model=model, system=SYSTEM_PROMPT)
+        self.cache.set(key, text)
 
     def _cloud_call(self, prompt: str, *, purpose: str) -> CloudResult:
         trimmed = trim_context(prompt, self.config.cloud_max_chars)
@@ -374,6 +446,27 @@ def _blocked_event(code: str) -> str:
     return EVENT_BLOCKED_BUDGET
 
 
+def _response_cache(config: EngineConfig) -> ResponseCache:
+    """Cache em memória, ou em disco para o CLI que sai a cada pedido."""
+
+    ttl = config.cache_ttl_seconds
+    if ttl <= 0:
+        return ResponseCache(ttl_seconds=ttl)
+    raw = os.environ.get("YBY_CACHE_PATH", "").strip()
+    if raw.casefold() in {"memory", "off", "0", "-"}:
+        return ResponseCache(ttl_seconds=ttl)
+    path = (
+        Path(raw).expanduser()
+        if raw
+        else Path.home() / ".local" / "state" / "yby-seed" / "response-cache.json"
+    )
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return ResponseCache(ttl_seconds=ttl)
+    return ResponseCache(ttl_seconds=ttl, path=path)
+
+
 def engine_from_env(
     *,
     confirm_fn: Callable[[str], bool] | None = None,
@@ -407,7 +500,7 @@ def engine_from_env(
         ollama=OllamaProvider(config.ollama_base_url, timeout=config.ollama_timeout),
         cloud=chain,
         cloud_chain=chain,
-        cache=ResponseCache(ttl_seconds=config.cache_ttl_seconds),
+        cache=_response_cache(config),
         cloud_log=cloud_log,
         budget=budget,
         confirm_fn=confirm_fn,

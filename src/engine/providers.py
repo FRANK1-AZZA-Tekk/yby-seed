@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import re
+import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -10,6 +12,12 @@ import requests
 
 DEFAULT_OLLAMA_KEEP_ALIVE = "30m"
 DEFAULT_OLLAMA_NUM_CTX = 4096
+DEFAULT_OLLAMA_NUM_PREDICT = 1024
+_RETRY_STATUS = frozenset({408, 429, 502, 503, 504})
+# Ollama #18044: think:false no /api/generate pode vazar markup em response.
+_THINK_BLOCK = re.compile(r"<think\b[^>]*>[\s\S]*?</think>", re.IGNORECASE)
+_THINK_OPEN = re.compile(r"<think\b[^>]*>", re.IGNORECASE)
+_THINK_CLOSE = "</think>"
 
 
 class ProviderError(Exception):
@@ -44,18 +52,37 @@ class HttpSession(Protocol):
         """Envia um POST e devolve uma resposta com status e JSON."""
 
 
-def _ollama_runtime_tuning() -> tuple[str, int]:
+def _ollama_runtime_tuning() -> tuple[str, int, int, bool]:
     """Lê tunables locais do ambiente (sem nuvem)."""
 
     keep_alive = os.environ.get("OLLAMA_KEEP_ALIVE", DEFAULT_OLLAMA_KEEP_ALIVE).strip()
     if not keep_alive:
         keep_alive = DEFAULT_OLLAMA_KEEP_ALIVE
-    raw_ctx = os.environ.get("YBY_OLLAMA_NUM_CTX", str(DEFAULT_OLLAMA_NUM_CTX)).strip()
+    num_ctx = _env_int("YBY_OLLAMA_NUM_CTX", DEFAULT_OLLAMA_NUM_CTX, minimum=1)
+    num_predict = _env_int("YBY_OLLAMA_NUM_PREDICT", DEFAULT_OLLAMA_NUM_PREDICT, minimum=-1)
+    if num_predict == 0:
+        num_predict = DEFAULT_OLLAMA_NUM_PREDICT
+    think = os.environ.get("YBY_OLLAMA_THINK", "").strip().casefold() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+        "sim",
+    }
+    return keep_alive, num_ctx, num_predict, think
+
+
+def _env_int(name: str, default: int, *, minimum: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
     try:
-        num_ctx = int(raw_ctx) if raw_ctx else DEFAULT_OLLAMA_NUM_CTX
+        value = int(raw)
     except ValueError:
-        num_ctx = DEFAULT_OLLAMA_NUM_CTX
-    return keep_alive, num_ctx
+        return default
+    if value < minimum:
+        return default
+    return value
 
 
 def build_ollama_generate_payload(
@@ -64,17 +91,35 @@ def build_ollama_generate_payload(
     model: str,
     system: str,
 ) -> dict[str, Any]:
-    """Corpo JSON de `POST /api/generate` com keep_alive e num_ctx."""
+    """Corpo JSON de `POST /api/generate`.
 
-    keep_alive, num_ctx = _ollama_runtime_tuning()
-    return {
+    `think` só entra no topo quando ligado (não em `options`). Enviar
+    `think: false` no generate pode vazar markup em `response`
+    (ollama#18044). `num_ctx` 4096 cabe na GTX 1650 4 GB. `num_predict`
+    limita a geração para caber no timeout antes de cair na nuvem.
+    """
+
+    keep_alive, num_ctx, num_predict, think = _ollama_runtime_tuning()
+    # Omitir think=false: no /api/generate isso desliga o parser e vaza
+    # <think> em response (ollama/ollama#18044). Sem o campo, o modelo
+    # separa thinking/response. Só envia think quando o usuário liga.
+    payload: dict[str, Any] = {
         "model": model,
         "prompt": prompt,
         "system": system,
         "stream": False,
         "keep_alive": keep_alive,
-        "options": {"num_ctx": num_ctx},
+        "options": {"num_ctx": num_ctx, "num_predict": num_predict},
     }
+    if think:
+        payload["think"] = True
+    return payload
+
+
+def _request_timeout(total: float) -> tuple[float, float]:
+    """Conexão curta, leitura longa. Um Ollama caído não espera o timeout inteiro."""
+
+    return (min(5.0, total), total)
 
 
 class OllamaProvider:
@@ -93,23 +138,34 @@ class OllamaProvider:
 
     def complete(self, prompt: str, *, model: str, system: str) -> str:
         url = f"{self.base_url}/api/generate"
-        try:
-            response = self._session.post(
-                url,
-                json=build_ollama_generate_payload(prompt, model=model, system=system),
-                timeout=self.timeout,
-            )
-        except requests.RequestException as exc:
-            raise ProviderUnreachable(f"Ollama indisponível em {self.base_url} ({exc})") from exc
+        body = build_ollama_generate_payload(prompt, model=model, system=system)
+        timeout = _request_timeout(self.timeout)
+        response: Any = None
+        last_error: requests.RequestException | None = None
+        for attempt in (1, 2):
+            try:
+                response = self._session.post(url, json=body, timeout=timeout)
+            except requests.RequestException as exc:
+                last_error = exc
+                if attempt == 1:
+                    time.sleep(0.25)
+                    continue
+                raise ProviderUnreachable(
+                    f"Ollama indisponível em {self.base_url} ({exc})"
+                ) from exc
+            last_error = None
+            break
 
-        if response.status_code >= 400:
-            raise ProviderError(f"Ollama respondeu HTTP {response.status_code} em {self.base_url}.")
+        if last_error is not None:
+            raise ProviderUnreachable(
+                f"Ollama indisponível em {self.base_url} ({last_error})"
+            ) from last_error
+        if response is None or response.status_code >= 400:
+            status = getattr(response, "status_code", "?")
+            raise ProviderError(f"Ollama respondeu HTTP {status} em {self.base_url}.")
 
         payload = _json_object(response, "Ollama")
-        text = payload.get("response")
-        if not isinstance(text, str) or not text.strip():
-            raise ProviderError(f"Ollama ({model}) devolveu uma resposta vazia.")
-        return text
+        return _ollama_text(payload, model)
 
 
 class CloudProvider:
@@ -136,27 +192,44 @@ class CloudProvider:
             raise ProviderError("YBY_CLOUD_API_KEY não está definida.")
 
         url = f"{self.base_url}/chat/completions"
-        try:
-            response = self._session.post(
-                url,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": prompt},
-                    ],
-                },
-                timeout=self.timeout,
-            )
-        except requests.RequestException as exc:
-            raise ProviderUnreachable(f"Nuvem indisponível em {self.base_url} ({exc})") from exc
+        body = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+        }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        timeout = _request_timeout(self.timeout)
+        response: Any = None
+        last_error: requests.RequestException | None = None
+        for attempt in (1, 2):
+            try:
+                response = self._session.post(url, headers=headers, json=body, timeout=timeout)
+            except requests.RequestException as exc:
+                last_error = exc
+                if attempt == 1:
+                    time.sleep(0.25)
+                    continue
+                raise ProviderUnreachable(
+                    f"Nuvem indisponível em {self.base_url} ({exc})"
+                ) from exc
+            last_error = None
+            if response.status_code in _RETRY_STATUS and attempt == 1:
+                time.sleep(_retry_wait(response))
+                continue
+            break
 
-        if response.status_code >= 400:
-            raise ProviderError(f"Nuvem respondeu HTTP {response.status_code} em {self.base_url}.")
+        if last_error is not None:
+            raise ProviderUnreachable(
+                f"Nuvem indisponível em {self.base_url} ({last_error})"
+            ) from last_error
+        if response is None or response.status_code >= 400:
+            status = getattr(response, "status_code", "?")
+            raise ProviderError(f"Nuvem respondeu HTTP {status} em {self.base_url}.")
 
         payload = _json_object(response, "A nuvem")
         text = _message_content(payload)
@@ -226,6 +299,54 @@ class CascadingCloudProvider:
         return CloudResult(text, self.primary_model, self.primary_label)
 
 
+def _retry_wait(response: Any) -> float:
+    headers = getattr(response, "headers", None)
+    raw = ""
+    if headers is not None:
+        getter = getattr(headers, "get", None)
+        if callable(getter):
+            raw = str(getter("Retry-After", "")).strip()
+    try:
+        delay = float(raw) if raw else 0.25
+    except ValueError:
+        delay = 0.25
+    if delay < 0:
+        delay = 0.25
+    # OpenRouter pode mandar Retry-After alto; o CLI não espera um minuto.
+    return min(delay, 5.0)
+
+
+def _strip_think_markup(text: str) -> str:
+    """Remove blocos <think> vazados em response (e fechamento órfão)."""
+
+    cleaned = _THINK_BLOCK.sub("", text)
+    lower = cleaned.casefold()
+    close = _THINK_CLOSE.casefold()
+    idx = lower.rfind(close)
+    if idx >= 0:
+        cleaned = cleaned[idx + len(_THINK_CLOSE) :]
+    cleaned = _THINK_OPEN.split(cleaned, maxsplit=1)[0]
+    return cleaned.strip()
+
+
+def _ollama_text(payload: dict[str, Any], model: str) -> str:
+    error = payload.get("error")
+    if isinstance(error, str) and error.strip():
+        raise ProviderError(f"Ollama ({model}) devolveu erro: {error.strip()}")
+
+    response = payload.get("response")
+    thinking = payload.get("thinking")
+    text = _strip_think_markup(response) if isinstance(response, str) else ""
+    if not text and isinstance(thinking, str):
+        text = thinking.strip()
+    if text:
+        return text
+
+    reason = payload.get("done_reason")
+    suffix = f" done_reason={reason}." if isinstance(reason, str) and reason else ""
+    raise ProviderError(f"Ollama ({model}) devolveu uma resposta vazia.{suffix}")
+
+
 def _json_object(response: requests.Response, who: str) -> dict[str, Any]:
     try:
         payload = response.json()
@@ -237,6 +358,12 @@ def _json_object(response: requests.Response, who: str) -> dict[str, Any]:
 
 
 def _message_content(payload: dict[str, Any]) -> str:
+    if not payload.get("choices"):
+        error = payload.get("error")
+        if error is not None:
+            detail = error.get("message") if isinstance(error, dict) else error
+            raise ProviderError(f"A nuvem devolveu erro: {detail}")
+
     choices = payload.get("choices")
     if not isinstance(choices, list) or not choices:
         raise ProviderError("A nuvem não devolveu choices.")
@@ -246,7 +373,39 @@ def _message_content(payload: dict[str, Any]) -> str:
     message = first.get("message")
     if not isinstance(message, dict):
         raise ProviderError("A nuvem não devolveu message.")
-    content = message.get("content")
-    if not isinstance(content, str):
-        raise ProviderError("A nuvem não devolveu message.content.")
-    return content
+
+    text = _coerce_text(message.get("content")).strip()
+    if text:
+        return text
+    for key in ("reasoning", "reasoning_content"):
+        alt = message.get(key)
+        if isinstance(alt, str) and alt.strip():
+            return alt.strip()
+    details = message.get("reasoning_details")
+    if isinstance(details, list):
+        parts: list[str] = []
+        for item in details:
+            if not isinstance(item, dict):
+                continue
+            bit = item.get("text") or item.get("summary")
+            if isinstance(bit, str) and bit.strip():
+                parts.append(bit.strip())
+        if parts:
+            return "\n".join(parts)
+    raise ProviderError("A nuvem não devolveu message.content.")
+
+
+def _coerce_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    parts: list[str] = []
+    for item in content:
+        if isinstance(item, str):
+            parts.append(item)
+        elif isinstance(item, dict):
+            bit = item.get("text") or item.get("content")
+            if isinstance(bit, str):
+                parts.append(bit)
+    return "".join(parts)

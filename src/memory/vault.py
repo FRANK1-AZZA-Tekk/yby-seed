@@ -37,7 +37,10 @@ class Vault:
     def write_note(self, name: str, body: str) -> Path:
         path = self._note_path(name)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(body, encoding="utf-8")
+        # Mesmo padrão do índice: crash no meio do write não deixa .md pela metade.
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary.write_text(body, encoding="utf-8")
+        os.replace(temporary, path)
         self._update_index(self._relative(path), body)
         return path
 
@@ -56,7 +59,7 @@ class Vault:
         return sorted(notes)
 
     def search(self, query: str, k: int = 3) -> list[Hit]:
-        index = self._load_index()
+        index = self._sync_index()
         query_vector = _vector(query)
         scored = [
             Hit(name, _dot(query_vector, vector))
@@ -82,19 +85,77 @@ class Vault:
     def _relative(self, path: Path) -> str:
         return path.resolve().relative_to(self.root.resolve()).as_posix()
 
-    def _load_index(self) -> dict[str, list[float]]:
+    def _load_records(self) -> dict[str, tuple[list[float], float]]:
         if not self.index_path.is_file():
             return {}
-        data = json.loads(self.index_path.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(self.index_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return {}
         notes = data.get("notes", {})
-        return {name: list(vector) for name, vector in notes.items()}
+        if not isinstance(notes, dict):
+            return {}
+        records: dict[str, tuple[list[float], float]] = {}
+        for name, raw in notes.items():
+            if not isinstance(name, str):
+                continue
+            if isinstance(raw, list):
+                records[name] = ([float(value) for value in raw], 0.0)
+            elif isinstance(raw, dict) and isinstance(raw.get("v"), list):
+                mtime = raw.get("m", 0.0)
+                stamp = float(mtime) if isinstance(mtime, (int, float)) else 0.0
+                records[name] = ([float(value) for value in raw["v"]], stamp)
+        return records
+
+    def _write_records(self, records: dict[str, tuple[list[float], float]]) -> None:
+        self.index_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "notes": {
+                name: {"v": vector, "m": mtime} for name, (vector, mtime) in records.items()
+            }
+        }
+        # Escrita atômica: crash no meio do write_text corrompia o índice.
+        temporary = self.index_path.with_suffix(self.index_path.suffix + ".tmp")
+        temporary.write_text(json.dumps(payload), encoding="utf-8")
+        os.replace(temporary, self.index_path)
 
     def _update_index(self, name: str, body: str) -> None:
-        notes = self._load_index()
-        notes[name] = _vector(body)
-        self.index_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {"notes": notes}
-        self.index_path.write_text(json.dumps(payload), encoding="utf-8")
+        records = self._load_records()
+        path = self.root / name
+        mtime = path.stat().st_mtime if path.is_file() else 0.0
+        records[name] = (_vector(body), mtime)
+        self._write_records(records)
+
+    def _sync_index(self) -> dict[str, list[float]]:
+        """Reindexa notas criadas ou editadas fora de `write_note` (Obsidian)."""
+
+        records = self._load_records()
+        changed = False
+        seen: set[str] = set()
+        for path in self.root.rglob("*.md"):
+            if ".yby" in path.parts:
+                continue
+            rel = self._relative(path)
+            seen.add(rel)
+            try:
+                mtime = path.stat().st_mtime
+            except OSError:
+                continue
+            current = records.get(rel)
+            if current is not None and current[1] >= mtime:
+                continue
+            try:
+                body = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            records[rel] = (_vector(body), mtime)
+            changed = True
+        for name in [name for name in records if name not in seen]:
+            del records[name]
+            changed = True
+        if changed:
+            self._write_records(records)
+        return {name: vector for name, (vector, _mtime) in records.items()}
 
 
 def vault_from_env() -> Vault:
