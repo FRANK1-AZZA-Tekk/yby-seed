@@ -9,7 +9,7 @@ Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 Dispara em:
 
 - `pull_request` (qualquer branch)
-- `push` em `main`
+- `push` (qualquer branch, incluindo feature)
 
 Passos (falha = PR vermelho):
 

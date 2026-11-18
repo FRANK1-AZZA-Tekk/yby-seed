@@ -2,8 +2,8 @@
 name: CI
 
 on:
+  # PRs + qualquer push (branches de feature incluídas). Sem deploy.
   push:
-    branches: [main]
   pull_request:
 
 permissions:
