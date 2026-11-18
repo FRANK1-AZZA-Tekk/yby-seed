@@ -33,6 +33,8 @@ Depois do setup: `make doctor` (ambiente) e `make test` (pytest).
 | `python yby.py hub` | keepalive do hub (Ollama); `--once` para uma checagem |
 | `python yby.py agent "..." --script examples/agent_demo_script.json` | loop P0 (demo sem LLM) |
 | `python yby.py agent "..." --local` | loop P0 com planner Ollama (só local) |
+| `python yby.py evo report --day YYYY-MM-DD` | Evo v0.1: relatório local (offline) |
+| `python -m src.evo report --seed-demo --no-ollama` | mesmo fluxo via módulo |
 
 Voz: `pip install -r requirements-voice.txt`, binário Piper no PATH e `YBY_PIPER_MODEL`. Sem isso, `ask` em texto segue; a voz avisa com mensagem clara.
 

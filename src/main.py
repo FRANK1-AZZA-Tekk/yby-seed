@@ -18,6 +18,7 @@ Comandos:
     note    - Grava nota no vault
     recall  - Busca no vault
     agent   - Loop de agente P0 (opt-in; não altera o ask)
+    evo     - Observabilidade local v0.1 (relatórios; sem aplicar código)
 """
 
 import json
@@ -35,6 +36,7 @@ from src.agent_loop.tools import vault_registry_or_skip
 from src.engine.config import EngineConfig
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.engine.providers import OllamaProvider
+from src.evo.cli import evo_cli
 from src.memory.vault import VaultError, vault_from_env
 from src.platform.hub import main as hub_main
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
@@ -62,6 +64,9 @@ def _configure_logging() -> None:
 def cli():
     """YBY SEED - Programação em Linguagem Natural"""
     _configure_logging()
+
+
+cli.add_command(evo_cli)
 
 
 @cli.command(
