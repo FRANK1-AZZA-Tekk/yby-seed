@@ -9,7 +9,14 @@ em runtime, como `chr()` montando string e depois `exec()`.
 Para defesa em profundidade, o executor (`sandbox_executor.py`) deve
 também restringir `exec`/`eval` no namespace real, não só na AST.
 
-## Log local de uso de nuvem (`logs/cloud_usage.jsonl`)
+## Log / registro local de uso de nuvem
+
+**Especificação alvo (issue #42):** [CLOUD_USAGE_SPEC.md](./CLOUD_USAGE_SPEC.md)
+(SQLite registry, orçamento diário+mensal, confirmação, sanitização, migração JSONL).
+
+### Baseline atual (JSONL)
+
+Arquivo: `logs/cloud_usage.jsonl` (`YBY_CLOUD_LOG_PATH`), permissão **0600**.
 
 ### O que entra (metadados)
 
@@ -23,4 +30,13 @@ também restringir `exec`/`eval` no namespace real, não só na AST.
 - Conteúdo do vault ou áudio
 - Chaves de API (`YBY_CLOUD_API_KEY`, `OPENROUTER_API_KEY`, etc.)
 
-O arquivo fica fora do git (`logs/` no `.gitignore`) com permissão **0600**.
+O arquivo fica fora do git (`logs/` no `.gitignore`).
+
+### Evolução (spec)
+
+- Store primário: SQLite local (`YBY_CLOUD_DB_PATH`, default `logs/cloud_usage.sqlite3`)
+- Campos adicionais: custo estimado, status, session/task id, `prompt_hash` / refs sem segredos
+- Authz: vault/refs só com autorização explícita; redaction antes de egress
+- Modo `local_only` e offline continuam sem chamada de nuvem
+- Sem fallback automático OpenRouter↔Grok (D12)
+- D11 (voz local) permanece o padrão

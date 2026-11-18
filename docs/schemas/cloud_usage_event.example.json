@@ -1,0 +1,22 @@
+{
+  "$comment": "Documentation example for yby.cloud_usage.v1 — see docs/CLOUD_USAGE_SPEC.md. Not loaded at runtime.",
+  "timestamp": 1763472000.0,
+  "provider": "openrouter",
+  "model": "openrouter/free",
+  "purpose": "route_cloud",
+  "input_tokens": 420,
+  "output_tokens": 180,
+  "estimated_cost_usd": 0.0,
+  "status": "completed",
+  "session_id": "sess_example",
+  "task_id": "ask_42",
+  "prompt_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "prompt_ref": null,
+  "result_ref": null,
+  "result": "cloud_completed",
+  "error_code": null,
+  "meta": {
+    "reasons": ["flag --heavy"],
+    "warn": false
+  }
+}
