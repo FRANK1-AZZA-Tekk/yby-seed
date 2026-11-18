@@ -50,4 +50,4 @@ def test_run_loop_once() -> None:
 
 def test_main_once(monkeypatch) -> None:
     monkeypatch.setenv("YBY_OLLAMA_BASE_URL", "http://127.0.0.1:9")
-    assert main(["--once"]) == 0
+    assert main(["--once"]) == 1

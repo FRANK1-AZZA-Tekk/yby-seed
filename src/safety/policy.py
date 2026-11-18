@@ -102,7 +102,10 @@ def decide(command: str, *, policy: Policy, project_root: Path) -> Decision:
         return Decision("run", f"comando somente leitura: {program}")
 
     if program in policy.git:
-        return Decision("run", f"comando git: {program}")
+        sub = _git_subcommand(argv)
+        if sub in _GIT_READ_ONLY:
+            return Decision("run", f"git somente leitura: {sub}")
+        return Decision("ask", f"git altera repositório: {sub or program}")
 
     script = _project_script(argv, policy, project_root)
     if script is not None:
@@ -132,6 +135,28 @@ def confirm(
         return True
     output_fn("Não executado.")
     return False
+
+
+_GIT_READ_ONLY = frozenset(
+    {
+        "status",
+        "diff",
+        "log",
+        "show",
+        "rev-parse",
+        "ls-files",
+        "blame",
+        "shortlog",
+        "describe",
+        "grep",
+        "check-ignore",
+    }
+)
+
+
+def _git_subcommand(argv: list[str]) -> str:
+    tokens = _git_command_tokens(argv)
+    return tokens[0] if tokens else ""
 
 
 _GIT_OPTIONS_WITH_VALUE = frozenset(

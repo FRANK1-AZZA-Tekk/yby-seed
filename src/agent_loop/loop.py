@@ -10,6 +10,7 @@ from typing import Any, Literal
 from pydantic import ValidationError
 
 from src.agent_loop.planner import Planner
+from src.engine.providers import ProviderError
 from src.agent_loop.schemas import AbortStep, FinishStep, ToolCallStep, format_validation_error
 from src.agent_loop.tools import ToolRegistry
 
@@ -70,7 +71,7 @@ class ControlledAgentLoop:
                     tools_blurb=tools_blurb,
                     history=history,
                 )
-            except (ValueError, ValidationError, json.JSONDecodeError) as exc:
+            except (ValueError, ValidationError, json.JSONDecodeError, ProviderError) as exc:
                 err = (
                     format_validation_error(exc)
                     if isinstance(exc, ValidationError)

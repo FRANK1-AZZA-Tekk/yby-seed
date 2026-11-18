@@ -1,6 +1,6 @@
 # Allowlist do YBY SEED. Linhas em branco e comentários (#) são ignorados.
 # [read]   comando somente leitura: roda direto
-# [git]    binário git: roda direto, salvo se cair em [refuse]
+# [git]    binário git: leitura roda direto; escrita pede confirmação; [refuse] bloqueia
 # [scripts] pastas do projeto cujos scripts rodam direto
 # [refuse] trecho que bloqueia o comando, mesmo se estiver na allowlist
 

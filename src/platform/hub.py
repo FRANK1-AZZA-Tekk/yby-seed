@@ -139,12 +139,18 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     timeout = float(os.environ.get("YBY_HUB_TIMEOUT", DEFAULT_TIMEOUT_SECONDS))
-    max_ticks = 1 if args.once else None
+    if args.once:
+        status = check_ollama(base_url, timeout=max(timeout, 0.1))
+        if status == "ok":
+            logger.info("ollama=%s", status)
+            return 0
+        logger.warning("ollama falhou: %s", status)
+        return 1
     return run_loop(
         base_url=base_url,
         interval=max(args.interval, 1.0),
         timeout=max(timeout, 0.1),
-        max_ticks=max_ticks,
+        max_ticks=None,
     )
 
 
