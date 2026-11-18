@@ -38,6 +38,27 @@ class _ScriptedEngine:
         return self.reply_value
 
 
+def test_wav_temporario_fecha_o_descritor() -> None:
+    from src.voice.mic import _temp_wav
+
+    path = _temp_wav()
+    try:
+        assert path.suffix == ".wav"
+        assert path.is_file()
+        with path.open("rb") as handle:
+            assert handle.read() == b""
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def test_teto_de_gravacao_vem_do_ambiente(monkeypatch) -> None:
+    from src.voice.config import VoiceConfig
+
+    monkeypatch.setenv("YBY_VOICE_MAX_SECONDS", "30")
+    config = VoiceConfig.from_env()
+    assert config.max_seconds == 30
+
+
 def test_check_stt_sem_pacote(monkeypatch) -> None:
     import builtins
 

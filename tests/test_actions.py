@@ -188,6 +188,26 @@ def test_cli_run_usa_a_camada(monkeypatch, tmp_path: Path) -> None:
     assert calls[0]["command"] == "ls -la"
 
 
+def test_execucao_nao_herda_chaves(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "segredo")
+    monkeypatch.setenv("GATEWAY_TOKEN", "tok")
+    monkeypatch.setenv("PATH", "/usr/bin")
+    policy = _policy(tmp_path)
+    runner = _fake_runner()
+    run_command(
+        "ls",
+        policy=policy,
+        project_root=tmp_path,
+        output_fn=lambda _line: None,
+        runner=runner,
+    )
+    env = runner.calls[0]["env"]
+    assert isinstance(env, dict)
+    assert "OPENROUTER_API_KEY" not in env
+    assert "GATEWAY_TOKEN" not in env
+    assert env["PATH"] == "/usr/bin"
+
+
 def test_cli_run_recusa_termina_com_erro(monkeypatch) -> None:
     from src.actions.runner import RunResult
     from src.safety.policy import Decision

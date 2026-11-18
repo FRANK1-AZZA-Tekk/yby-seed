@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 import threading
 import wave
@@ -45,12 +46,17 @@ def record_until_enter(
 
     frames: list = []
     stop = threading.Event()
+    captured = 0
+    budget = config.sample_rate * config.max_seconds
 
     def _callback(indata, _frames, _time, status) -> None:  # noqa: ANN001
+        nonlocal captured
         if status:
             say(f"aviso do microfone: {status}")
-        if not stop.is_set():
-            frames.append(indata.copy())
+        if stop.is_set() or captured >= budget:
+            return
+        frames.append(indata.copy())
+        captured += len(indata)
 
     say("Gravando… aperte Enter para parar.")
     try:
@@ -72,10 +78,18 @@ def record_until_enter(
     import numpy as np
 
     audio = np.concatenate(frames, axis=0)
-    path = Path(tempfile.mkstemp(prefix="yby-mic-", suffix=".wav")[1])
+    path = _temp_wav()
     with wave.open(str(path), "wb") as wav:
         wav.setnchannels(1)
         wav.setsampwidth(2)
         wav.setframerate(config.sample_rate)
         wav.writeframes(audio.tobytes())
     return path
+
+
+def _temp_wav() -> Path:
+    """WAV temporário. `mkstemp` devolve um fd que precisa ser fechado."""
+
+    fd, name = tempfile.mkstemp(prefix="yby-mic-", suffix=".wav")
+    os.close(fd)
+    return Path(name)

@@ -45,6 +45,7 @@ Hub no boot: `bash scripts/install-hub-service.sh --enable`. Detalhe: [PLATFORM.
 | `YBY_OLLAMA_NUM_CTX`, `YBY_OLLAMA_NUM_PREDICT`, `YBY_OLLAMA_THINK` | contexto local (padrão 4096, cabe em 4 GB), teto de tokens (padrão 1024) e thinking do Ollama (padrão desligado) |
 | `YBY_HEAVY_*` | limiares / frases que sobem para nuvem |
 | `YBY_VAULT_PATH` | pasta do vault Obsidian |
+| `YBY_VOICE_MAX_SECONDS` | teto da gravação push-to-talk (padrão 120) |
 | `YBY_HUB_*` | intervalo/timeout do keepalive |
 | `GATEWAY_TOKEN`, `FASTAPI_HOST` | gateway HTTP (fora do caminho do `ask`) |
 | `YBY_DATABASE_URL` | Postgres opcional (agentes legados) |
