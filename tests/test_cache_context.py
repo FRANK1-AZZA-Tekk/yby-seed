@@ -147,6 +147,50 @@ def test_cache_de_nuvem_ignora_teto(tmp_path: Path) -> None:
     assert len(cloud.calls) == 1
 
 
+def test_teto_mensal_degrada_para_local(tmp_path: Path) -> None:
+    log_path = tmp_path / "usage.jsonl"
+    log_path.write_text(
+        json.dumps(
+            {
+                "timestamp": time.time(),
+                "provider": "openrouter",
+                "model": "m",
+                "purpose": "test",
+                "input_tokens_estimate": 500_000,
+                "output_tokens_estimate": 1,
+                "result": EVENT_COMPLETED,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    budget = CloudBudget(
+        cloud_mode="ask",
+        log_path=log_path,
+        monthly_token_limit=10,
+        warn_token_limit=5,
+        require_confirm=False,
+        allow_no_tty=True,
+    )
+    ollama = FakeOllama(text="local-ok")
+    cloud = FakeCloud(text="nuvem")
+    engine = HybridEngine(
+        _config(),
+        ollama,
+        cloud,
+        cache=ResponseCache(ttl_seconds=0),
+        budget=budget,
+        confirm_fn=lambda _msg: True,
+    )
+    reply = engine.reply("pensa mais sobre orcamento")
+    assert reply.provider == "local"
+    assert reply.text == "local-ok"
+    assert reply.notice is not None
+    assert "Teto mensal" in reply.notice or "nuvem" in reply.notice.casefold()
+    assert cloud.calls == []
+    assert len(ollama.calls) == 1
+
+
 def test_engine_from_env_cache_em_disco(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("YBY_CACHE_PATH", str(tmp_path / "c.json"))
     monkeypatch.setenv("YBY_CACHE_TTL_SECONDS", "15")

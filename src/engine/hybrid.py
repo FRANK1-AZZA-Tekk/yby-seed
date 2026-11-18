@@ -187,7 +187,12 @@ class HybridEngine:
 
         blocked = self._cloud_gate_reply(prompt, decision, purpose="route_cloud")
         if blocked is not None:
-            return blocked
+            # D12: teto/TTY/local_only não deve matar o ask se o Ollama responde.
+            return self._local_after_cloud_block(
+                prompt,
+                decision,
+                blocked.notice or "nuvem bloqueada",
+            )
 
         try:
             result = self._cloud_call(prompt, purpose="route_cloud")
@@ -204,23 +209,11 @@ class HybridEngine:
         prefix = (
             f"Pedido encaminhado à nuvem ({why}). YBY_CLOUD_API_KEY não está definida."
         )
-        try:
-            text = self.ollama.complete(prompt, model=self.config.local_model, system=SYSTEM_PROMPT)
-        except ProviderError as local_error:
-            return EngineReply(
-                "",
-                "none",
-                "",
-                decision.reasons,
-                f"{prefix} Ollama também falhou ({local_error}).",
-            )
-        self._store(prompt, text, model=self.config.local_model)
-        return EngineReply(
-            text,
-            "local",
-            self.config.local_model,
-            decision.reasons,
-            f"{prefix} Respondi com o modelo local {self.config.local_model}.",
+        return self._reply_from_local(
+            prompt,
+            decision,
+            prefix=prefix,
+            failure_prefix=prefix,
         )
 
     def _local_after_cloud_failure(
@@ -229,15 +222,57 @@ class HybridEngine:
         decision: RouteDecision,
         cloud_error: ProviderError,
     ) -> EngineReply:
+        prefix = f"Nuvem falhou ({cloud_error})."
+        return self._reply_from_local(
+            prompt,
+            decision,
+            prefix=prefix,
+            failure_prefix=prefix,
+        )
+
+    def _local_after_cloud_block(
+        self,
+        prompt: str,
+        decision: RouteDecision,
+        reason: str,
+    ) -> EngineReply:
+        clean = reason.strip().rstrip(".")
+        prefix = f"Nuvem indisponível ({clean})."
+        return self._reply_from_local(
+            prompt,
+            decision,
+            prefix=prefix,
+            failure_prefix=prefix,
+        )
+
+    def _reply_from_local(
+        self,
+        prompt: str,
+        decision: RouteDecision,
+        *,
+        prefix: str,
+        failure_prefix: str,
+    ) -> EngineReply:
+        cached = self._lookup(prompt, model=self.config.local_model)
+        if cached is not None:
+            return EngineReply(
+                cached,
+                "local",
+                self.config.local_model,
+                decision.reasons,
+                f"{prefix} Respondi com o cache local ({self.config.local_model}).",
+            )
         try:
-            text = self.ollama.complete(prompt, model=self.config.local_model, system=SYSTEM_PROMPT)
+            text = self.ollama.complete(
+                prompt, model=self.config.local_model, system=SYSTEM_PROMPT
+            )
         except ProviderError as local_error:
             return EngineReply(
                 "",
                 "none",
                 "",
                 decision.reasons,
-                f"Nuvem falhou ({cloud_error}). Ollama também falhou ({local_error}).",
+                f"{failure_prefix} Ollama também falhou ({local_error}).",
             )
         self._store(prompt, text, model=self.config.local_model)
         return EngineReply(
@@ -245,10 +280,7 @@ class HybridEngine:
             "local",
             self.config.local_model,
             decision.reasons,
-            (
-                f"Nuvem falhou ({cloud_error}). "
-                f"Respondi com o modelo local {self.config.local_model}."
-            ),
+            f"{prefix} Respondi com o modelo local {self.config.local_model}.",
         )
 
     def _cloud_gate_reply(

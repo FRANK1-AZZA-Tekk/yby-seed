@@ -182,18 +182,28 @@ class CloudProvider:
         }
         timeout = _request_timeout(self.timeout)
         response: Any = None
+        last_error: requests.RequestException | None = None
         for attempt in (1, 2):
             try:
                 response = self._session.post(url, headers=headers, json=body, timeout=timeout)
             except requests.RequestException as exc:
+                last_error = exc
+                if attempt == 1:
+                    time.sleep(0.25)
+                    continue
                 raise ProviderUnreachable(
                     f"Nuvem indisponível em {self.base_url} ({exc})"
                 ) from exc
+            last_error = None
             if response.status_code in _RETRY_STATUS and attempt == 1:
                 time.sleep(_retry_wait(response))
                 continue
             break
 
+        if last_error is not None:
+            raise ProviderUnreachable(
+                f"Nuvem indisponível em {self.base_url} ({last_error})"
+            ) from last_error
         if response is None or response.status_code >= 400:
             status = getattr(response, "status_code", "?")
             raise ProviderError(f"Nuvem respondeu HTTP {status} em {self.base_url}.")
@@ -279,7 +289,8 @@ def _retry_wait(response: Any) -> float:
         delay = 0.25
     if delay < 0:
         delay = 0.25
-    return min(delay, 1.0)
+    # OpenRouter pode mandar Retry-After alto; o CLI não espera um minuto.
+    return min(delay, 5.0)
 
 
 def _ollama_text(payload: dict[str, Any], model: str) -> str:

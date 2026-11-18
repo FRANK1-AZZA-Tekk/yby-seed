@@ -95,7 +95,10 @@ def test_rota_local_sem_evento_nuvem(tmp_path) -> None:
 def test_heavy_confirmacao_negada(tmp_path) -> None:
     engine, log = _engine(tmp_path, confirm_fn=lambda _: False)
     reply = engine.reply("oi", explicit_heavy=True)
-    assert reply.provider == "none"
+    # Recusar nuvem não mata o ask: D12 cai no Ollama com aviso.
+    assert reply.provider == "local"
+    assert reply.notice is not None
+    assert "cancelado" in reply.notice.casefold() or "nuvem" in reply.notice.casefold()
     assert log.path.is_file()
     lines = log.path.read_text(encoding="utf-8").strip().splitlines()
     assert any(json.loads(line)["result"] == EVENT_CANCELLED for line in lines)
@@ -151,7 +154,8 @@ def test_local_only_sem_http(tmp_path) -> None:
         has_tty_fn=lambda: True,
     )
     reply = engine.reply("pensa mais", explicit_heavy=False)
-    assert reply.provider == "none"
+    assert reply.provider == "local"
+    assert reply.text == "resposta-local"
     assert session.posts == []
     blocked = json.loads(log.path.read_text(encoding="utf-8").strip())
     assert blocked["result"] == EVENT_BLOCKED_LOCAL_ONLY

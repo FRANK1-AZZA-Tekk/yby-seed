@@ -247,12 +247,18 @@ def test_trim_context_corta_longo() -> None:
     assert "truncado" in out
 
 
-def test_conexao_recusada_no_openrouter_nao_tenta_grok() -> None:
+def test_conexao_recusada_no_openrouter_nao_tenta_grok(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("src.engine.providers.time.sleep", lambda _delay: None)
+    # Dois erros: a nuvem tenta de novo uma vez em ConnectionError.
     openrouter = CloudProvider(
         "https://openrouter.ai/api/v1",
         api_key="or-key",
         timeout=3,
-        session=_Session([requests.ConnectionError("down")]),
+        session=_Session(
+            [requests.ConnectionError("down"), requests.ConnectionError("down")]
+        ),
     )
     grok = CloudProvider(
         "https://api.x.ai/v1",
@@ -270,3 +276,4 @@ def test_conexao_recusada_no_openrouter_nao_tenta_grok() -> None:
     )
     with pytest.raises(ProviderError, match="não é chamada automaticamente"):
         chain.complete("pensa mais", model="x", system="s")
+    assert grok._session.posts == []  # type: ignore[attr-defined]
