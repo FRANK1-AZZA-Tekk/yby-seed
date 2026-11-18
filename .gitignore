@@ -5,3 +5,8 @@ data/
 .env
 logs/
 pr-review-comment.md
+# Evo v0.1 — gerados (mantém EXAMPLE.md versionado)
+evo/reports/*
+!evo/reports/EXAMPLE.md
+!evo/reports/.gitkeep
+*.sqlite3

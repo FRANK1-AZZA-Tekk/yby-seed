@@ -12,6 +12,7 @@ Pacote Python do YBY SEED (`pythonpath = ["."]` no `pyproject.toml`). Entrada CL
 | `memory/` | vault Markdown |
 | `voice/` | STT/TTS opcional (`listen` / `ask --voice`) |
 | `platform/` | hub keepalive (serviço systemd) |
+| `evo/` | observabilidade local v0.1 (relatórios; sem aplicar código) |
 | `security/ast_guard.py` | guarda de código gerado |
 | `main.py` | Click CLI |
 
