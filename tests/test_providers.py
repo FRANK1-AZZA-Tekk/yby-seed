@@ -45,7 +45,16 @@ def test_ollama_payload_defaults_keep_alive_e_num_ctx() -> None:
     body = build_ollama_generate_payload("oi", model="qwen2.5-coder:3b", system="sys")
     assert body["keep_alive"] == "30m"
     assert body["options"]["num_ctx"] == 4096
+    assert "num_predict" not in body["options"]
     assert body["stream"] is False
+
+
+def test_ollama_payload_num_predict_env_e_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("YBY_OLLAMA_NUM_PREDICT", "128")
+    body = build_ollama_generate_payload("p", model="m", system="s")
+    assert body["options"]["num_predict"] == 128
+    body2 = build_ollama_generate_payload("p", model="m", system="s", num_predict=2)
+    assert body2["options"]["num_predict"] == 2
 
 
 def test_ollama_payload_lê_env(monkeypatch: pytest.MonkeyPatch) -> None:

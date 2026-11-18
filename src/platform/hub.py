@@ -19,9 +19,12 @@ from urllib.parse import urlparse
 import requests
 from dotenv import load_dotenv
 
+from src.engine.providers import build_ollama_generate_payload
+
 DEFAULT_INTERVAL_SECONDS = 60.0
 DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
 DEFAULT_TIMEOUT_SECONDS = 5.0
+DEFAULT_LOCAL_MODEL = "qwen2.5-coder:3b"
 
 logger = logging.getLogger("yby.hub")
 
@@ -63,6 +66,29 @@ def setup_logging(*, log_path: Path | None = None) -> None:
         root.addHandler(handler)
 
 
+def hub_local_model() -> str:
+    """Modelo usado no warmup do hub (mesmo padrão do motor)."""
+
+    custom = os.environ.get("YBY_LOCAL_MODEL", "").strip()
+    if custom:
+        return custom
+    legacy = os.environ.get("OLLAMA_DEFAULT_MODEL", "").strip()
+    return legacy or DEFAULT_LOCAL_MODEL
+
+
+def hub_warmup_enabled() -> bool:
+    raw = os.environ.get("YBY_HUB_WARMUP", "1").strip().casefold()
+    return raw not in {"0", "false", "no", "off"}
+
+
+def hub_warmup_num_predict() -> int:
+    raw = os.environ.get("YBY_HUB_WARMUP_NUM_PREDICT", "1").strip()
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return 1
+
+
 def check_ollama(base_url: str, *, timeout: float, session: Any | None = None) -> str:
     """Devolve 'ok' ou uma mensagem de erro curta."""
 
@@ -77,6 +103,34 @@ def check_ollama(base_url: str, *, timeout: float, session: Any | None = None) -
     return "ok"
 
 
+def warmup_ollama(
+    base_url: str,
+    *,
+    model: str,
+    timeout: float,
+    session: Any | None = None,
+    num_predict: int | None = None,
+) -> str:
+    """Gera 1 token para manter o modelo quente (mesmo num_ctx/keep_alive do motor)."""
+
+    url = f"{base_url.rstrip('/')}/api/generate"
+    client = session or requests
+    predict = num_predict if num_predict is not None else hub_warmup_num_predict()
+    payload = build_ollama_generate_payload(
+        ".",
+        model=model,
+        system=" ",
+        num_predict=predict,
+    )
+    try:
+        response = client.post(url, json=payload, timeout=timeout)
+    except requests.RequestException as exc:
+        return f"warmup indisponível ({exc})"
+    if response.status_code >= 400:
+        return f"warmup HTTP {response.status_code}"
+    return "ok"
+
+
 def run_loop(
     *,
     base_url: str,
@@ -84,6 +138,8 @@ def run_loop(
     timeout: float,
     max_ticks: int | None = None,
     session: Any | None = None,
+    warmup: bool | None = None,
+    local_model: str | None = None,
 ) -> int:
     """Loop de saúde. `max_ticks` limita iterações (útil em testes)."""
 
@@ -91,12 +147,33 @@ def run_loop(
         logger.error("URL Ollama fora do loopback: %s", base_url)
         return 2
 
+    do_warmup = hub_warmup_enabled() if warmup is None else warmup
+    model = local_model or hub_local_model()
+    warmed = False
     tick = 0
-    logger.info("YBY hub ativo; Ollama=%s; intervalo=%ss", base_url, interval)
+    logger.info(
+        "YBY hub ativo; Ollama=%s; intervalo=%ss; warmup=%s model=%s",
+        base_url,
+        interval,
+        do_warmup,
+        model,
+    )
     while max_ticks is None or tick < max_ticks:
         status = check_ollama(base_url, timeout=timeout, session=session)
         if status == "ok":
             logger.info("ollama=%s", status)
+            if do_warmup and not warmed:
+                wstatus = warmup_ollama(
+                    base_url,
+                    model=model,
+                    timeout=timeout,
+                    session=session,
+                )
+                if wstatus == "ok":
+                    warmed = True
+                    logger.info("ollama warmup=ok")
+                else:
+                    logger.warning("ollama warmup falhou: %s", wstatus)
         else:
             logger.warning("ollama falhou: %s", status)
         tick += 1
