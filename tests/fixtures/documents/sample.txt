@@ -1,0 +1,1 @@
+YBY ingestão local. Arquivo de texto para testes de chunking e metadados.
