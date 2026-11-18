@@ -6,7 +6,7 @@ PC Hub local-first para automações e IA. As decisões de 2026-11-11 estão em 
 
 ## Status
 
-Fase atual: **Fase P — Plataforma** (hub systemd, vault/Syncthing) sobre o núcleo **feito** (fases 0–1c). Mobile e firmware ficaram fora do v1. Detalhe: [ROADMAP.md](ROADMAP.md).
+Núcleo local (`ask`, safety, memory, voice, hub) funciona neste repo. A **Fase 0** do roadmap (#25) fecha a base confiável: `make doctor` / `make test`, CI bloqueante e regras Cursor — ver [docs/CI.md](docs/CI.md). Plataforma (hub systemd, Syncthing) está em uso; mobile e firmware ficam fora do v1. Detalhe: [ROADMAP.md](ROADMAP.md) e [issue #25](https://github.com/FRANK1-AZZA-Tekk/yby-seed/issues/25).
 
 ## O que é
 
@@ -33,12 +33,14 @@ yby.py ask → Ollama (qwen2.5-coder:3b) → resposta
 ## Início rápido
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+make setup
+make doctor
+make test
 ollama pull qwen2.5-coder:3b
 python yby.py ask "explica uma lista em Python"
 ```
+
+Equivalente sem Make: `python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt -r requirements-dev.txt`.
 
 `ask` responde em texto. Não executa shell e não grava memória. O modelo local padrão é `qwen2.5-coder:3b`. Pedidos longos, com várias perguntas, ou com frases como "pensa mais", vão para a nuvem (OpenRouter free). `--heavy` força esse caminho. As regras e os limites estão em `src/engine/routing.py` e nas variáveis `YBY_*` de `.env.example`.
 
@@ -53,8 +55,8 @@ Sem chave OpenRouter (`YBY_CLOUD_API_KEY` / `OPENROUTER_API_KEY`) nem Grok (`YBY
 O v1 mora neste repositório. Mapa e checklist de camadas: [docs/REPOS.md](docs/REPOS.md). Como rodar e testar: [docs/DEV.md](docs/DEV.md).
 
 ```text
-feito:     engine | safety → actions | memory | voice | security/ast_guard
-em curso:  Plataforma (D9) — hub systemd, Syncthing, OpenRouter→Grok, cache
+feito:     engine | safety → actions | memory | voice | security/ast_guard | hub
+gates:     make doctor | make lint | make test | CI em PR
 
 yby.py            → comando
 src/engine        → ask (+ cache / contexto nuvem)
@@ -65,7 +67,10 @@ src/actions       → executa após a porta
 src/memory        → vault de notas
 src/security      → guarda AST
 tests/            → pytest
+.cursor/rules/    → yby.mdc + yby-economy.mdc
 ```
+
+Nuvem: OpenRouter quando o roteamento pede; **sem** failover automático para Grok (D12).
 
 Agentes, RAG e gateway ficam em `src/`, fora desse caminho ([src/README.md](src/README.md)).
 
@@ -76,6 +81,7 @@ Mobile e firmware saíram do v1. Ver [docs/archive/FORA-DO-V1.md](docs/archive/F
 - [Índice dos docs](docs/README.md) (ativo vs histórico)
 - [Onde programar](docs/REPOS.md)
 - [Desenvolvimento](docs/DEV.md)
+- [CI e revisão de PRs](docs/CI.md)
 - [Plataforma](docs/PLATFORM.md)
 - [Memória](docs/MEMORY.md)
 - [Arquitetura](ARCHITECTURE.md)

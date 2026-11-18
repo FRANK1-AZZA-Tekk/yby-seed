@@ -7,7 +7,7 @@ O restante em `src/` é legado: não apagar, reescrever nem expandir sem pedido 
 - Ler só os arquivos citados no pedido, e `docs/DEV.md` se o caminho estiver ambíguo.
   Não varrer `docs/` nem o legado por padrão.
 - Mudar o mínimo. Não refatorar, não adicionar dependências, não fazer merge.
-- No fim: `ruff` e `pytest` uma vez. Não vigiar o CI do GitHub.
+- No fim: `make doctor`, `make lint` e `make test` (ou `make check`). Não vigiar o CI do GitHub.
 - Responder com resumo e lista de arquivos; não despejar arquivos inteiros.
 
 ## Convenções

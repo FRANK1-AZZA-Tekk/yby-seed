@@ -1,0 +1,42 @@
+---
+description: Regras base YBY SEED (Fase 0) — escopo, honestidade e segurança
+globs:
+alwaysApply: true
+---
+
+# YBY SEED — regras do agente
+
+## Antes de editar
+
+- Planeje o diff mínimo: arquivos-alvo, critério de aceite, testes.
+- Leia só os arquivos citados na tarefa (e `docs/DEV.md` se o caminho estiver ambíguo).
+- Não explore o legado (`src/agents`, `src/rag`, `src/gateway`, `src/core`) sem pedido explícito.
+
+## Escopo
+
+- Não edite arquivos fora do escopo da tarefa.
+- Não reescreva, apague nem expanda o legado sem pedido explícito.
+- Diff mínimo: sem refatoração cosmética, sem dependências novas sem necessidade.
+
+## Honestidade
+
+- Não invente recursos, endpoints, serviços ou “já pronto” que não existam no código.
+- README e docs descrevem só o que funciona hoje; futuro fica marcado como futuro.
+- Sem cloud APIs novas sem autenticação configurável **e** log local (motivo, modelo, resultado).
+
+## Segurança e execução
+
+- Não execute código gerado sem sandbox **e** aprovação humana.
+- Comandos de shell passam por `src/safety` / allowlist; destrutivos pedem confirmação.
+- Nunca publique secrets; use `.env` local (template em `.env.example`).
+
+## Qualidade
+
+- Toda mudança de comportamento precisa de teste **e** ajuste de docs (ou nota explícita de por que docs não mudam).
+- Compatível com a estrutura atual em Python (`yby.py`, `src/engine|safety|actions|memory|voice|platform`).
+- Gate local/CI: `make doctor`, `make lint`, `make test` (ver `docs/CI.md`).
+
+## Economia (ver também yby-economy.mdc)
+
+- Local-first: Ollama `qwen2.5-coder:3b` primeiro; nuvem só com autorização ou roteamento explícito.
+- Entregue resumo, lista de arquivos e próximo passo — sem despejar arquivos inteiros.

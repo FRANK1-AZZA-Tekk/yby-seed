@@ -6,6 +6,7 @@
 |---|---|
 | [REPOS.md](REPOS.md) | Onde programar; checklist de camadas; repos separados |
 | [DEV.md](DEV.md) | Setup, CLI, env, testes, pastas |
+| [CI.md](CI.md) | Gate CI, revisão automática de PRs, Bugbot |
 | [PLATFORM.md](PLATFORM.md) | Hub systemd, Syncthing, nuvem (OpenRouter; D12) |
 | [MEMORY.md](MEMORY.md) | Vault Obsidian |
 | [../DECISIONS.md](../DECISIONS.md) | D1–D13 (vigentes) |

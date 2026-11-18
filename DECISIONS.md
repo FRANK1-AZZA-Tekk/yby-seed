@@ -80,7 +80,7 @@ CLI: `python yby.py listen` ou `python yby.py ask --voice` — grava até Enter,
 - O gateway HTTP escuta em `127.0.0.1` por padrão (`FASTAPI_HOST`) e exige `GATEWAY_TOKEN` nas rotas de dados. `/health` fica aberto.
 - A URL do Postgres vem de `YBY_DATABASE_URL`. Não há senha no código.
 - O workflow da Strix foi removido: o instalador retornava 404 e não havia chave.
-- O CI é `ruff` e `pytest` em push e pull request.
+- O CI é `make doctor`, `make lint` (`ruff`) e `make test` (`pytest`) em push/`main` e pull request. Revisão automática de PR: `.github/workflows/pr-review.yml` (+ Bugbot opcional; `docs/CI.md`).
 - `src/mobile` e `firmware/` saíram da árvore. O histórico do git guarda os arquivos. Ver `docs/archive/FORA-DO-V1.md`.
 
 ## D12 — Economia de execução (2026-11-11)
