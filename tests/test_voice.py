@@ -183,6 +183,7 @@ def test_listen_once_fluxo_completo(monkeypatch, tmp_path: Path) -> None:
     assert turn.tts_path == out
     assert engine.calls == [{"prompt": "explica lista", "explicit_heavy": False}]
     assert not wav.exists()  # limpeza do áudio de entrada
+    assert not out.exists()  # WAV do TTS apagado depois de tocar
 
 
 def test_listen_once_tts_opcional(monkeypatch, tmp_path: Path) -> None:

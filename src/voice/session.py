@@ -87,6 +87,10 @@ def listen_once(
             except TtsError as exc:
                 tts_notice = str(exc)
                 say(f"TTS indisponível: {exc}")
+            else:
+                # WAV já foi tocado; apaga o tmp para não acumular em /tmp.
+                if tts_path is not None:
+                    tts_path.unlink(missing_ok=True)
 
         return VoiceTurn(transcript, reply, tts_path, tts_notice)
     except VoiceError:
