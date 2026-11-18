@@ -81,9 +81,6 @@ def decide(command: str, *, policy: Policy, project_root: Path) -> Decision:
         if _contains_pattern(raw, pattern):
             return Decision("refuse", f"padrão destrutivo: {pattern}")
 
-    if _has_shell_glue(raw):
-        return Decision("ask", "comando com encadeamento de shell")
-
     try:
         argv = shlex.split(raw, posix=True)
     except ValueError as exc:
@@ -91,6 +88,14 @@ def decide(command: str, *, policy: Policy, project_root: Path) -> Decision:
 
     if not argv:
         return Decision("refuse", "comando vazio")
+
+    if Path(argv[0]).name == "git":
+        for pattern in policy.refuse:
+            if _git_refuse_match(argv, pattern):
+                return Decision("refuse", f"padrão destrutivo: {pattern}")
+
+    if _has_shell_glue(raw):
+        return Decision("ask", "comando com encadeamento de shell")
 
     program = Path(argv[0]).name
     if program in policy.read_only:
@@ -127,6 +132,70 @@ def confirm(
         return True
     output_fn("Não executado.")
     return False
+
+
+_GIT_OPTIONS_WITH_VALUE = frozenset(
+    {
+        "-C",
+        "-c",
+        "--git-dir",
+        "--work-tree",
+        "--namespace",
+        "--config-env",
+        "--super-prefix",
+        "--list-cmds",
+    }
+)
+
+
+def _git_refuse_match(argv: list[str], pattern: str) -> bool:
+    """Casa padrões `git ...` mesmo com flags fora de ordem ou opções globais."""
+
+    if Path(argv[0]).name != "git":
+        return False
+    try:
+        wanted_argv = shlex.split(pattern, posix=True)
+    except ValueError:
+        return False
+    if not wanted_argv or Path(wanted_argv[0]).name != "git":
+        return False
+    actual = _git_command_tokens(argv)
+    wanted = _git_command_tokens(wanted_argv)
+    if not actual or not wanted or actual[0] != wanted[0]:
+        return False
+    return all(_git_token_present(token, actual[1:]) for token in wanted[1:])
+
+
+def _git_command_tokens(argv: list[str]) -> list[str]:
+    tokens: list[str] = []
+    index = 1
+    while index < len(argv):
+        arg = argv[index]
+        option = arg.split("=", 1)[0]
+        if option in _GIT_OPTIONS_WITH_VALUE:
+            index += 1 if "=" in arg else 2
+            continue
+        if arg == "--":
+            tokens.extend(argv[index + 1 :])
+            break
+        tokens.append(arg)
+        index += 1
+    return tokens
+
+
+def _git_token_present(wanted: str, actual: list[str]) -> bool:
+    if wanted in actual:
+        return True
+    if not wanted.startswith("-") or wanted.startswith("--"):
+        return False
+    letters = set(wanted[1:])
+    if not letters:
+        return False
+    found: set[str] = set()
+    for token in actual:
+        if token.startswith("-") and not token.startswith("--"):
+            found.update(token[1:])
+    return letters <= found
 
 
 def _contains_pattern(command: str, pattern: str) -> bool:

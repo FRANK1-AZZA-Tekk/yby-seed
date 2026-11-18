@@ -41,7 +41,8 @@ Hub no boot: `bash scripts/install-hub-service.sh --enable`. Detalhe: [PLATFORM.
 | `YBY_OLLAMA_*`, `YBY_LOCAL_MODEL` | Ollama do `ask` / hub |
 | `YBY_CLOUD_*` / `OPENROUTER_API_KEY` | nuvem primária (OpenRouter free por padrão) |
 | `YBY_GROK_*` / `XAI_API_KEY` | Grok configurável; **não** é chamado automaticamente se OpenRouter falhar (D12, #42) |
-| `YBY_CACHE_*`, `YBY_CLOUD_CONTEXT_MAX_CHARS` | cache TTL e limite de contexto na nuvem |
+| `YBY_CACHE_*`, `YBY_CACHE_PATH`, `YBY_CLOUD_CONTEXT_MAX_CHARS` | cache TTL (disco em `~/.local/state/yby-seed/response-cache.json`; `YBY_CACHE_PATH=memory` desliga o arquivo) e limite de contexto na nuvem |
+| `YBY_OLLAMA_NUM_CTX`, `YBY_OLLAMA_NUM_PREDICT`, `YBY_OLLAMA_THINK` | contexto local (padrão 4096, cabe em 4 GB), teto de tokens (padrão 1024) e thinking do Ollama (padrão desligado) |
 | `YBY_HEAVY_*` | limiares / frases que sobem para nuvem |
 | `YBY_VAULT_PATH` | pasta do vault Obsidian |
 | `YBY_HUB_*` | intervalo/timeout do keepalive |

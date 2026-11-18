@@ -65,6 +65,14 @@ def test_teto_mensal_bloqueia(tmp_path) -> None:
     assert out.code == CODE_BLOCKED_BUDGET
 
 
+def test_limite_invalido_cai_no_padrao() -> None:
+    budget = CloudBudget.from_env(
+        {"YBY_CLOUD_MONTHLY_TOKEN_LIMIT": "nao", "YBY_CLOUD_WARN_TOKEN_LIMIT": "-3"}
+    )
+    assert budget.monthly_token_limit == 200_000
+    assert budget.warn_token_limit == 150_000
+
+
 def test_dentro_do_teto_permite() -> None:
     budget = CloudBudget.from_env({"YBY_CLOUD_MODE": "ask", "YBY_CLOUD_REQUIRE_CONFIRM": "0"})
     out = budget.evaluate(requires_confirmation=False, has_tty=False)

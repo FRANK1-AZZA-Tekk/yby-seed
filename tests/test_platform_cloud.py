@@ -101,12 +101,15 @@ def test_from_env_le_openrouter_e_grok_aliases() -> None:
     assert config.cache_ttl_seconds == 10.0
 
 
-def test_openrouter_falha_nao_chama_grok_automaticamente() -> None:
+def test_openrouter_falha_nao_chama_grok_automaticamente(monkeypatch) -> None:
+    monkeypatch.setattr("src.engine.providers.time.sleep", lambda _delay: None)
+    busy = _Response(503, {"error": "busy"})
+    openrouter_session = _Session([busy, busy])
     openrouter = CloudProvider(
         "https://openrouter.ai/api/v1",
         api_key="or-key",
         timeout=3,
-        session=_Session([_Response(503, {"error": "busy"})]),
+        session=openrouter_session,
     )
     grok = CloudProvider(
         "https://api.x.ai/v1",
@@ -124,6 +127,7 @@ def test_openrouter_falha_nao_chama_grok_automaticamente() -> None:
     )
     with pytest.raises(ProviderError, match="não é chamada automaticamente"):
         chain.complete_with_meta("pensa mais", system="sys")
+    assert len(openrouter_session.posts) == 2
     assert grok._session.posts == []
 
 

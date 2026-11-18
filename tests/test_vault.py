@@ -1,5 +1,7 @@
 """Vault de notas e a ausência de senha no código."""
 
+import os
+import time
 from pathlib import Path
 
 import pytest
@@ -21,6 +23,24 @@ def test_nota_e_busca(tmp_path: Path) -> None:
     hits = vault.search("servidor de casa")
     assert hits
     assert hits[0].name == "diario.md"
+
+
+def test_busca_enxerga_nota_editada_fora_do_write(tmp_path: Path) -> None:
+    vault = Vault(tmp_path)
+    vault.write_note("diario", "assunto antigo")
+    (tmp_path / "manual.md").write_text("servidor de casa na nota manual\n", encoding="utf-8")
+    note = tmp_path / "diario.md"
+    note.write_text("o servidor de casa foi atualizado\n", encoding="utf-8")
+    stamp = time.time() + 5
+    os.utime(note, (stamp, stamp))
+    (tmp_path / "sumiu.md").write_text("nao deve aparecer\n", encoding="utf-8")
+    vault.write_note("sumiu", "nao deve aparecer")
+    (tmp_path / "sumiu.md").unlink()
+
+    names = [hit.name for hit in vault.search("servidor de casa")]
+    assert "manual.md" in names
+    assert "diario.md" in names
+    assert all(name != "sumiu.md" for name in vault.search("aparecer"))
 
 
 def test_nota_nao_escapa_do_vault(tmp_path: Path) -> None:

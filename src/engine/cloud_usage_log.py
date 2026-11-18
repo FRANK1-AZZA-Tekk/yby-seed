@@ -56,11 +56,12 @@ class CloudUsageLog:
         flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
         fd = os.open(self.path, flags, 0o600)
         try:
-            with os.fdopen(fd, "a", encoding="utf-8") as handle:
-                handle.write(line + "\n")
+            handle = os.fdopen(fd, "a", encoding="utf-8")
         except Exception:
             os.close(fd)
             raise
+        with handle:
+            handle.write(line + "\n")
         try:
             self.path.chmod(0o600)
         except OSError:

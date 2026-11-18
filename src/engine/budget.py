@@ -40,6 +40,8 @@ class CloudBudget:
         self.warn_token_limit = warn_token_limit
         self.require_confirm = require_confirm
         self.allow_no_tty = allow_no_tty
+        self._usage_stamp: tuple[int, int] | None = None
+        self._usage_total = 0
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> CloudBudget:
@@ -99,7 +101,18 @@ class CloudBudget:
 
     def _month_token_usage(self) -> int:
         if not self.log_path.is_file():
+            self._usage_stamp = None
             return 0
+        stat = self.log_path.stat()
+        stamp = (stat.st_mtime_ns, stat.st_size)
+        if stamp == self._usage_stamp:
+            return self._usage_total
+        total = self._scan_month_usage()
+        self._usage_stamp = stamp
+        self._usage_total = total
+        return total
+
+    def _scan_month_usage(self) -> int:
         now = time.gmtime()
         year, month = now.tm_year, now.tm_mon
         total = 0
@@ -131,7 +144,13 @@ def _int(source: dict[str, str], name: str, default: int) -> int:
     raw = source.get(name, "").strip()
     if not raw:
         return default
-    return int(raw)
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    if value < 0:
+        return default
+    return value
 
 
 def _bool(source: dict[str, str], name: str, default: bool) -> bool:

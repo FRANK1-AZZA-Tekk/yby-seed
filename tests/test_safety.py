@@ -90,6 +90,21 @@ def test_rm_de_arquivo_nao_casa_com_a_raiz(tmp_path: Path) -> None:
     assert decide("rm -rf /tmp/cache", policy=policy, project_root=tmp_path).action == "ask"
 
 
+def test_git_destrutivo_com_flags_fora_de_ordem() -> None:
+    from src.safety.policy import default_policy_path
+
+    policy = load_policy(default_policy_path())
+    root = Path(__file__).resolve().parents[1]
+    assert decide("git push origin --force", policy=policy, project_root=root).action == "refuse"
+    assert decide("git -C /tmp push -f origin", policy=policy, project_root=root).action == "refuse"
+    assert decide("git reset HEAD --hard", policy=policy, project_root=root).action == "refuse"
+    assert decide("git clean -df", policy=policy, project_root=root).action == "refuse"
+    assert decide("git status", policy=policy, project_root=root).action == "run"
+    assert decide("git push origin main", policy=policy, project_root=root).action == "run"
+    glued = decide("git push origin --force && true", policy=policy, project_root=root)
+    assert glued.action == "refuse"
+
+
 def test_git_forcado_e_recusado(tmp_path: Path) -> None:
     policy = _policy(tmp_path)
     decision = decide(
