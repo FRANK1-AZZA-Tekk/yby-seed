@@ -159,6 +159,13 @@ _SECRET_MARKERS = (
     "PASSWD",
     "CREDENTIAL",
     "DATABASE_URL",
+    "AUTH",  # REDISCLI_AUTH, SSH_AUTH_SOCK (ponteiro de credencial)
+    "MYSQL_PWD",
+    "REDIS_URL",
+    "MONGO_URL",
+    "MONGODB_URI",
+    "GH_PAT",
+    "GITHUB_PAT",
 )
 
 

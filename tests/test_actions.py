@@ -193,6 +193,10 @@ def test_execucao_nao_herda_chaves(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIA")
     monkeypatch.setenv("SSH_PRIVATE_KEY", "-----")
     monkeypatch.setenv("GATEWAY_TOKEN", "tok")
+    monkeypatch.setenv("MYSQL_PWD", "dbpass")
+    monkeypatch.setenv("REDISCLI_AUTH", "redispass")
+    monkeypatch.setenv("REDIS_URL", "redis://:x@localhost/0")
+    monkeypatch.setenv("GITHUB_PAT", "ghp_x")
     monkeypatch.setenv("PATH", "/usr/bin")
     policy = _policy(tmp_path)
     runner = _fake_runner()
@@ -209,6 +213,10 @@ def test_execucao_nao_herda_chaves(tmp_path: Path, monkeypatch) -> None:
     assert "AWS_ACCESS_KEY_ID" not in env
     assert "SSH_PRIVATE_KEY" not in env
     assert "GATEWAY_TOKEN" not in env
+    assert "MYSQL_PWD" not in env
+    assert "REDISCLI_AUTH" not in env
+    assert "REDIS_URL" not in env
+    assert "GITHUB_PAT" not in env
     assert env["PATH"] == "/usr/bin"
 
 
