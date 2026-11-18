@@ -88,6 +88,7 @@ class HybridEngine:
                 lambda: sys.stdin.isatty() and sys.stdout.isatty()
             )
         self._cloud_session_confirmed = False
+        self._budget_warn: str | None = None
 
     def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
         decision = decide_route(
@@ -166,15 +167,18 @@ class HybridEngine:
                 decision.reasons,
                 f"Ollama falhou ({local_error}). A nuvem também falhou ({cloud_error}).",
             )
+        notice = (
+            f"Ollama falhou ({local_error}). "
+            f"Respondi pela nuvem ({result.model} via {result.via})."
+        )
+        if self._budget_warn:
+            notice = f"{self._budget_warn} {notice}"
         return EngineReply(
             result.text,
             "cloud",
             result.model,
             decision.reasons,
-            (
-                f"Ollama falhou ({local_error}). "
-                f"Respondi pela nuvem ({result.model} via {result.via})."
-            ),
+            notice,
         )
 
     def _cloud_first(self, prompt: str, decision: RouteDecision) -> EngineReply:
@@ -198,7 +202,13 @@ class HybridEngine:
             result = self._cloud_call(prompt, purpose="route_cloud")
         except ProviderError as cloud_error:
             return self._local_after_cloud_failure(prompt, decision, cloud_error)
-        return EngineReply(result.text, "cloud", result.model, decision.reasons, None)
+        return EngineReply(
+            result.text,
+            "cloud",
+            result.model,
+            decision.reasons,
+            self._budget_warn,
+        )
 
     def _local_without_cloud_key(
         self,
@@ -297,6 +307,7 @@ class HybridEngine:
         )
         model = self.config.cloud_model
         input_est = CloudUsageLog.estimate_tokens(prompt)
+        self._budget_warn = None
 
         if not evaluation.allowed:
             event = {
@@ -310,6 +321,9 @@ class HybridEngine:
             }
             self.cloud_log.append(event)
             return EngineReply("", "none", "", decision.reasons, evaluation.reason)
+
+        if evaluation.reason.startswith("Aviso:"):
+            self._budget_warn = evaluation.reason
 
         self.cloud_log.append(
             {

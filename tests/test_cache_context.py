@@ -147,6 +147,47 @@ def test_cache_de_nuvem_ignora_teto(tmp_path: Path) -> None:
     assert len(cloud.calls) == 1
 
 
+def test_aviso_de_orcamento_aparece_no_notice(tmp_path: Path) -> None:
+    log_path = tmp_path / "usage.jsonl"
+    log_path.write_text(
+        json.dumps(
+            {
+                "timestamp": time.time(),
+                "provider": "openrouter",
+                "model": "m",
+                "purpose": "test",
+                "input_tokens_estimate": 160_000,
+                "output_tokens_estimate": 0,
+                "result": EVENT_COMPLETED,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    budget = CloudBudget(
+        cloud_mode="ask",
+        log_path=log_path,
+        monthly_token_limit=200_000,
+        warn_token_limit=150_000,
+        require_confirm=False,
+        allow_no_tty=True,
+    )
+    cloud = FakeCloud(text="nuvem-ok")
+    engine = HybridEngine(
+        _config(),
+        FakeOllama(),
+        cloud,
+        cache=ResponseCache(ttl_seconds=0),
+        budget=budget,
+        confirm_fn=lambda _msg: True,
+    )
+    reply = engine.reply("pensa mais sobre aviso")
+    assert reply.provider == "cloud"
+    assert reply.text == "nuvem-ok"
+    assert reply.notice is not None
+    assert reply.notice.startswith("Aviso:")
+
+
 def test_teto_mensal_degrada_para_local(tmp_path: Path) -> None:
     log_path = tmp_path / "usage.jsonl"
     log_path.write_text(

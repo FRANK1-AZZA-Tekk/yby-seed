@@ -77,3 +77,34 @@ def test_dentro_do_teto_permite() -> None:
     budget = CloudBudget.from_env({"YBY_CLOUD_MODE": "ask", "YBY_CLOUD_REQUIRE_CONFIRM": "0"})
     out = budget.evaluate(requires_confirmation=False, has_tty=False)
     assert out.allowed is True
+
+
+def test_aviso_mensal_permite_com_razao(tmp_path) -> None:
+    log_path = tmp_path / "cloud_usage.jsonl"
+    log_path.write_text(
+        json.dumps(
+            {
+                "timestamp": utc_timestamp(),
+                "provider": "openrouter",
+                "model": "m",
+                "purpose": "test",
+                "input_tokens_estimate": 160_000,
+                "output_tokens_estimate": 0,
+                "result": EVENT_COMPLETED,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log_path),
+            "YBY_CLOUD_MONTHLY_TOKEN_LIMIT": "200000",
+            "YBY_CLOUD_WARN_TOKEN_LIMIT": "150000",
+            "YBY_CLOUD_REQUIRE_CONFIRM": "0",
+        }
+    )
+    out = budget.evaluate(requires_confirmation=False, has_tty=True)
+    assert out.allowed is True
+    assert out.reason.startswith("Aviso:")
