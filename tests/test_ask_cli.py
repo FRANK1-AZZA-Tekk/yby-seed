@@ -42,6 +42,25 @@ def test_ask_imprime_a_resposta(monkeypatch) -> None:
     assert "qwen2.5-coder:3b" in result.output
 
 
+def test_ask_cloud_exception_arma_env(monkeypatch) -> None:
+    engine = _ScriptedEngine(
+        EngineReply(
+            text="ok",
+            provider="local",
+            model="qwen2.5-coder:3b",
+            reasons=("pedido dentro do limite local",),
+            notice=None,
+        )
+    )
+    monkeypatch.setattr("src.main.build_engine", lambda: engine)
+    monkeypatch.delenv("YBY_CLOUD_BUDGET_EXCEPTION", raising=False)
+    result = CliRunner().invoke(cli, ["ask", "--cloud-exception", "oi"])
+    assert result.exit_code == 0
+    import os
+
+    assert os.environ.get("YBY_CLOUD_BUDGET_EXCEPTION") == "1"
+
+
 def test_ask_heavy_repassa_a_flag(monkeypatch) -> None:
     engine = _ScriptedEngine(
         EngineReply(

@@ -22,6 +22,7 @@ Comandos:
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -128,13 +129,27 @@ def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
     help="Força a nuvem, mesmo num pedido curto.",
 )
 @click.option(
+    "--cloud-exception",
+    "cloud_exception",
+    is_flag=True,
+    help="Concede 1 uso além do teto de orçamento (não bypassa local_only).",
+)
+@click.option(
     "--voice/--no-voice",
     default=False,
     help="Grava até Enter, pergunta ao motor e fala a resposta (Piper).",
 )
 @click.argument("pergunta", nargs=-1, required=False)
-def ask(heavy: bool, voice: bool, pergunta: tuple[str, ...]) -> None:
+def ask(
+    heavy: bool,
+    cloud_exception: bool,
+    voice: bool,
+    pergunta: tuple[str, ...],
+) -> None:
     """Responde um pedido em texto. Com --voice, usa microfone e TTS local."""
+
+    if cloud_exception:
+        os.environ["YBY_CLOUD_BUDGET_EXCEPTION"] = "1"
 
     if voice:
         _voice_turn(heavy=heavy)
