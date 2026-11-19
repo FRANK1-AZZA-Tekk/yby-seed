@@ -53,3 +53,32 @@ Nunca promover automaticamente para **S3 Plus** informação marcada apenas como
 - Impacto YBY / prob. / sev. / hipótese ou fato:
 - Correção / validada? / risco residual / teste / doc / status:
 ```
+
+---
+
+## Bloco reservado — YBY-WATCH-001 (T-Watch S3 Plus)
+
+> Preencher quando houver **sintoma real**. Até lá: PCB = `desconhecida`; não inventar pinout. Ver [ESTRATEGIA_YBY_ZERO.md](ESTRATEGIA_YBY_ZERO.md).
+
+```markdown
+### YBY-WATCH-001
+- Título: (a preencher)
+- Tema: Hardware / Firmware / UI / Rede / IA / Android / Segurança
+- Componente: T-Watch S3 Plus
+- Fonte / tipo / URL / data:
+- Produto: LilyGO T-Watch
+- Variante: **S3 Plus** (obrigatório — não S3 / 2020)
+- Revisão PCB: **desconhecida**
+- Versão de firmware / IDF:
+- Problema: [DESCREVA O PROBLEMA]
+- Sintoma: [DESCREVA O PROBLEMA]
+- Condição de reprodução:
+- Causa alegada / confirmada? (sim/não/parcial) / evidência:
+- Impacto YBY: wearable / hub / nenhum
+- Probabilidade / severidade:
+- **Hipótese ou fato:** (obrigatório)
+- Correção sugerida / validada? / risco residual:
+- Teste necessário:
+- Documento YBY afetado: docs/future/ESTRATEGIA_YBY_ZERO.md | PLANO_ECOSISTEMA_WEARABLE.md
+- Status: aberto
+```
