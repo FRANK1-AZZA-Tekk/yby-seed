@@ -103,6 +103,8 @@ def test_cache_de_nuvem_ignora_teto(tmp_path: Path) -> None:
     budget = CloudBudget(
         cloud_mode="ask",
         log_path=log_path,
+        daily_token_limit=50_000,
+        warn_daily_token_limit=40_000,
         monthly_token_limit=200_000,
         warn_token_limit=150_000,
         require_confirm=False,
@@ -135,6 +137,8 @@ def test_cache_de_nuvem_ignora_teto(tmp_path: Path) -> None:
     engine.budget = CloudBudget(
         cloud_mode="ask",
         log_path=log_path,
+        daily_token_limit=50_000,
+        warn_daily_token_limit=40_000,
         monthly_token_limit=10,
         warn_token_limit=5,
         require_confirm=False,
@@ -167,6 +171,9 @@ def test_aviso_de_orcamento_aparece_no_notice(tmp_path: Path) -> None:
     budget = CloudBudget(
         cloud_mode="ask",
         log_path=log_path,
+        # Diário alto: o aviso sob teste é o mensal.
+        daily_token_limit=500_000,
+        warn_daily_token_limit=400_000,
         monthly_token_limit=200_000,
         warn_token_limit=150_000,
         require_confirm=False,
@@ -208,6 +215,8 @@ def test_teto_mensal_degrada_para_local(tmp_path: Path) -> None:
     budget = CloudBudget(
         cloud_mode="ask",
         log_path=log_path,
+        daily_token_limit=50_000,
+        warn_daily_token_limit=40_000,
         monthly_token_limit=10,
         warn_token_limit=5,
         require_confirm=False,

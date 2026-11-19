@@ -15,6 +15,12 @@ CODE_BLOCKED_LOCAL_ONLY = "blocked_local_only"
 CODE_BLOCKED_NO_TTY = "blocked_no_tty"
 CODE_BLOCKED_BUDGET = "blocked_budget"
 
+# Defaults alinhados a docs/CLOUD_USAGE_SPEC.md §7.1 (tokens; custo/exception = S2 restante).
+DEFAULT_DAILY_TOKEN_LIMIT = 50_000
+DEFAULT_WARN_DAILY_TOKEN_LIMIT = 40_000
+DEFAULT_MONTHLY_TOKEN_LIMIT = 200_000
+DEFAULT_WARN_TOKEN_LIMIT = 150_000
+
 
 @dataclass(frozen=True)
 class BudgetEvaluation:
@@ -29,6 +35,8 @@ class CloudBudget:
         *,
         cloud_mode: str,
         log_path: Path,
+        daily_token_limit: int,
+        warn_daily_token_limit: int,
         monthly_token_limit: int,
         warn_token_limit: int,
         require_confirm: bool,
@@ -36,12 +44,15 @@ class CloudBudget:
     ) -> None:
         self.cloud_mode = cloud_mode.strip().casefold() or "ask"
         self.log_path = log_path
+        self.daily_token_limit = daily_token_limit
+        self.warn_daily_token_limit = warn_daily_token_limit
         self.monthly_token_limit = monthly_token_limit
         self.warn_token_limit = warn_token_limit
         self.require_confirm = require_confirm
         self.allow_no_tty = allow_no_tty
         self._usage_stamp: tuple[int, int] | None = None
-        self._usage_total = 0
+        self._usage_day = 0
+        self._usage_month = 0
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> CloudBudget:
@@ -52,8 +63,18 @@ class CloudBudget:
         return cls(
             cloud_mode=source.get("YBY_CLOUD_MODE", "ask"),
             log_path=log_path,
-            monthly_token_limit=_int(source, "YBY_CLOUD_MONTHLY_TOKEN_LIMIT", 200_000),
-            warn_token_limit=_int(source, "YBY_CLOUD_WARN_TOKEN_LIMIT", 150_000),
+            daily_token_limit=_int(
+                source, "YBY_CLOUD_DAILY_TOKEN_LIMIT", DEFAULT_DAILY_TOKEN_LIMIT
+            ),
+            warn_daily_token_limit=_int(
+                source, "YBY_CLOUD_WARN_DAILY_TOKEN_LIMIT", DEFAULT_WARN_DAILY_TOKEN_LIMIT
+            ),
+            monthly_token_limit=_int(
+                source, "YBY_CLOUD_MONTHLY_TOKEN_LIMIT", DEFAULT_MONTHLY_TOKEN_LIMIT
+            ),
+            warn_token_limit=_int(
+                source, "YBY_CLOUD_WARN_TOKEN_LIMIT", DEFAULT_WARN_TOKEN_LIMIT
+            ),
             require_confirm=_bool(source, "YBY_CLOUD_REQUIRE_CONFIRM", True),
             allow_no_tty=_bool(source, "YBY_CLOUD_ALLOW_NO_TTY", False),
         )
@@ -71,11 +92,17 @@ class CloudBudget:
                 CODE_BLOCKED_LOCAL_ONLY,
             )
 
-        used = self._month_token_usage()
-        if used >= self.monthly_token_limit:
+        used_day, used_month = self._token_usage()
+        if used_day >= self.daily_token_limit:
             return BudgetEvaluation(
                 False,
-                f"Teto mensal de tokens atingido ({used}/{self.monthly_token_limit}).",
+                f"Teto diário de tokens atingido ({used_day}/{self.daily_token_limit}).",
+                CODE_BLOCKED_BUDGET,
+            )
+        if used_month >= self.monthly_token_limit:
+            return BudgetEvaluation(
+                False,
+                f"Teto mensal de tokens atingido ({used_month}/{self.monthly_token_limit}).",
                 CODE_BLOCKED_BUDGET,
             )
 
@@ -91,31 +118,46 @@ class CloudBudget:
                 CODE_BLOCKED_NO_TTY,
             )
 
-        if used >= self.warn_token_limit:
+        if used_day >= self.warn_daily_token_limit:
             return BudgetEvaluation(
                 True,
-                f"Aviso: uso mensal {used} tokens (alerta em {self.warn_token_limit}).",
+                (
+                    f"Aviso: uso diário {used_day} tokens "
+                    f"(alerta em {self.warn_daily_token_limit})."
+                ),
                 CODE_ALLOWED,
             )
-        return BudgetEvaluation(True, "Dentro do orçamento mensal.", CODE_ALLOWED)
+        if used_month >= self.warn_token_limit:
+            return BudgetEvaluation(
+                True,
+                (
+                    f"Aviso: uso mensal {used_month} tokens "
+                    f"(alerta em {self.warn_token_limit})."
+                ),
+                CODE_ALLOWED,
+            )
+        return BudgetEvaluation(True, "Dentro do orçamento diário/mensal.", CODE_ALLOWED)
 
-    def _month_token_usage(self) -> int:
+    def _token_usage(self) -> tuple[int, int]:
+        """Retorna (tokens_dia_UTC, tokens_mês_UTC) de eventos completed."""
         if not self.log_path.is_file():
             self._usage_stamp = None
-            return 0
+            return 0, 0
         stat = self.log_path.stat()
         stamp = (stat.st_mtime_ns, stat.st_size)
         if stamp == self._usage_stamp:
-            return self._usage_total
-        total = self._scan_month_usage()
+            return self._usage_day, self._usage_month
+        day_total, month_total = self._scan_usage()
         self._usage_stamp = stamp
-        self._usage_total = total
-        return total
+        self._usage_day = day_total
+        self._usage_month = month_total
+        return day_total, month_total
 
-    def _scan_month_usage(self) -> int:
+    def _scan_usage(self) -> tuple[int, int]:
         now = time.gmtime()
-        year, month = now.tm_year, now.tm_mon
-        total = 0
+        year, month, day = now.tm_year, now.tm_mon, now.tm_mday
+        day_total = 0
+        month_total = 0
         with self.log_path.open(encoding="utf-8") as handle:
             for line in handle:
                 line = line.strip()
@@ -133,11 +175,15 @@ class CloudBudget:
                 when = time.gmtime(ts)
                 if when.tm_year != year or when.tm_mon != month:
                     continue
+                tokens = 0
                 for field in ("input_tokens_estimate", "output_tokens_estimate"):
                     value = row.get(field, 0)
                     if isinstance(value, int):
-                        total += value
-        return total
+                        tokens += value
+                month_total += tokens
+                if when.tm_mday == day:
+                    day_total += tokens
+        return day_total, month_total
 
 
 def _int(source: dict[str, str], name: str, default: int) -> int:

@@ -56,6 +56,9 @@ def test_teto_mensal_bloqueia(tmp_path) -> None:
         {
             "YBY_CLOUD_MODE": "ask",
             "YBY_CLOUD_LOG_PATH": str(log_path),
+            # Diário alto para isolar o teto mensal neste caso.
+            "YBY_CLOUD_DAILY_TOKEN_LIMIT": "500000",
+            "YBY_CLOUD_WARN_DAILY_TOKEN_LIMIT": "400000",
             "YBY_CLOUD_MONTHLY_TOKEN_LIMIT": "200000",
             "YBY_CLOUD_REQUIRE_CONFIRM": "0",
         }
@@ -63,14 +66,22 @@ def test_teto_mensal_bloqueia(tmp_path) -> None:
     out = budget.evaluate(requires_confirmation=False, has_tty=True)
     assert out.allowed is False
     assert out.code == CODE_BLOCKED_BUDGET
+    assert "mensal" in out.reason
 
 
 def test_limite_invalido_cai_no_padrao() -> None:
     budget = CloudBudget.from_env(
-        {"YBY_CLOUD_MONTHLY_TOKEN_LIMIT": "nao", "YBY_CLOUD_WARN_TOKEN_LIMIT": "-3"}
+        {
+            "YBY_CLOUD_MONTHLY_TOKEN_LIMIT": "nao",
+            "YBY_CLOUD_WARN_TOKEN_LIMIT": "-3",
+            "YBY_CLOUD_DAILY_TOKEN_LIMIT": "x",
+            "YBY_CLOUD_WARN_DAILY_TOKEN_LIMIT": "-1",
+        }
     )
     assert budget.monthly_token_limit == 200_000
     assert budget.warn_token_limit == 150_000
+    assert budget.daily_token_limit == 50_000
+    assert budget.warn_daily_token_limit == 40_000
 
 
 def test_dentro_do_teto_permite() -> None:
@@ -79,8 +90,76 @@ def test_dentro_do_teto_permite() -> None:
     assert out.allowed is True
 
 
+def test_teto_diario_bloqueia(tmp_path) -> None:
+    log_path = tmp_path / "cloud_usage.jsonl"
+    log_path.write_text(
+        json.dumps(
+            {
+                "timestamp": utc_timestamp(),
+                "provider": "openrouter",
+                "model": "m",
+                "purpose": "test",
+                "input_tokens_estimate": 40_000,
+                "output_tokens_estimate": 15_000,
+                "result": EVENT_COMPLETED,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log_path),
+            "YBY_CLOUD_DAILY_TOKEN_LIMIT": "50000",
+            "YBY_CLOUD_WARN_DAILY_TOKEN_LIMIT": "40000",
+            "YBY_CLOUD_MONTHLY_TOKEN_LIMIT": "200000",
+            "YBY_CLOUD_REQUIRE_CONFIRM": "0",
+        }
+    )
+    out = budget.evaluate(requires_confirmation=False, has_tty=True)
+    assert out.allowed is False
+    assert out.code == CODE_BLOCKED_BUDGET
+    assert "diário" in out.reason
+
+
+def test_aviso_diario_permite_com_razao(tmp_path) -> None:
+    log_path = tmp_path / "cloud_usage.jsonl"
+    log_path.write_text(
+        json.dumps(
+            {
+                "timestamp": utc_timestamp(),
+                "provider": "openrouter",
+                "model": "m",
+                "purpose": "test",
+                "input_tokens_estimate": 42_000,
+                "output_tokens_estimate": 0,
+                "result": EVENT_COMPLETED,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log_path),
+            "YBY_CLOUD_DAILY_TOKEN_LIMIT": "50000",
+            "YBY_CLOUD_WARN_DAILY_TOKEN_LIMIT": "40000",
+            "YBY_CLOUD_MONTHLY_TOKEN_LIMIT": "200000",
+            "YBY_CLOUD_WARN_TOKEN_LIMIT": "150000",
+            "YBY_CLOUD_REQUIRE_CONFIRM": "0",
+        }
+    )
+    out = budget.evaluate(requires_confirmation=False, has_tty=True)
+    assert out.allowed is True
+    assert out.reason.startswith("Aviso:")
+    assert "diário" in out.reason
+
+
 def test_aviso_mensal_permite_com_razao(tmp_path) -> None:
     log_path = tmp_path / "cloud_usage.jsonl"
+    # Abaixo do teto/aviso diário; acima do aviso mensal.
     log_path.write_text(
         json.dumps(
             {
@@ -100,6 +179,8 @@ def test_aviso_mensal_permite_com_razao(tmp_path) -> None:
         {
             "YBY_CLOUD_MODE": "ask",
             "YBY_CLOUD_LOG_PATH": str(log_path),
+            "YBY_CLOUD_DAILY_TOKEN_LIMIT": "500000",
+            "YBY_CLOUD_WARN_DAILY_TOKEN_LIMIT": "400000",
             "YBY_CLOUD_MONTHLY_TOKEN_LIMIT": "200000",
             "YBY_CLOUD_WARN_TOKEN_LIMIT": "150000",
             "YBY_CLOUD_REQUIRE_CONFIRM": "0",
@@ -108,3 +189,4 @@ def test_aviso_mensal_permite_com_razao(tmp_path) -> None:
     out = budget.evaluate(requires_confirmation=False, has_tty=True)
     assert out.allowed is True
     assert out.reason.startswith("Aviso:")
+    assert "mensal" in out.reason

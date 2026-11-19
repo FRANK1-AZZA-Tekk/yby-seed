@@ -95,13 +95,26 @@ echo
 echo "## Repo — backup vault"
 need_file "backup-script" scripts/backup-vault.sh "scripts/backup-vault.sh (tar + retenção)"
 need_file "backup-docs" docs/BACKUP.md "docs/BACKUP.md"
+need_file "backup-timer-unit" scripts/yby-vault-backup.timer "timer systemd de usuário (versionado)"
+need_file "backup-service-unit" scripts/yby-vault-backup.service "service oneshot backup (versionado)"
 if grep -Eq 'tar|BACKUP_KEEP|YBY_BACKUP' scripts/backup-vault.sh 2>/dev/null; then
   pass "backup-tar-retention" "script usa tar/retenção (decisões P #4/#5 / A)"
 else
   fail "backup-tar-retention" "script sem indício de tar/retenção"
 fi
+if grep -q 'OnCalendar=daily' scripts/yby-vault-backup.timer 2>/dev/null \
+  && grep -q 'YBY_BACKUP_KEEP=7' scripts/yby-vault-backup.service 2>/dev/null; then
+  pass "backup-timer-daily-keep7" "timer diário + KEEP=7 no unit (decisão P #5 / A)"
+else
+  fail "backup-timer-daily-keep7" "timer/service sem OnCalendar=daily ou KEEP=7"
+fi
+if grep -Eq 'yby-vault-backup\.timer|systemctl --user' docs/BACKUP.md 2>/dev/null; then
+  pass "backup-timer-docs" "BACKUP.md documenta enable do timer --user"
+else
+  fail "backup-timer-docs" "BACKUP.md sem instrução do timer de usuário"
+fi
 skip "backup-restore-hub" "restauração real no PC Hub (hardware)"
-skip "backup-daily-cron-hub" "agendamento diário no Hub (hardware/timer)"
+skip "backup-daily-cron-hub" "timer/enable real no Hub (hardware; units só no repo)"
 echo
 
 # --- Syncthing exemplos (Fase 4 — docs; sync real = SKIP) ---
@@ -150,7 +163,14 @@ else
   fail "d12-tests" "testes D12 ausentes"
 fi
 skip "cloud-finops-sqlite" "FinOps SQLite (#42 S1+) ainda não implementado — ver CLOUD_USAGE_SPEC.md"
-skip "cloud-daily-budget" "daily budget (#42) ainda aberto"
+if grep -q 'YBY_CLOUD_DAILY_TOKEN_LIMIT' src/engine/budget.py 2>/dev/null \
+  && grep -q 'daily_token_limit' src/engine/budget.py 2>/dev/null \
+  && grep -q 'test_teto_diario_bloqueia' tests/test_budget.py 2>/dev/null; then
+  pass "cloud-daily-budget" "daily token budget (#42 S2 parcial) em budget.py + teste"
+else
+  fail "cloud-daily-budget" "daily token budget ausente"
+fi
+skip "cloud-budget-cost-exception" "custo USD + exception path (#42 S2 restante)"
 skip "cloud-sanitizer-gated" "sanitizer gated no hybrid (#42) ainda aberto"
 echo
 

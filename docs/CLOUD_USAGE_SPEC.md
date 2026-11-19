@@ -1,7 +1,7 @@
 # Cloud Usage Registry & FinOps — Technical Spec (Issue #42)
 
-**Status (código):** **parcial** — baseline JSONL + budget mensal + confirmação TTY + **falha Ollama no caminho local sem cascade nuvem** (D12 / fase P) já no runtime.  
-**Ainda aberto:** SQLite FinOps (S1), daily budget + exception path (S2), sanitizer/authz gated no hybrid (S4).  
+**Status (código):** **parcial** — baseline JSONL + budget **diário+mensal (tokens)** + confirmação TTY + **falha Ollama no caminho local sem cascade nuvem** (D12 / fase P) já no runtime.  
+**Ainda aberto:** SQLite FinOps (S1), custo USD + exception path (resto de S2), sanitizer/authz gated no hybrid (S4).  
 **Este documento:** SPEC / PLAN (não muda comportamento por si só).  
 **Decisions:** D12 (economia de execução) governs cloud; **D11 (voz local) is unchanged**.  
 **Constraint:** no sensitive data leaves the machine without explicit authz; no OpenRouter auto-fallback; no heavy deps (stdlib `sqlite3` + existing `pydantic`).
@@ -14,7 +14,7 @@
 | **D12 / fase P** | Falha Ollama local → sem nuvem automática (`HybridEngine._after_local_failure`) | Feito (código + testes) |
 | Baseline pré-spec | JSONL `cloud_usage_log` + budget mensal + confirm TTY | Feito |
 | **S1** | `cloud_usage_db.py` + import JSONL | Aberto |
-| **S2** | Daily budget + custo + exception | Aberto |
+| **S2** | Daily budget + custo + exception | **Parcial** — teto/aviso diário de **tokens** em `budget.py`; custo USD + exception ainda abertos |
 | **S3** | Wire hybrid com registry status | Aberto (parcial: eventos JSONL no caminho cloud) |
 | **S4** | Sanitizer/authz gated antes do egress | Aberto |
 | **S5** | Dual-write / doctor / retenção | Aberto |
@@ -75,6 +75,7 @@ See `.env.example`:
 
 - `YBY_CLOUD_MODE` (`ask` \| `local_only` \| future `auto` — auto still requires confirm policy)
 - `YBY_CLOUD_LOG_PATH` (default `logs/cloud_usage.jsonl`)
+- `YBY_CLOUD_DAILY_TOKEN_LIMIT`, `YBY_CLOUD_WARN_DAILY_TOKEN_LIMIT` (tokens; janela UTC)
 - `YBY_CLOUD_MONTHLY_TOKEN_LIMIT`, `YBY_CLOUD_WARN_TOKEN_LIMIT`
 - `YBY_CLOUD_REQUIRE_CONFIRM`, `YBY_CLOUD_ALLOW_NO_TTY`
 
@@ -83,7 +84,7 @@ See `.env.example`:
 | Acceptance | Baseline | Gap |
 |---|---|---|
 | No cloud without local registry | Yes (JSONL) | Need SQLite + stronger schema |
-| Warn before relevant-cost cloud | Yes (TTY confirm) | Cost estimate + daily budget + exception path |
+| Warn before relevant-cost cloud | Yes (TTY confirm + daily/monthly token warn) | Cost estimate USD + exception path |
 | Local works offline | Yes | Keep invariant; document |
 | Ollama fail on local path ≠ auto cloud | Yes (`_after_local_failure`, D12 / fase P) | None for this acceptance; FinOps SQLite still separate |
 | No secrets/vault without auth | Log forbids raw fields; sanitizer exists but not gated in hybrid | Formal authz + redaction before egress |
