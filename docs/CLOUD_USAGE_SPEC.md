@@ -1,7 +1,7 @@
 # Cloud Usage Registry & FinOps — Technical Spec (Issue #42)
 
-**Status (código):** **parcial** — JSONL + **SQLite S1/S3** (append + budget lê `sum_completed_usage`) + budget tokens/USD + exception + confirm §6.2 + D12 + sanitizer (S4 parcial) + hard cap OpenRouter **US$10/mês**.  
-**Ainda aberto:** authz vault (resto S4), mirror off + doctor/retenção (S5).  
+**Status (código):** **quase fechado nesta stack** — JSONL + **SQLite S1/S3** + budget tokens/USD + exception + confirm §6.2 + D12 + sanitizer + **authz vault (S4)** + hard cap OpenRouter **US$10/mês** + **mirror JSONL default off + prune (S5 fino)**.  
+**Ainda aberto:** doctor/report CLI (resto S5).  
 **Este documento:** SPEC / PLAN (não muda comportamento por si só).  
 **Decisions:** D12 (economia de execução) governs cloud; **D11 (voz local) is unchanged**.  
 **Constraint:** no sensitive data leaves the machine without explicit authz; no OpenRouter auto-fallback; no heavy deps (stdlib `sqlite3` + existing `pydantic`).
@@ -16,8 +16,8 @@
 | **S1** | `cloud_usage_db.py` + import JSONL | **Feito** (façade append → SQLite + mirror JSONL) |
 | **S2** | Daily budget + custo + exception | **Feito** (tokens + USD + exception 1-shot + tabela preços) |
 | **S3** | Wire hybrid com registry status | **Feito** (budget primary SQLite; fallback JSONL; hybrid já escrevia via S1) |
-| **S4** | Sanitizer/authz gated antes do egress | Parcial (sanitizer no hybrid; authz vault aberto) |
-| **S5** | Dual-write off default / doctor / retenção | Aberto (mirror ainda default=1 na migração) |
+| **S4** | Sanitizer/authz gated antes do egress | **Feito** (`cloud_sanitizer` + `cloud_authz` / `YBY_CLOUD_ALLOW_VAULT`) |
+| **S5** | Dual-write off default / doctor / retenção | **Parcial** (mirror default=0 + `registry.prune`; doctor CLI aberto) |
 
 ---
 

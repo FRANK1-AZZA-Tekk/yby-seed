@@ -14,6 +14,7 @@ from src.engine.cache import ResponseCache
 from src.engine.cloud_pricing import estimate_cost_usd
 from src.engine.cloud_usage_log import (
     CloudUsageLog,
+    EVENT_BLOCKED_AUTHZ,
     EVENT_BLOCKED_BUDGET,
     EVENT_BLOCKED_LOCAL_ONLY,
     EVENT_BLOCKED_NO_TTY,
@@ -37,6 +38,7 @@ from src.engine.providers import (
     TextProvider,
 )
 from src.engine.routing import RouteDecision, decide_route
+from src.security.cloud_authz import CODE_BLOCKED_AUTHZ, check_cloud_prompt
 from src.security.cloud_sanitizer import SanitizeResult, sanitize_for_cloud
 
 SYSTEM_PROMPT = (
@@ -263,13 +265,30 @@ class HybridEngine:
         purpose: str,
         provider_label: str = "openrouter",
     ) -> EngineReply | None:
+        model = self.config.cloud_model
+        input_est = CloudUsageLog.estimate_tokens(prompt)
+        self._budget_warn = None
+
+        # §6.1 passo 3: authz vault antes de budget/confirm/HTTP.
+        authz = check_cloud_prompt(prompt)
+        if not authz.allowed:
+            self.cloud_log.append(
+                {
+                    "timestamp": utc_timestamp(),
+                    "provider": provider_label,
+                    "model": model,
+                    "purpose": purpose,
+                    "input_tokens_estimate": input_est,
+                    "output_tokens_estimate": 0,
+                    "result": EVENT_BLOCKED_AUTHZ,
+                }
+            )
+            return EngineReply("", "none", "", decision.reasons, authz.reason)
+
         evaluation = self.budget.evaluate(
             requires_confirmation=True,
             has_tty=self.has_tty_fn(),
         )
-        model = self.config.cloud_model
-        input_est = CloudUsageLog.estimate_tokens(prompt)
-        self._budget_warn = None
 
         if not evaluation.allowed:
             event = {
@@ -415,12 +434,28 @@ class HybridEngine:
         return " ".join(parts)
 
     def _cloud_call(self, prompt: str, *, purpose: str) -> CloudResult:
-        outbound, _stats = self._prepare_cloud_prompt(prompt)
+        # Authz defensivo antes de cache/HTTP (T10 / §6.1).
+        authz = check_cloud_prompt(prompt)
+        provider_label = "openrouter"
         cache_model = self.config.cloud_model
+        if not authz.allowed:
+            self.cloud_log.append(
+                {
+                    "timestamp": utc_timestamp(),
+                    "provider": provider_label,
+                    "model": cache_model,
+                    "purpose": purpose,
+                    "input_tokens_estimate": CloudUsageLog.estimate_tokens(prompt),
+                    "output_tokens_estimate": 0,
+                    "result": EVENT_BLOCKED_AUTHZ,
+                }
+            )
+            raise ProviderError(authz.reason or "blocked_authz")
+
+        outbound, _stats = self._prepare_cloud_prompt(prompt)
         key = self.cache.make_key(outbound, model=cache_model, system=SYSTEM_PROMPT)
         cached = self.cache.get(key)
         input_est = CloudUsageLog.estimate_tokens(outbound)
-        provider_label = "openrouter"
 
         if cached is not None:
             return CloudResult(cached, cache_model, "cache")
@@ -477,6 +512,8 @@ def _blocked_event(code: str) -> str:
         return EVENT_BLOCKED_BUDGET
     if code == CODE_BLOCKED_NO_TTY:
         return EVENT_BLOCKED_NO_TTY
+    if code == CODE_BLOCKED_AUTHZ:
+        return EVENT_BLOCKED_AUTHZ
     return EVENT_BLOCKED_BUDGET
 
 
