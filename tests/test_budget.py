@@ -158,6 +158,46 @@ def test_aviso_diario_permite_com_razao(tmp_path) -> None:
     assert "diário" in out.reason
 
 
+def test_teto_mensal_usd_10_openrouter(tmp_path) -> None:
+    """Política dono: no máximo US$10/mês de nuvem (OpenRouter)."""
+
+    log_path = tmp_path / "cloud_usage.jsonl"
+    log_path.write_text(
+        json.dumps(
+            {
+                "timestamp": utc_timestamp(),
+                "provider": "openrouter",
+                "model": "anthropic/claude-sonnet-4.5",
+                "purpose": "route_cloud",
+                "input_tokens_estimate": 1_000_000,
+                "output_tokens_estimate": 500_000,
+                # ~2 + 5 = $7 already logged; next calls still under until $10
+                "estimated_cost_usd": 10.0,
+                "result": EVENT_COMPLETED,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log_path),
+            "YBY_CLOUD_DAILY_TOKEN_LIMIT": "5000000",
+            "YBY_CLOUD_MONTHLY_TOKEN_LIMIT": "5000000",
+            "YBY_CLOUD_DAILY_COST_USD_LIMIT": "50.00",
+            "YBY_CLOUD_MONTHLY_COST_USD_LIMIT": "10.00",
+            "YBY_CLOUD_REQUIRE_CONFIRM": "0",
+        }
+    )
+    assert budget.monthly_cost_usd_limit == 10.0
+    out = budget.evaluate(requires_confirmation=False, has_tty=True)
+    assert out.allowed is False
+    assert out.code == CODE_BLOCKED_BUDGET
+    assert "mensal" in out.reason
+    assert "custo" in out.reason.casefold()
+
+
 def test_teto_diario_usd_bloqueia(tmp_path) -> None:
     log_path = tmp_path / "cloud_usage.jsonl"
     log_path.write_text(
