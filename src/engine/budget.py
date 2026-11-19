@@ -74,7 +74,8 @@ class CloudBudget:
         self.confirm_cost_usd = confirm_cost_usd
         self.confirm_token_threshold = confirm_token_threshold
         self._exception_uses_left = 1 if budget_exception else 0
-        self._usage_stamp: tuple[str, int, int] | None = None
+        # sqlite: (label, db_mtime, db_size, wal_mtime, wal_size); jsonl: 3 campos.
+        self._usage_stamp: tuple[str, int, ...] | None = None
         self._usage_day = 0
         self._usage_month = 0
         self._cost_day = 0.0
@@ -282,15 +283,22 @@ class CloudBudget:
         self._cost_month = month_c
         return day_t, month_t, day_c, month_c
 
-    def _usage_source_stamp(self) -> tuple[str, tuple[str, int, int] | None]:
-        """Retorna (fonte, stamp) onde stamp inclui label da fonte."""
+    def _usage_source_stamp(self) -> tuple[str, tuple[str, int, ...] | None]:
+        """Retorna (fonte, stamp) onde stamp inclui label da fonte.
+
+        Em WAL o commit grava `*.sqlite3-wal`; o arquivo principal não muda
+        mtime nem tamanho até o checkpoint. Sem o WAL no stamp, o teto de
+        US$10 fica com o total antigo e libera chamadas a mais.
+        """
 
         if self.registry is not None and self.registry.path.is_file():
-            stat = self.registry.path.stat()
-            return "sqlite", ("sqlite", stat.st_mtime_ns, stat.st_size)
+            db = self.registry.path
+            db_mtime, db_size = _stat_stamp(db)
+            wal_mtime, wal_size = _stat_stamp(db.with_name(db.name + "-wal"))
+            return "sqlite", ("sqlite", db_mtime, db_size, wal_mtime, wal_size)
         if self.log_path.is_file():
-            stat = self.log_path.stat()
-            return "jsonl", ("jsonl", stat.st_mtime_ns, stat.st_size)
+            mtime, size = _stat_stamp(self.log_path)
+            return "jsonl", ("jsonl", mtime, size)
         return "none", None
 
     def _scan_jsonl_usage(self) -> tuple[int, int, float, float]:
@@ -332,6 +340,14 @@ class CloudBudget:
                     day_total += tokens
                     day_cost += cost_f
         return day_total, month_total, day_cost, month_cost
+
+
+def _stat_stamp(path: Path) -> tuple[int, int]:
+    try:
+        stat = path.stat()
+    except OSError:
+        return (0, 0)
+    return (stat.st_mtime_ns, stat.st_size)
 
 
 def _int(source: dict[str, str], name: str, default: int) -> int:
