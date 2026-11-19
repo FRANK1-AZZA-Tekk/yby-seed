@@ -9,8 +9,9 @@
 |---|---|
 | [EVO_NIGHT_WATCH.md](EVO_NIGHT_WATCH.md) | Evo / Night Watch — auto-evolução **supervisionada** (design; não é rewrite livre) |
 | [PLANO_ECOSISTEMA_WEARABLE.md](PLANO_ECOSISTEMA_WEARABLE.md) | Arquitetura hub↔watch, gateway, rede, OSS, execução |
+| [ESTRATEGIA_YBY_ZERO.md](ESTRATEGIA_YBY_ZERO.md) | Estratégia mestre hub→Plus: riscos, navegação ≤5, W0–W6, perguntas ao dono |
 | [METRICAS_OBSERVABILIDADE.md](METRICAS_OBSERVABILIDADE.md) | Catálogo de métricas (PC + futuro) |
-| [FICHA_INVESTIGACAO.md](FICHA_INVESTIGACAO.md) | Template rigoroso (fato vs hipótese) |
+| [FICHA_INVESTIGACAO.md](FICHA_INVESTIGACAO.md) | Template rigoroso (fato vs hipótese); bloco YBY-WATCH-001 |
 | [MOBILE_FUTURE.md](MOBILE_FUTURE.md) | Android / Termux (histórico-planejamento) |
 
 ## Fases (resumo)

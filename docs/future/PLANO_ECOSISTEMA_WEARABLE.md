@@ -4,7 +4,7 @@
 > **v1 agora:** PC Hub — `engine`, `safety`, `voice`, agente P0 no [ROADMAP.md](../../ROADMAP.md).  
 > **Princípio:** FUNCTION OVER FORM; local-first; IA no hub; wearable = sensor + UI fina + fila.
 
-Documentos irmãos: [FICHA_INVESTIGACAO.md](FICHA_INVESTIGACAO.md), [METRICAS_OBSERVABILIDADE.md](METRICAS_OBSERVABILIDADE.md), [MOBILE_FUTURE.md](MOBILE_FUTURE.md).
+Documentos irmãos: [ESTRATEGIA_YBY_ZERO.md](ESTRATEGIA_YBY_ZERO.md) (mestre hub→wearable), [FICHA_INVESTIGACAO.md](FICHA_INVESTIGACAO.md), [METRICAS_OBSERVABILIDADE.md](METRICAS_OBSERVABILIDADE.md), [MOBILE_FUTURE.md](MOBILE_FUTURE.md).
 
 ---
 
