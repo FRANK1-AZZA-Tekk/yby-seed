@@ -58,7 +58,8 @@ def test_registry_schema_and_permissions(tmp_path) -> None:
 
 def test_insert_rejects_forbidden_fields(tmp_path) -> None:
     reg = CloudUsageRegistry(tmp_path / "db.sqlite3")
-    bad = _completed_event(api_key="sk-secret")
+    # Valor dummy — o gate rejeita a *chave* api_key, não o formato do valor.
+    bad = _completed_event(api_key="TEST_FORBIDDEN_FIELD")
     with pytest.raises(ValueError, match="proibido"):
         reg.insert_event(bad)
 
