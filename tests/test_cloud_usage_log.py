@@ -161,7 +161,7 @@ def test_local_only_sem_http(tmp_path) -> None:
     assert blocked["result"] == EVENT_BLOCKED_LOCAL_ONLY
 
 
-def test_ollama_falha_exige_confirmacao(tmp_path) -> None:
+def test_ollama_falha_nao_pede_nuvem(tmp_path) -> None:
     asks = {"n": 0}
 
     def confirm(_: str) -> bool:
@@ -175,11 +175,10 @@ def test_ollama_falha_exige_confirmacao(tmp_path) -> None:
         cloud_error=ProviderError("unused"),
     )
     reply = engine.reply("oi")
-    assert asks["n"] == 1
+    assert asks["n"] == 0
     assert reply.provider == "none"
-    assert json.loads(log.path.read_text(encoding="utf-8").strip().splitlines()[-1])[
-        "result"
-    ] == EVENT_CANCELLED
+    assert "não é acionada automaticamente" in (reply.notice or "")
+    assert not log.path.is_file() or not log.path.read_text(encoding="utf-8").strip()
 
 
 def test_log_perm_0600(tmp_path) -> None:

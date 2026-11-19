@@ -1,7 +1,9 @@
 <!--
-  Esqueleto de pasta Syncthing para o vault YBY.
+  Esqueleto de pasta Syncthing para o vault YBY (só a pasta do vault).
+  Decisão P #6 (A): Syncthing como serviço de usuário.
   Não é um config.xml completo — cole/adapte na UI ou no seu config local.
   Sem device IDs, certificados ou paths reais de produção.
+  Ignore: use .stignore.example neste diretório (inclui .yby/).
 -->
 <folder id="yby-vault" label="YBY Vault" path="/home/USER/Vaults/yby" type="sendreceive" rescanIntervalS="60" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
   <filesystemType>basic</filesystemType>

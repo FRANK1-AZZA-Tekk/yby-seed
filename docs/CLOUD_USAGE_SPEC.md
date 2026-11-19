@@ -1,8 +1,23 @@
 # Cloud Usage Registry & FinOps — Technical Spec (Issue #42)
 
-**Status:** SPEC / PLAN only (no runtime behavior change in this document).  
+**Status (código):** **parcial** — baseline JSONL + budget **diário+mensal (tokens)** + confirmação TTY + **falha Ollama no caminho local sem cascade nuvem** (D12 / fase P) + **sanitizer gated no `_cloud_call`** (`cloud_sanitizer.py`, S4 parcial) já no runtime.  
+**Ainda aberto:** SQLite FinOps (S1), custo USD + exception path (resto de S2), authz vault antes do egress (resto de S4).  
+**Este documento:** SPEC / PLAN (não muda comportamento por si só).  
 **Decisions:** D12 (economia de execução) governs cloud; **D11 (voz local) is unchanged**.  
 **Constraint:** no sensitive data leaves the machine without explicit authz; no OpenRouter auto-fallback; no heavy deps (stdlib `sqlite3` + existing `pydantic`).
+
+### Status vs slices (honesto)
+
+| Slice | Entrega | Estado |
+|---|---|---|
+| **S0** | Spec + comentários SECURITY/.env | Feito (este arquivo) |
+| **D12 / fase P** | Falha Ollama local → sem nuvem automática (`HybridEngine._after_local_failure`) | Feito (código + testes) |
+| Baseline pré-spec | JSONL `cloud_usage_log` + budget mensal + confirm TTY | Feito |
+| **S1** | `cloud_usage_db.py` + import JSONL | Aberto |
+| **S2** | Daily budget + custo + exception | **Parcial** — teto/aviso diário de **tokens** em `budget.py`; custo USD + exception ainda abertos |
+| **S3** | Wire hybrid com registry status | Aberto (parcial: eventos JSONL no caminho cloud) |
+| **S4** | Sanitizer/authz gated antes do egress | Parcial (sanitizer no hybrid; authz vault aberto) |
+| **S5** | Dual-write / doctor / retenção | Aberto |
 
 ---
 
@@ -49,7 +64,7 @@ YBY SEED already ships a **local JSONL cloud usage log** (`src/engine/cloud_usag
 |---|---|
 | `src/engine/cloud_usage_log.py` | Append-only JSONL; required fields; forbids `prompt`/`api_key`/`response`/`text`/`audio` |
 | `src/engine/budget.py` | `CloudBudget`: `local_only`, monthly token hard cap, warn threshold, TTY confirm gate |
-| `src/engine/hybrid.py` | Gate → confirm → call; events: requested / confirmed / completed / failed / cancelled / blocked_* |
+| `src/engine/hybrid.py` | Gate → confirm → call no caminho **cloud** (heavy/`--heavy`); falha Ollama no caminho local **não** chama nuvem (D12 / fase P). Events: requested / confirmed / completed / failed / cancelled / blocked_* |
 | `src/engine/routing.py` | Local vs cloud **decision** (heavy heuristics); does not talk to network |
 | `src/security/openrouter_sanitizer.py` | Legacy regex sanitizer (to be folded into `src/security/` contract below) |
 | `src/security/ast_guard.py` | Unrelated to FinOps; remains for code sandbox |
@@ -60,6 +75,7 @@ See `.env.example`:
 
 - `YBY_CLOUD_MODE` (`ask` \| `local_only` \| future `auto` — auto still requires confirm policy)
 - `YBY_CLOUD_LOG_PATH` (default `logs/cloud_usage.jsonl`)
+- `YBY_CLOUD_DAILY_TOKEN_LIMIT`, `YBY_CLOUD_WARN_DAILY_TOKEN_LIMIT` (tokens; janela UTC)
 - `YBY_CLOUD_MONTHLY_TOKEN_LIMIT`, `YBY_CLOUD_WARN_TOKEN_LIMIT`
 - `YBY_CLOUD_REQUIRE_CONFIRM`, `YBY_CLOUD_ALLOW_NO_TTY`
 
@@ -68,8 +84,9 @@ See `.env.example`:
 | Acceptance | Baseline | Gap |
 |---|---|---|
 | No cloud without local registry | Yes (JSONL) | Need SQLite + stronger schema |
-| Warn before relevant-cost cloud | Yes (TTY confirm) | Cost estimate + daily budget + exception path |
+| Warn before relevant-cost cloud | Yes (TTY confirm + daily/monthly token warn) | Cost estimate USD + exception path |
 | Local works offline | Yes | Keep invariant; document |
+| Ollama fail on local path ≠ auto cloud | Yes (`_after_local_failure`, D12 / fase P) | None for this acceptance; FinOps SQLite still separate |
 | No secrets/vault without auth | Log forbids raw fields; sanitizer exists but not gated in hybrid | Formal authz + redaction before egress |
 
 ---

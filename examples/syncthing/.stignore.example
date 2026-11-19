@@ -1,0 +1,23 @@
+# Exemplo de .stignore para a pasta do vault Obsidian (fase P / decisão #6).
+# Copie para o root da pasta sincronizada como `.stignore` (não versione o real).
+# Alinhado ao checklist: ignorar `.yby/`, caches e temporários.
+
+# Estado local do YBY (não sincronizar)
+.yby/
+
+# Caches e temporários comuns
+.obsidian/workspace*
+.obsidian/workspace-mobile.json
+.trash/
+*.tmp
+*.temp
+*~
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+
+# Não colocar .env, chaves ou config Syncthing nesta pasta
+.env
+.env.*
+**/secrets/

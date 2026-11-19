@@ -1,11 +1,15 @@
 # Exemplo de pasta Syncthing para o vault Obsidian do YBY.
+# Decisão P #6 (A): Syncthing como serviço de usuário (mesma conta do YBY).
 # IDs e paths são PLACEHOLDERS — não são segredos reais.
 # Copie para a sua config local; não versionar a pasta real.
+#
+# Ignore: copie examples/syncthing/.stignore.example → <vault>/.stignore
+# (deve incluir .yby/, caches e temporários).
 
 folder:
-  id: ybyvaultXXXXXXXX
-  label: yby-vault
-  path: /home/SEU_USER/Obsidian/YBY
+  id: yby-vault
+  label: YBY Vault
+  path: /home/SEU_USER/Vaults/yby
   type: sendreceive
   devices:
     - deviceID: HUBDEVICEIDPLACEHOLDER
@@ -17,5 +21,9 @@ devices:
   - deviceID: NOTEBOOKDEVICEIDPLACEHOLDER
     name: notebook
 
+# Serviço (no Hub, após instalar o pacote — não neste CI):
+#   systemctl --user enable --now syncthing
+#   loginctl enable-linger $USER   # se login sem GUI
+#
 # No hub, aponte o vault:
-# YBY_VAULT_PATH=/home/SEU_USER/Obsidian/YBY
+# YBY_VAULT_PATH=/home/SEU_USER/Vaults/yby
