@@ -245,7 +245,7 @@ JSON Schema mirror (optional file for tooling): see §11 `docs/schemas/cloud_usa
 - Maintain a tiny in-repo price table (USD per 1M in/out tokens) keyed by `provider`+`model`, defaulting to `0` for `:free` / unknown.
 - `estimated_cost_usd = in/1e6 * price_in + out/1e6 * price_out`.
 - Estimates are **advisory**; never claim invoice accuracy.
-- D12 operational ceilings (Cursor Premium R$100 / OpenRouter R$50) remain **human policy**; env limits below are machine-enforced token/USD guards.
+- D12 / dono: **OpenRouter hard cap US$ 10/mês** (`YBY_CLOUD_MONTHLY_COST_USD_LIMIT=10`, default). Cursor Premium permanece política humana separada. Env limits abaixo são machine-enforced.
 
 ---
 
@@ -309,7 +309,7 @@ Prompt copy (UX): show provider, model, purpose, est. tokens, est. USD, daily/mo
 | `YBY_CLOUD_DAILY_TOKEN_LIMIT` | `50000` | Hard daily token cap |
 | `YBY_CLOUD_MONTHLY_TOKEN_LIMIT` | `200000` | Hard monthly (exists) |
 | `YBY_CLOUD_DAILY_COST_USD_LIMIT` | `2.00` | Soft/hard cost guard |
-| `YBY_CLOUD_MONTHLY_COST_USD_LIMIT` | `10.00` | Aligns with planning doc free-tier mindset |
+| `YBY_CLOUD_MONTHLY_COST_USD_LIMIT` | `10.00` | **Hard cap dono** — máx. US$10/mês OpenRouter |
 | `YBY_CLOUD_WARN_TOKEN_LIMIT` | `150000` | Monthly warn (exists) |
 | `YBY_CLOUD_WARN_DAILY_TOKEN_LIMIT` | `40000` | Daily warn |
 | `YBY_CLOUD_WARN_RATIO` | `0.8` | Warn when used ≥ 80% of any hard cap |
