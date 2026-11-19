@@ -1,0 +1,18 @@
+[Unit]
+Description=YBY SEED backup do vault Obsidian (tar + retenção)
+Documentation=https://github.com/FRANK1-AZZA-Tekk/yby-seed/blob/main/docs/BACKUP.md
+After=default.target
+
+[Service]
+Type=oneshot
+# Decisão P #4/#5 / A: SSD local + tar + retenção 7 (não instalar neste host de CI).
+Environment=YBY_BACKUP_DIR=%h/backups/yby-vault
+Environment=YBY_BACKUP_KEEP=7
+EnvironmentFile=-%h/.config/yby-seed/.env
+# YBY_VAULT_PATH obrigatório — defina no EnvironmentFile acima, ou descomente:
+# Environment=YBY_VAULT_PATH=%h/Vaults/yby
+WorkingDirectory=__YBY_ROOT__
+ExecStart=/bin/bash __YBY_ROOT__/scripts/backup-vault.sh
+
+[Install]
+WantedBy=default.target

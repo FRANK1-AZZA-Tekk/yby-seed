@@ -1,0 +1,12 @@
+[Unit]
+Description=Timer diário — backup do vault YBY (decisão P #4/#5 / A)
+Documentation=https://github.com/FRANK1-AZZA-Tekk/yby-seed/blob/main/docs/BACKUP.md
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=15m
+Unit=yby-vault-backup.service
+
+[Install]
+WantedBy=timers.target
