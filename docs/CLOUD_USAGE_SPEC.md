@@ -1,8 +1,23 @@
 # Cloud Usage Registry & FinOps — Technical Spec (Issue #42)
 
-**Status:** SPEC / PLAN only (no runtime behavior change in this document).  
+**Status (código):** **parcial** — baseline JSONL + budget mensal + confirmação TTY + **falha Ollama no caminho local sem cascade nuvem** (D12 / fase P) já no runtime.  
+**Ainda aberto:** SQLite FinOps (S1), daily budget + exception path (S2), sanitizer/authz gated no hybrid (S4).  
+**Este documento:** SPEC / PLAN (não muda comportamento por si só).  
 **Decisions:** D12 (economia de execução) governs cloud; **D11 (voz local) is unchanged**.  
 **Constraint:** no sensitive data leaves the machine without explicit authz; no OpenRouter auto-fallback; no heavy deps (stdlib `sqlite3` + existing `pydantic`).
+
+### Status vs slices (honesto)
+
+| Slice | Entrega | Estado |
+|---|---|---|
+| **S0** | Spec + comentários SECURITY/.env | Feito (este arquivo) |
+| **D12 / fase P** | Falha Ollama local → sem nuvem automática (`HybridEngine._after_local_failure`) | Feito (código + testes) |
+| Baseline pré-spec | JSONL `cloud_usage_log` + budget mensal + confirm TTY | Feito |
+| **S1** | `cloud_usage_db.py` + import JSONL | Aberto |
+| **S2** | Daily budget + custo + exception | Aberto |
+| **S3** | Wire hybrid com registry status | Aberto (parcial: eventos JSONL no caminho cloud) |
+| **S4** | Sanitizer/authz gated antes do egress | Aberto |
+| **S5** | Dual-write / doctor / retenção | Aberto |
 
 ---
 
@@ -70,6 +85,7 @@ See `.env.example`:
 | No cloud without local registry | Yes (JSONL) | Need SQLite + stronger schema |
 | Warn before relevant-cost cloud | Yes (TTY confirm) | Cost estimate + daily budget + exception path |
 | Local works offline | Yes | Keep invariant; document |
+| Ollama fail on local path ≠ auto cloud | Yes (`_after_local_failure`, D12 / fase P) | None for this acceptance; FinOps SQLite still separate |
 | No secrets/vault without auth | Log forbids raw fields; sanitizer exists but not gated in hybrid | Formal authz + redaction before egress |
 
 ---

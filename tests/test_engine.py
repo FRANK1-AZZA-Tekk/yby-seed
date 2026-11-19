@@ -269,7 +269,24 @@ def test_ollama_fora_nao_cai_na_nuvem() -> None:
     assert reply.notice is not None
     assert "Ollama falhou" in reply.notice
     assert "não é acionada automaticamente" in reply.notice
+    assert "D12" in reply.notice or "fase P" in reply.notice
     assert cloud.calls == []
+
+
+def test_ollama_fora_com_chave_ainda_sem_cascade_nuvem() -> None:
+    """#42 / D12: credencial presente não autoriza cascade após falha local."""
+    ollama = FakeOllama(error=ProviderError("timeout local"))
+    cloud = FakeCloud(api_key="sk-presente")
+    reply = HybridEngine(
+        _config(cloud_api_key="sk-presente"),
+        ollama,
+        cloud,
+        cache=ResponseCache(ttl_seconds=0),
+    ).reply("oi")
+
+    assert reply.provider == "none"
+    assert cloud.calls == []
+    assert "não é acionada automaticamente" in (reply.notice or "")
 
 
 def test_ollama_fora_sem_chave_explica_sem_nuvem_automatica() -> None:
