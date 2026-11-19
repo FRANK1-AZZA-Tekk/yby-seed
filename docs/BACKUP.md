@@ -6,8 +6,8 @@ Script: `scripts/backup-vault.sh` (tar + gzip, sem dependências novas).
 
 ```bash
 export YBY_VAULT_PATH=~/Vaults/yby          # pasta sincronizada pelo Syncthing
-export YBY_BACKUP_DIR=~/backups/yby-vault   # ou /mnt/backup/yby-vault (decisão P #4)
-export YBY_BACKUP_KEEP=7
+export YBY_BACKUP_DIR=~/backups/yby-vault   # decisão P #4 / A (SSD local); /mnt/backup/yby-vault se/quando houver 2º disco
+export YBY_BACKUP_KEEP=7                   # decisão P #5 / A — tar + retenção 7
 bash scripts/backup-vault.sh
 ```
 

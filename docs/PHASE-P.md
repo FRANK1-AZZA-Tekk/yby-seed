@@ -29,11 +29,11 @@ Transformar o YBY SEED em um serviço local confiável no PC Hub, sem adicionar 
 
 ## Arquitetura mínima
 
-- Serviço **systemd de usuário** executa o keepalive do hub no PC Hub (`python yby.py hub` / `src.platform.hub`), conforme `scripts/install-hub-service.sh` e [PLATFORM.md](PLATFORM.md). O núcleo `ask` continua sob demanda no CLI; a fase P não exige daemon HTTP.
-- O vault Obsidian é sincronizado pelo **Syncthing** (serviço separado do hub; ver `examples/syncthing/`).
-- Backups locais são feitos em horário definido (agendador do SO ou timer systemd).
+- Serviço **systemd de usuário** (`yby-hub.service`) executa o keepalive do hub no PC Hub (`python yby.py hub` / `src.platform.hub`), conforme `scripts/install-hub-service.sh` e [PLATFORM.md](PLATFORM.md). Decisões fechadas: [PHASE-P-DECISIONS.md](PHASE-P-DECISIONS.md). O núcleo `ask` continua sob demanda no CLI; a fase P não exige daemon HTTP.
+- O vault Obsidian é sincronizado pelo **Syncthing** (serviço de usuário, separado do hub; ver `examples/syncthing/`).
+- Backups locais (`tar`, destino `~/backups/yby-vault/`, retenção 7) em horário definido (agendador do SO ou timer systemd).
 - O gateway HTTP, se habilitado, **não** expõe além de `127.0.0.1` (`FASTAPI_HOST`); o hub keepalive não abre porta de aplicação.
-- Nenhuma chamada de nuvem sem **D12** (confirmação, log local planejado na issue #42, sem TTY = sem nuvem).
+- Na estabilização: hub **sem** chaves de nuvem no `.env` do servidor. Qualquer nuvem futura exige **D12** (confirmação, log local / issue #42, sem TTY = sem nuvem).
 
 ## Hardware de referência
 
@@ -41,7 +41,7 @@ PC Hub alvo: Ryzen 5, 16 GB RAM, GTX 1650 4 GB, Ubuntu — ver [HARDWARE_SPEC.md
 
 ## Critérios de aceite
 
-1. `systemctl --user status yby-hub` (ou nome da unit acordada em [PHASE-P-DECISIONS.md](PHASE-P-DECISIONS.md)) mostra serviço ativo.
+1. `systemctl --user status yby-hub` mostra serviço ativo (nome fechado: `yby-hub.service`).
 2. Após reboot, o serviço inicia automaticamente (`loginctl enable-linger` quando for unit de usuário).
 3. Se o processo falhar, o systemd reinicia conforme política definida (`Restart=on-failure`, `RestartSec`).
 4. O vault é sincronizado pelo Syncthing entre dispositivos configurados.
@@ -64,7 +64,7 @@ PC Hub alvo: Ryzen 5, 16 GB RAM, GTX 1650 4 GB, Ubuntu — ver [HARDWARE_SPEC.md
 | Documento | Uso |
 |-----------|-----|
 | [PHASE-P-CHECKLIST.md](PHASE-P-CHECKLIST.md) | Execução passo a passo |
-| [PHASE-P-DECISIONS.md](PHASE-P-DECISIONS.md) | Escolhas pendentes do dono |
+| [PHASE-P-DECISIONS.md](PHASE-P-DECISIONS.md) | Decisões do dono (8/8 fechadas em 2026-11-19) |
 | [PLATFORM.md](PLATFORM.md) | Hub systemd já descrito no repositório |
 | [docs/syncthing/](../docs/syncthing/) | Exemplos de pasta do vault |
 | [BACKUP.md](BACKUP.md) | Backup/restauração do vault (`scripts/backup-vault.sh`) |

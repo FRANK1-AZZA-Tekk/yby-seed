@@ -6,14 +6,16 @@ Marcar conforme execução no hardware real. Alinhado a [PHASE-P.md](PHASE-P.md)
 
 ## Como rodar no Hub (guia rápido)
 
-Ordem sugerida depois das [decisões do dono](PHASE-P-DECISIONS.md):
+Ordem sugerida com as [decisões do dono fechadas](PHASE-P-DECISIONS.md) (8/8 em 2026-11-19; todas as recomendações):
 
 1. Inventário (Fase 1): usuário Linux, `YBY_VAULT_PATH`, Python, `ollama list`, Syncthing instalado.
 2. Serviço: `bash scripts/install-hub-service.sh --enable` → `systemctl --user status yby-hub` → `loginctl enable-linger $USER` se login sem GUI.
 3. Saúde: `python yby.py hub --once` e reboot completo (Fase 3 / Fase 6).
-4. Syncthing: só a pasta do vault; ver `examples/syncthing/` (Fase 4).
-5. Backup: `bash scripts/backup-vault.sh` e restauração em pasta vazia — [BACKUP.md](BACKUP.md) (Fase 5).
-6. Nuvem: confirmar que falha de Ollama **não** chama nuvem; pedidos `--heavy` pedem confirmação (D12 / #42).
+4. Syncthing (serviço de usuário): só a pasta do vault; ver `examples/syncthing/` (Fase 4).
+5. Backup: `YBY_BACKUP_DIR=~/backups/yby-vault` + `bash scripts/backup-vault.sh` e restauração em pasta vazia — [BACKUP.md](BACKUP.md) (Fase 5).
+6. Nuvem: hub **sem** chaves no `.env` na estabilização; confirmar que falha de Ollama **não** chama nuvem (D12 / #42).
+
+Itens abaixo continuam para execução no **hardware real** — não marcar como feitos só por docs/CI.
 
 ## Fase 1 — Inventário
 

@@ -23,7 +23,7 @@ bash scripts/install-hub-service.sh --enable
 systemctl --user status yby-hub.service
 ```
 
-A unit fica em `~/.config/systemd/user/yby-hub.service`, gerada a partir de `scripts/yby-hub.service` (cópia espelho em `deploy/systemd/`). Usa o Python do `.venv` se existir.
+A unit fica em `~/.config/systemd/user/yby-hub.service`, gerada a partir de `scripts/yby-hub.service` (cópia espelho em `deploy/systemd/`). Declara `After=network-online.target ollama.service` (decisão P #3). Usa o Python do `.venv` se existir. Decisões da fase P: [PHASE-P-DECISIONS.md](PHASE-P-DECISIONS.md).
 
 Parar:
 
@@ -35,7 +35,7 @@ Login sem GUI: `loginctl enable-linger $USER`.
 
 ## Syncthing (vault)
 
-O motor não sincroniza arquivos. Configure o Syncthing à parte e aponte `YBY_VAULT_PATH` para a pasta compartilhada.
+O motor não sincroniza arquivos. Configure o Syncthing à parte (serviço de **usuário**, mesma conta do YBY — decisão P #6) e aponte `YBY_VAULT_PATH` para a pasta compartilhada.
 
 - Exemplo YAML: [docs/syncthing/vault-folder.example.yaml](syncthing/vault-folder.example.yaml)
 - Exemplo XML + passos: [examples/syncthing/](../examples/syncthing/)
@@ -49,16 +49,16 @@ O motor não sincroniza arquivos. Configure o Syncthing à parte e aponte `YBY_V
 5. Cache local com TTL (`YBY_CACHE_TTL_SECONDS`, padrão 3600; `0` desliga).
 6. Contexto truncado antes da nuvem (`YBY_CLOUD_CONTEXT_MAX_CHARS`, padrão 12000).
 
-Chaves só no `.env` (nunca no git). Template: [`.env.example`](../.env.example). Decisões: [DECISIONS.md](../DECISIONS.md) D3, D9, D12.
+Na estabilização da fase P (decisão #8 / A): **não** colocar chaves de nuvem no `.env` do hub — só Ollama. Quando houver chaves, só no `.env` (nunca no git) e só com D12 + log (#42). Template: [`.env.example`](../.env.example). Decisões: [DECISIONS.md](../DECISIONS.md) D3, D9, D12.
 
 ## Backup do vault
 
-Script mínimo: `bash scripts/backup-vault.sh` (tar + retenção). Detalhe e restauração: [BACKUP.md](BACKUP.md).
+Script mínimo: `bash scripts/backup-vault.sh` (`tar` + retenção 7; destino padrão `~/backups/yby-vault/` — decisões P #4/#5). Detalhe e restauração: [BACKUP.md](BACKUP.md).
 
 ## Checklist no hub
 
 1. `ollama serve` + `ollama pull qwen2.5-coder:3b`
-2. `.env` com vault e chaves de nuvem (opcionais)
-3. Syncthing na pasta do vault
+2. `.env` com vault; **sem** chaves de nuvem na estabilização (P #8)
+3. Syncthing (usuário) na pasta do vault
 4. `bash scripts/install-hub-service.sh --enable`
 5. `python yby.py ask "oi"` para validar o caminho de texto
