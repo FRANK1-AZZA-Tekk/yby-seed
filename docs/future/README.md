@@ -9,6 +9,7 @@
 |---|---|
 | [EVO_NIGHT_WATCH.md](EVO_NIGHT_WATCH.md) | Evo / Night Watch — auto-evolução **supervisionada** (design; não é rewrite livre) |
 | [PLANO_ECOSISTEMA_WEARABLE.md](PLANO_ECOSISTEMA_WEARABLE.md) | Arquitetura hub↔watch, gateway, rede, OSS, execução |
+| [BENCHMARK_OSS_LOCAL_FIRST.md](BENCHMARK_OSS_LOCAL_FIRST.md) | Benchmark MIT/Apache/BSD: MQTT, ESP32, edge AI — padrões e anti-patterns (D7) |
 | [METRICAS_OBSERVABILIDADE.md](METRICAS_OBSERVABILIDADE.md) | Catálogo de métricas (PC + futuro) |
 | [FICHA_INVESTIGACAO.md](FICHA_INVESTIGACAO.md) | Template rigoroso (fato vs hipótese) |
 | [MOBILE_FUTURE.md](MOBILE_FUTURE.md) | Android / Termux (histórico-planejamento) |
