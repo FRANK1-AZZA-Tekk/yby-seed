@@ -17,6 +17,7 @@ from src.router.errors import (
     SafetyViolationError,
 )
 from src.router.fallback import FallbackError, FallbackPolicy, FallbackResult
+from src.router.integration import AgentBridge, AgentBridgeResult
 from src.router.observability import RouterEvent, RouterObserver
 from src.router.policy import (
     ALLOWED_TOOLS,
@@ -27,6 +28,7 @@ from src.router.policy import (
     validate_route_decision,
 )
 from src.router.registry import ModelEntry, ModelRegistry
+from src.router.router import OfflineRouter, RouterResponse
 from src.router.schemas import (
     DEFAULT_LANGUAGE,
     INTENTS,
@@ -43,6 +45,8 @@ from src.router.schemas import (
 
 __all__ = [
     "ALLOWED_TOOLS",
+    "AgentBridge",
+    "AgentBridgeResult",
     "ConfigurationError",
     "Constraints",
     "DEFAULT_LANGUAGE",
@@ -58,6 +62,7 @@ __all__ = [
     "ModelNotFoundError",
     "ModelProfile",
     "ModelRegistry",
+    "OfflineRouter",
     "RISK_LEVELS",
     "Request",
     "RiskLevel",
@@ -66,6 +71,7 @@ __all__ = [
     "RouterError",
     "RouterEvent",
     "RouterObserver",
+    "RouterResponse",
     "RouterResult",
     "RoutingError",
     "RoutingPolicy",
