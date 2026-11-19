@@ -245,6 +245,47 @@ class CloudUsageRegistry:
                 day_cost += cost_f
         return UsageTotals(day_tokens, month_tokens, day_cost, month_cost)
 
+    def prune(
+        self,
+        *,
+        retention_days: int | None = None,
+        before_ts: float | None = None,
+        now: float | None = None,
+    ) -> int:
+        """Remove completed/failed antigos (S5). Mantém blocked_* / requested.
+
+        Preferir `before_ts`; senão `retention_days` (default 90 via env helper
+        do chamador). Retorna quantidade apagada.
+        """
+
+        if before_ts is None:
+            days = 90 if retention_days is None else max(0, int(retention_days))
+            when = now if now is not None else time.time()
+            before_ts = float(when) - (days * 86400.0)
+        conn = self.open()
+        cur = conn.execute(
+            """
+            DELETE FROM cloud_usage_events
+            WHERE timestamp < ?
+              AND status IN ('completed', 'failed')
+            """,
+            (float(before_ts),),
+        )
+        conn.commit()
+        return int(cur.rowcount or 0)
+
+
+def retention_days_from_env(environ: dict[str, str] | None = None) -> int:
+    """YBY_CLOUD_RETENTION_DAYS default 90."""
+
+    source = environ if environ is not None else os.environ
+    raw = source.get("YBY_CLOUD_RETENTION_DAYS", "90").strip() or "90"
+    try:
+        value = int(raw)
+    except ValueError:
+        return 90
+    return max(0, value)
+
 
 def status_from_result(result: str) -> str:
     """Mapeia result legacy → status; passa status já canônico."""

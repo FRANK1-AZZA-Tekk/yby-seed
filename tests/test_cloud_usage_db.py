@@ -155,6 +155,97 @@ def test_facade_from_env_enables_db_and_mirror(tmp_path) -> None:
     assert len(jsonl.read_text(encoding="utf-8").strip().splitlines()) == 2
 
 
+def test_facade_from_env_mirror_defaults_off(tmp_path) -> None:
+    """S5: YBY_CLOUD_JSONL_MIRROR default = off (só SQLite)."""
+
+    jsonl = tmp_path / "usage.jsonl"
+    db_path = tmp_path / "usage.sqlite3"
+    log = CloudUsageLog.from_env(
+        {
+            "YBY_CLOUD_LOG_PATH": str(jsonl),
+            "YBY_CLOUD_DB_PATH": str(db_path),
+        }
+    )
+    assert log.jsonl_mirror is False
+    log.append(
+        {
+            "timestamp": utc_timestamp(),
+            "provider": "openrouter",
+            "model": "m",
+            "purpose": "route_cloud",
+            "input_tokens_estimate": 1,
+            "output_tokens_estimate": 0,
+            "result": EVENT_REQUESTED,
+        }
+    )
+    assert log.registry is not None
+    assert log.registry.count_events() == 1
+    assert not jsonl.exists()
+
+
+def test_registry_prune_retention_s5(tmp_path) -> None:
+    """S5: prune remove completed/failed antigos; mantém blocked."""
+
+    from src.engine.cloud_usage_db import retention_days_from_env
+    from src.engine.cloud_usage_log import EVENT_BLOCKED_AUTHZ, EVENT_FAILED
+
+    assert retention_days_from_env({}) == 90
+    assert retention_days_from_env({"YBY_CLOUD_RETENTION_DAYS": "30"}) == 30
+
+    reg = CloudUsageRegistry(tmp_path / "db.sqlite3")
+    now = 1_700_000_000.0
+    old = now - (100 * 86400)
+    recent = now - (10 * 86400)
+    reg.insert_event(
+        {
+            "timestamp": old,
+            "provider": "openrouter",
+            "model": "m",
+            "purpose": "t",
+            "input_tokens_estimate": 1,
+            "output_tokens_estimate": 0,
+            "result": EVENT_COMPLETED,
+        }
+    )
+    reg.insert_event(
+        {
+            "timestamp": old,
+            "provider": "openrouter",
+            "model": "m",
+            "purpose": "t",
+            "input_tokens_estimate": 1,
+            "output_tokens_estimate": 0,
+            "result": EVENT_FAILED,
+        }
+    )
+    reg.insert_event(
+        {
+            "timestamp": old,
+            "provider": "openrouter",
+            "model": "m",
+            "purpose": "t",
+            "input_tokens_estimate": 1,
+            "output_tokens_estimate": 0,
+            "result": EVENT_BLOCKED_AUTHZ,
+        }
+    )
+    reg.insert_event(
+        {
+            "timestamp": recent,
+            "provider": "openrouter",
+            "model": "m",
+            "purpose": "t",
+            "input_tokens_estimate": 1,
+            "output_tokens_estimate": 0,
+            "result": EVENT_COMPLETED,
+        }
+    )
+    deleted = reg.prune(retention_days=90, now=now)
+    assert deleted == 2
+    assert reg.count_events() == 2  # blocked + recent completed
+    reg.close()
+
+
 def test_facade_can_disable_db(tmp_path) -> None:
     jsonl = tmp_path / "only.jsonl"
     log = CloudUsageLog.from_env(
