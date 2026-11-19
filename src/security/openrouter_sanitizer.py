@@ -51,37 +51,27 @@ class OpenRouterSanitizer:
         logger.info("🔒 OpenRouterSanitizer inicializado")
     
     def sanitize(self, text: str) -> str:
-        """Sanitiza texto removendo dados sensíveis"""
-        
+        """Sanitiza texto removendo dados sensíveis.
+
+        Delega o núcleo a `cloud_sanitizer.sanitize_for_cloud` (S4 / #42)
+        e mantém normalizações legacy de paths/config locais.
+        """
+        from src.security.cloud_sanitizer import sanitize_for_cloud
+
         logger.info("🔒 Sanitizando texto para OpenRouter...")
-        
-        sanitized = text
-        
-        # Aplica cada padrão de sanitização
-        for pattern_name, pattern in self.SENSITIVE_PATTERNS.items():
-            matches = re.findall(pattern, sanitized, re.IGNORECASE)
-            
-            if matches:
-                logger.debug(f"  📍 {pattern_name}: {len(matches)} ocorrências")
-                sanitized = re.sub(
-                    pattern,
-                    self.REPLACEMENTS[pattern_name],
-                    sanitized,
-                    flags=re.IGNORECASE
-                )
-                
-                self.stats["by_type"][pattern_name] += len(matches)
-            
-            self.stats["total_sanitizations"] += len(matches)
-        
-        # Normaliza paths relativos (evita vazar estrutura de diretórios)
-        sanitized = self._normalize_relative_paths(sanitized)
-        
-        # Remove menções a arquivos locais específicos
+        result = sanitize_for_cloud(text)
+        for kind, count in result.by_type.items():
+            if kind in self.stats["by_type"]:
+                self.stats["by_type"][kind] += count
+            else:
+                self.stats["by_type"][kind] = count
+            self.stats["total_sanitizations"] += count
+
+        sanitized = self._normalize_relative_paths(result.text)
         sanitized = self._remove_local_file_references(sanitized)
-        
-        logger.info(f"✅ Sanitização concluída ({self.stats['total_sanitizations']} dados sensíveis removidos)")
-        
+        logger.info(
+            f"✅ Sanitização concluída ({self.stats['total_sanitizations']} dados sensíveis removidos)"
+        )
         return sanitized
     
     def _normalize_relative_paths(self, text: str) -> str:

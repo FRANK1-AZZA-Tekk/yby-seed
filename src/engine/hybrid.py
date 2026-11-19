@@ -35,6 +35,7 @@ from src.engine.providers import (
     TextProvider,
 )
 from src.engine.routing import RouteDecision, decide_route
+from src.security.cloud_sanitizer import SanitizeResult, sanitize_for_cloud
 
 SYSTEM_PROMPT = (
     "Você é o YBY SEED, um exocórtex pessoal. "
@@ -89,6 +90,7 @@ class HybridEngine:
             )
         self._cloud_session_confirmed = False
         self._budget_warn: str | None = None
+        self._sanitize_notice: str | None = None
 
     def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
         decision = decide_route(
@@ -137,7 +139,13 @@ class HybridEngine:
         why = "; ".join(decision.reasons)
         cached = self._lookup_cloud(prompt)
         if cached is not None:
-            return EngineReply(cached, "cloud", self.config.cloud_model, decision.reasons, None)
+            return EngineReply(
+                cached,
+                "cloud",
+                self.config.cloud_model,
+                decision.reasons,
+                self._compose_cloud_notice(),
+            )
         if not self.cloud.has_credentials():
             return self._local_without_cloud_key(prompt, decision, why)
 
@@ -159,7 +167,7 @@ class HybridEngine:
             "cloud",
             result.model,
             decision.reasons,
-            self._budget_warn,
+            self._compose_cloud_notice(),
         )
 
     def _local_without_cloud_key(
@@ -332,19 +340,38 @@ class HybridEngine:
         return self.cache.get(key)
 
     def _lookup_cloud(self, prompt: str) -> str | None:
-        trimmed = trim_context(prompt, self.config.cloud_max_chars)
-        return self._lookup(trimmed, model=self.config.cloud_model)
+        outbound, _stats = self._prepare_cloud_prompt(prompt)
+        return self._lookup(outbound, model=self.config.cloud_model)
 
     def _store(self, prompt: str, text: str, *, model: str) -> None:
         key = self.cache.make_key(prompt, model=model, system=SYSTEM_PROMPT)
         self.cache.set(key, text)
 
-    def _cloud_call(self, prompt: str, *, purpose: str) -> CloudResult:
+    def _prepare_cloud_prompt(self, prompt: str) -> tuple[str, SanitizeResult]:
+        """Trim + sanitize antes de cache/HTTP (nunca enviar segredos/PII crus)."""
+
         trimmed = trim_context(prompt, self.config.cloud_max_chars)
+        stats = sanitize_for_cloud(trimmed)
+        if stats.enabled and stats.redactions > 0:
+            self._sanitize_notice = (
+                f"Nuvem: {stats.redactions} dado(s) sensível(is) redactado(s) no envio."
+            )
+        else:
+            self._sanitize_notice = None
+        return stats.text, stats
+
+    def _compose_cloud_notice(self) -> str | None:
+        parts = [p for p in (self._budget_warn, self._sanitize_notice) if p]
+        if not parts:
+            return None
+        return " ".join(parts)
+
+    def _cloud_call(self, prompt: str, *, purpose: str) -> CloudResult:
+        outbound, _stats = self._prepare_cloud_prompt(prompt)
         cache_model = self.config.cloud_model
-        key = self.cache.make_key(trimmed, model=cache_model, system=SYSTEM_PROMPT)
+        key = self.cache.make_key(outbound, model=cache_model, system=SYSTEM_PROMPT)
         cached = self.cache.get(key)
-        input_est = CloudUsageLog.estimate_tokens(trimmed)
+        input_est = CloudUsageLog.estimate_tokens(outbound)
         provider_label = "openrouter"
 
         if cached is not None:
@@ -352,10 +379,10 @@ class HybridEngine:
 
         try:
             if self.cloud_chain is not None:
-                result = self.cloud_chain.complete_with_meta(trimmed, system=SYSTEM_PROMPT)
+                result = self.cloud_chain.complete_with_meta(outbound, system=SYSTEM_PROMPT)
             else:
                 text = self.cloud.complete(
-                    trimmed, model=self.config.cloud_model, system=SYSTEM_PROMPT
+                    outbound, model=self.config.cloud_model, system=SYSTEM_PROMPT
                 )
                 result = CloudResult(text, self.config.cloud_model, "cloud")
         except ProviderError as exc:
