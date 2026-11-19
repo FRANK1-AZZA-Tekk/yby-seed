@@ -161,6 +161,99 @@ def test_local_only_sem_http(tmp_path) -> None:
     assert blocked["result"] == EVENT_BLOCKED_LOCAL_ONLY
 
 
+def test_limiar_de_tokens_forca_confirm_mesmo_com_require_off(tmp_path) -> None:
+    """§6.2: YBY_CLOUD_REQUIRE_CONFIRM=0 ainda pede confirm se tokens ≥ limiar."""
+
+    asks: list[str] = []
+
+    def confirm(msg: str) -> bool:
+        asks.append(msg)
+        return True
+
+    log = CloudUsageLog(tmp_path / "cloud_usage.jsonl")
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log.path),
+            "YBY_CLOUD_REQUIRE_CONFIRM": "0",
+            "YBY_CLOUD_CONFIRM_TOKEN_THRESHOLD": "50",
+            "YBY_CLOUD_ALLOW_NO_TTY": "1",
+        }
+    )
+    cloud = FakeCloud(api_key="or-key")
+    engine = HybridEngine(
+        _config(cache_ttl_seconds=0),
+        FakeOllama(),
+        cloud,
+        cache=ResponseCache(ttl_seconds=0),
+        cloud_log=log,
+        budget=budget,
+        confirm_fn=confirm,
+        has_tty_fn=lambda: True,
+    )
+    # ~200+ chars → ≥50 tokens estimados (len//4)
+    big = "pensa mais " + ("x" * 220)
+    reply = engine.reply(big)
+    assert reply.provider == "cloud"
+    assert len(asks) == 1
+    assert "tokens" in asks[0].casefold()
+
+
+def test_sessao_confirmada_repede_na_faixa_aviso(tmp_path) -> None:
+    log = CloudUsageLog(tmp_path / "cloud_usage.jsonl")
+    # Pré-carrega uso na faixa de aviso diário.
+    log.path.write_text(
+        json.dumps(
+            {
+                "timestamp": __import__("time").time(),
+                "provider": "openrouter",
+                "model": "m",
+                "purpose": "seed",
+                "input_tokens_estimate": 42_000,
+                "output_tokens_estimate": 0,
+                "estimated_cost_usd": 0.0,
+                "result": EVENT_COMPLETED,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    asks: list[str] = []
+
+    def confirm(msg: str) -> bool:
+        asks.append(msg)
+        return True
+
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log.path),
+            "YBY_CLOUD_REQUIRE_CONFIRM": "1",
+            "YBY_CLOUD_DAILY_TOKEN_LIMIT": "50000",
+            "YBY_CLOUD_WARN_DAILY_TOKEN_LIMIT": "40000",
+            "YBY_CLOUD_ALLOW_NO_TTY": "1",
+            "YBY_CLOUD_CONFIRM_TOKEN_THRESHOLD": "999999",
+        }
+    )
+    cloud = FakeCloud(api_key="or-key")
+    engine = HybridEngine(
+        _config(cache_ttl_seconds=0),
+        FakeOllama(),
+        cloud,
+        cache=ResponseCache(ttl_seconds=0),
+        cloud_log=log,
+        budget=budget,
+        confirm_fn=confirm,
+        has_tty_fn=lambda: True,
+    )
+    engine._cloud_session_confirmed = True
+    reply = engine.reply("pensa mais aviso", explicit_heavy=True)
+    assert reply.provider == "cloud"
+    assert len(asks) == 1
+    assert reply.notice is not None
+    assert "aviso" in reply.notice.casefold()
+
+
 def test_ollama_falha_nao_pede_nuvem(tmp_path) -> None:
     asks = {"n": 0}
 

@@ -30,6 +30,7 @@ EVENT_CANCELLED = "cloud_cancelled"
 EVENT_BLOCKED_LOCAL_ONLY = "cloud_blocked_local_only"
 EVENT_BLOCKED_BUDGET = "cloud_blocked_budget"
 EVENT_BLOCKED_NO_TTY = "cloud_blocked_no_tty"
+EVENT_EXCEPTION_GRANTED = "cloud_exception_granted"
 
 
 class CloudUsageLog:
