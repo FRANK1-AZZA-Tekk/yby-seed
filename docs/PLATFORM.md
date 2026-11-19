@@ -35,10 +35,11 @@ Login sem GUI: `loginctl enable-linger $USER`.
 
 ## Syncthing (vault)
 
-O motor não sincroniza arquivos. Configure o Syncthing à parte (serviço de **usuário**, mesma conta do YBY — decisão P #6) e aponte `YBY_VAULT_PATH` para a pasta compartilhada.
+O motor não sincroniza arquivos. Configure o Syncthing à parte (serviço de **usuário**, mesma conta do YBY — decisão P #6 / A) e aponte `YBY_VAULT_PATH` para a pasta compartilhada. Sincronize **apenas** o vault — não o clone do repositório.
 
 - Exemplo YAML: [docs/syncthing/vault-folder.example.yaml](syncthing/vault-folder.example.yaml)
-- Exemplo XML + passos: [examples/syncthing/](../examples/syncthing/)
+- Exemplo XML + passos + `.stignore` (`.yby/`, caches): [examples/syncthing/](../examples/syncthing/)
+- Serviço: `systemctl --user enable --now syncthing` (+ `loginctl enable-linger $USER` se login sem GUI). Não instalar Syncthing via este repositório/CI.
 
 ## Nuvem (local-first)
 
