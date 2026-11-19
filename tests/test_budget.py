@@ -246,6 +246,47 @@ def test_s3_teto_mensal_le_sqlite_sem_jsonl(tmp_path) -> None:
     reg.close()
 
 
+def test_s3_wal_nao_esconde_gasto_acima_do_teto(tmp_path) -> None:
+    """Commit em WAL não muda o .sqlite3; o cache do teto tem que ver o gasto novo."""
+
+    jsonl = tmp_path / "cloud_usage.jsonl"
+    db_path = tmp_path / "cloud_usage.sqlite3"
+    env = {
+        "YBY_CLOUD_MODE": "ask",
+        "YBY_CLOUD_LOG_PATH": str(jsonl),
+        "YBY_CLOUD_DB_PATH": str(db_path),
+        "YBY_CLOUD_JSONL_MIRROR": "1",
+        "YBY_CLOUD_DAILY_TOKEN_LIMIT": "5000000",
+        "YBY_CLOUD_MONTHLY_TOKEN_LIMIT": "5000000",
+        "YBY_CLOUD_DAILY_COST_USD_LIMIT": "50.00",
+        "YBY_CLOUD_MONTHLY_COST_USD_LIMIT": "10.00",
+        "YBY_CLOUD_REQUIRE_CONFIRM": "0",
+    }
+    log = CloudUsageLog.from_env(env)
+    budget = CloudBudget.from_env(env)
+
+    def completed(cost: float) -> dict[str, object]:
+        return {
+            "timestamp": utc_timestamp(),
+            "provider": "openrouter",
+            "model": "anthropic/claude-sonnet-4.5",
+            "purpose": "route_cloud",
+            "input_tokens_estimate": 10,
+            "output_tokens_estimate": 0,
+            "estimated_cost_usd": cost,
+            "result": EVENT_COMPLETED,
+        }
+
+    log.append(completed(6.0))
+    first = budget.evaluate(requires_confirmation=False, has_tty=True)
+    assert first.allowed is True
+    log.append(completed(5.0))
+    second = budget.evaluate(requires_confirmation=False, has_tty=True)
+    assert second.allowed is False
+    assert second.code == CODE_BLOCKED_BUDGET
+    assert "11.0000" in second.reason
+
+
 def test_s3_facade_append_visivel_no_budget(tmp_path) -> None:
     """Append via façade (SQLite) alimenta CloudBudget.evaluate."""
 

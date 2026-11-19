@@ -27,6 +27,8 @@ wc
 ss
 
 [git]
+# Leitura roda direto. `git -c` / `--config-env` pede confirmação: o valor
+# pode ser um comando (core.fsmonitor, core.pager, diff.external).
 git
 
 [scripts]
