@@ -1,4 +1,4 @@
-"""Um único motor: Ollama por padrão, nuvem quando o pedido pede ou o local cai."""
+"""Um único motor: Ollama por padrão; nuvem só quando o roteamento pede (D12)."""
 
 from __future__ import annotations
 
@@ -110,75 +110,27 @@ class HybridEngine:
         try:
             text = self.ollama.complete(prompt, model=self.config.local_model, system=SYSTEM_PROMPT)
         except ProviderError as exc:
-            return self._cloud_after_local_failure(prompt, decision, exc)
+            return self._after_local_failure(decision, exc)
         self._store(prompt, text, model=self.config.local_model)
         return EngineReply(text, "local", self.config.local_model, decision.reasons, None)
 
-    def _cloud_after_local_failure(
+    def _after_local_failure(
         self,
-        prompt: str,
         decision: RouteDecision,
         local_error: ProviderError,
     ) -> EngineReply:
-        cached = self._lookup_cloud(prompt)
-        if cached is not None:
-            return EngineReply(
-                cached,
-                "cloud",
-                self.config.cloud_model,
-                decision.reasons,
-                (
-                    f"Ollama falhou ({local_error}). "
-                    f"Respondi com o cache local ({self.config.cloud_model})."
-                ),
-            )
-        if not self.cloud.has_credentials():
-            return EngineReply(
-                "",
-                "none",
-                "",
-                decision.reasons,
-                (
-                    f"Ollama falhou ({local_error}). "
-                    "YBY_CLOUD_API_KEY não está definida, então não há fallback de nuvem."
-                ),
-            )
-        blocked = self._cloud_gate_reply(
-            prompt,
-            decision,
-            purpose="ollama_fallback",
-            provider_label="openrouter",
-        )
-        if blocked is not None:
-            return EngineReply(
-                "",
-                "none",
-                "",
-                decision.reasons,
-                f"Ollama falhou ({local_error}). {blocked.notice}",
-            )
-        try:
-            result = self._cloud_call(prompt, purpose="ollama_fallback")
-        except ProviderError as cloud_error:
-            return EngineReply(
-                "",
-                "none",
-                "",
-                decision.reasons,
-                f"Ollama falhou ({local_error}). A nuvem também falhou ({cloud_error}).",
-            )
-        notice = (
-            f"Ollama falhou ({local_error}). "
-            f"Respondi pela nuvem ({result.model} via {result.via})."
-        )
-        if self._budget_warn:
-            notice = f"{self._budget_warn} {notice}"
+        """Falha Ollama no caminho local não dispara nuvem (D12 / fase P / #42)."""
+
         return EngineReply(
-            result.text,
-            "cloud",
-            result.model,
+            "",
+            "none",
+            "",
             decision.reasons,
-            notice,
+            (
+                f"Ollama falhou ({local_error}). "
+                "Nuvem não é acionada automaticamente após falha local (D12 / fase P). "
+                "Use --heavy ou confirme nuvem quando o roteamento pedir capacidade extra."
+            ),
         )
 
     def _cloud_first(self, prompt: str, decision: RouteDecision) -> EngineReply:

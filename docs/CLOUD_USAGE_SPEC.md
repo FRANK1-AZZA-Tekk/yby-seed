@@ -49,7 +49,7 @@ YBY SEED already ships a **local JSONL cloud usage log** (`src/engine/cloud_usag
 |---|---|
 | `src/engine/cloud_usage_log.py` | Append-only JSONL; required fields; forbids `prompt`/`api_key`/`response`/`text`/`audio` |
 | `src/engine/budget.py` | `CloudBudget`: `local_only`, monthly token hard cap, warn threshold, TTY confirm gate |
-| `src/engine/hybrid.py` | Gate → confirm → call; events: requested / confirmed / completed / failed / cancelled / blocked_* |
+| `src/engine/hybrid.py` | Gate → confirm → call no caminho **cloud** (heavy/`--heavy`); falha Ollama no caminho local **não** chama nuvem (D12 / fase P). Events: requested / confirmed / completed / failed / cancelled / blocked_* |
 | `src/engine/routing.py` | Local vs cloud **decision** (heavy heuristics); does not talk to network |
 | `src/security/openrouter_sanitizer.py` | Legacy regex sanitizer (to be folded into `src/security/` contract below) |
 | `src/security/ast_guard.py` | Unrelated to FinOps; remains for code sandbox |

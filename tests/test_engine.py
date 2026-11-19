@@ -259,20 +259,20 @@ def test_resposta_curta_usa_ollama_e_nao_chama_nuvem() -> None:
     assert cloud.calls == []
 
 
-def test_ollama_fora_cai_na_nuvem() -> None:
+def test_ollama_fora_nao_cai_na_nuvem() -> None:
     ollama = FakeOllama(error=ProviderUnreachable("conexão recusada"))
     cloud = FakeCloud()
     reply = HybridEngine(_config(), ollama, cloud, cache=ResponseCache(ttl_seconds=0)).reply("oi")
 
-    assert reply.provider == "cloud"
-    assert reply.model == "openrouter/free"
-    assert reply.text == "resposta-nuvem"
+    assert reply.provider == "none"
+    assert reply.text == ""
     assert reply.notice is not None
     assert "Ollama falhou" in reply.notice
-    assert "openrouter/free" in reply.notice
+    assert "não é acionada automaticamente" in reply.notice
+    assert cloud.calls == []
 
 
-def test_ollama_fora_sem_chave_explica_o_bloqueio() -> None:
+def test_ollama_fora_sem_chave_explica_sem_nuvem_automatica() -> None:
     ollama = FakeOllama(error=ProviderUnreachable("conexão recusada"))
     cloud = FakeCloud(api_key="")
     reply = HybridEngine(
@@ -282,7 +282,7 @@ def test_ollama_fora_sem_chave_explica_o_bloqueio() -> None:
     assert reply.provider == "none"
     assert reply.text == ""
     assert reply.notice is not None
-    assert "YBY_CLOUD_API_KEY" in reply.notice
+    assert "não é acionada automaticamente" in reply.notice
     assert cloud.calls == []
 
 
