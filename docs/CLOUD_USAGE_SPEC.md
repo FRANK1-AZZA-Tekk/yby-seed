@@ -1,7 +1,7 @@
 # Cloud Usage Registry & FinOps — Technical Spec (Issue #42)
 
 **Status (código):** **parcial** — baseline JSONL + budget **diário+mensal (tokens + USD)** + **exception 1-shot** (`YBY_CLOUD_BUDGET_EXCEPTION` / `--cloud-exception`) + confirmação TTY + **falha Ollama local sem cascade nuvem** (D12) + **sanitizer gated** (S4 parcial) já no runtime.  
-**Ainda aberto:** SQLite FinOps (S1), confirm por custo estimado (resto §6.2), authz vault antes do egress (resto de S4).  
+**Ainda aberto:** SQLite FinOps (S1), authz vault antes do egress (resto de S4).  
 **Este documento:** SPEC / PLAN (não muda comportamento por si só).  
 **Decisions:** D12 (economia de execução) governs cloud; **D11 (voz local) is unchanged**.  
 **Constraint:** no sensitive data leaves the machine without explicit authz; no OpenRouter auto-fallback; no heavy deps (stdlib `sqlite3` + existing `pydantic`).

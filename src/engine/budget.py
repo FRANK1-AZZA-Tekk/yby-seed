@@ -23,6 +23,10 @@ DEFAULT_WARN_TOKEN_LIMIT = 150_000
 DEFAULT_DAILY_COST_USD_LIMIT = 2.0
 DEFAULT_MONTHLY_COST_USD_LIMIT = 10.0
 DEFAULT_WARN_RATIO = 0.8
+DEFAULT_CONFIRM_COST_USD = 0.01
+DEFAULT_CONFIRM_TOKEN_THRESHOLD = 2000
+
+_FORCE_CONFIRM_PURPOSES = frozenset({"ollama_fallback", "explicit_paid_model"})
 
 
 @dataclass(frozen=True)
@@ -49,6 +53,8 @@ class CloudBudget:
         monthly_cost_usd_limit: float = DEFAULT_MONTHLY_COST_USD_LIMIT,
         warn_ratio: float = DEFAULT_WARN_RATIO,
         budget_exception: bool = False,
+        confirm_cost_usd: float = DEFAULT_CONFIRM_COST_USD,
+        confirm_token_threshold: int = DEFAULT_CONFIRM_TOKEN_THRESHOLD,
     ) -> None:
         self.cloud_mode = cloud_mode.strip().casefold() or "ask"
         self.log_path = log_path
@@ -61,6 +67,8 @@ class CloudBudget:
         self.warn_ratio = warn_ratio
         self.require_confirm = require_confirm
         self.allow_no_tty = allow_no_tty
+        self.confirm_cost_usd = confirm_cost_usd
+        self.confirm_token_threshold = confirm_token_threshold
         self._exception_uses_left = 1 if budget_exception else 0
         self._usage_stamp: tuple[int, int] | None = None
         self._usage_day = 0
@@ -99,7 +107,43 @@ class CloudBudget:
             require_confirm=_bool(source, "YBY_CLOUD_REQUIRE_CONFIRM", True),
             allow_no_tty=_bool(source, "YBY_CLOUD_ALLOW_NO_TTY", False),
             budget_exception=_bool(source, "YBY_CLOUD_BUDGET_EXCEPTION", False),
+            confirm_cost_usd=_float(
+                source, "YBY_CLOUD_CONFIRM_COST_USD", DEFAULT_CONFIRM_COST_USD
+            ),
+            confirm_token_threshold=_int(
+                source,
+                "YBY_CLOUD_CONFIRM_TOKEN_THRESHOLD",
+                DEFAULT_CONFIRM_TOKEN_THRESHOLD,
+            ),
         )
+
+    def should_confirm(
+        self,
+        *,
+        input_tokens: int,
+        estimated_cost_usd: float,
+        purpose: str,
+        session_confirmed: bool,
+        evaluation: BudgetEvaluation,
+    ) -> bool:
+        """Política §6.2: quando pedir confirmação antes do HTTP."""
+
+        # Exception explícita já liberou este call — não pedir de novo.
+        if evaluation.exception_granted:
+            return False
+
+        in_warn = evaluation.reason.startswith("Aviso:")
+        token_hit = input_tokens >= self.confirm_token_threshold > 0
+        cost_hit = (
+            self.confirm_cost_usd > 0 and estimated_cost_usd >= self.confirm_cost_usd
+        )
+        purpose_hit = purpose.strip() in _FORCE_CONFIRM_PURPOSES
+
+        if in_warn or token_hit or cost_hit or purpose_hit:
+            return True
+        if self.require_confirm and not session_confirmed:
+            return True
+        return False
 
     def evaluate(
         self,

@@ -313,10 +313,42 @@ class HybridEngine:
             }
         )
 
-        needs_confirm = self.budget.require_confirm and not self._cloud_session_confirmed
+        est_cost = estimate_cost_usd(
+            provider=provider_label,
+            model=model,
+            input_tokens=input_est,
+            output_tokens=0,
+        )
+        needs_confirm = self.budget.should_confirm(
+            input_tokens=input_est,
+            estimated_cost_usd=est_cost,
+            purpose=purpose,
+            session_confirmed=self._cloud_session_confirmed,
+            evaluation=evaluation,
+        )
         if needs_confirm:
+            if not self.has_tty_fn() and not self.budget.allow_no_tty:
+                self.cloud_log.append(
+                    {
+                        "timestamp": utc_timestamp(),
+                        "provider": provider_label,
+                        "model": model,
+                        "purpose": purpose,
+                        "input_tokens_estimate": input_est,
+                        "output_tokens_estimate": 0,
+                        "result": EVENT_BLOCKED_NO_TTY,
+                    }
+                )
+                return EngineReply(
+                    "",
+                    "none",
+                    "",
+                    decision.reasons,
+                    "Confirmação de nuvem exige TTY (stdin/stdout interativo).",
+                )
             question = (
-                "Este pedido pode usar nuvem (tokens/custo). Confirmar? [s/n]"
+                f"Nuvem {provider_label}/{model} ({purpose}): "
+                f"~{input_est} tokens in, ~${est_cost:.4f}. Confirmar? [s/n]"
             )
             if not self.confirm_fn(question):
                 self.cloud_log.append(
