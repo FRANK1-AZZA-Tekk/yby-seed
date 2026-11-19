@@ -2,6 +2,21 @@
 
 Escolhas do dono antes de fechar a fase P. Após cada decisão, atualizar [PHASE-P.md](PHASE-P.md) ou [PLATFORM.md](PLATFORM.md) somente quando aprovado (fora desta tarefa de spec).
 
+## Estado de fato (código vigente — não é decisão do dono)
+
+Isto descreve o que o repositório já faz hoje. **Não** substitui as 8 decisões abaixo.
+
+| Tema | Estado de fato no código/scripts |
+|------|----------------------------------|
+| Unit systemd | Script `scripts/install-hub-service.sh` instala **unit de usuário** `~/.config/systemd/user/yby-hub.service`. |
+| Escopo do daemon | Hub keepalive só (`python -m src.platform.hub` / `yby hub`); **não** sobe gateway FastAPI. |
+| Dependência Ollama | Unit atual **não** declara `After=ollama.service`; o hub registra falha e continua o loop. |
+| Nome da unit | Nome vigente: `yby-hub.service`. |
+| Syncthing | Fora do processo YBY; exemplos em `examples/syncthing/` e `docs/syncthing/`. |
+| Backup vault | Script mínimo `scripts/backup-vault.sh` (tar + retenção); destino via env — **não** comprovado no hardware deste ambiente. |
+| Política nuvem vs falha Ollama | Caminho local: falha Ollama **não** chama nuvem (`HybridEngine._after_local_failure`, D12 / fase P). Nuvem só com roteamento pesado/`--heavy` + gate de confirmação/orçamento. OpenRouter→Grok: sem failover automático (`CascadingCloudProvider`). |
+| Issue #42 | Log JSONL + budget + confirm TTY já existem; SQLite FinOps da spec ainda é alvo futuro. |
+
 ## Decisões pendentes
 
 ### 1. Serviço por usuário ou sistema?
@@ -53,5 +68,18 @@ Escolhas do dono antes de fechar a fase P. Após cada decisão, atualizar [PHASE
 - **Recomendação:** Opção A na estabilização inicial; Opção B só após merge da issue #42.
 
 ---
+
+## Respostas do dono (preencher)
+
+Copie e responda só com **SIM** (aceita a recomendação) ou **NÃO** + letra da opção desejada. Não inventar respostas por agente.
+
+1. Serviço usuário (A) vs sistema (B)? → _____
+2. Daemon só hub (A) vs hub+gateway (B)? → _____
+3. `After=ollama.service` (A) vs sem After (B)? → _____
+4. Backup no SSD local (A) vs segundo disco (B)? → _____
+5. Ferramenta `tar` (A) vs restic/borg (B)? → _____
+6. Syncthing usuário (A) vs sistema (B)? → _____
+7. Manter `yby-hub.service` (A) vs renomear (B)? → _____
+8. Hub sem chaves nuvem (A) vs chaves + D12/#42 (B)? → _____
 
 Quando todas as decisões acima estiverem fechadas, marcar a fase P como **estável** no [ROADMAP.md](../ROADMAP.md) — somente com aprovação explícita do dono.

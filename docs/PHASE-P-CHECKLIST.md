@@ -2,6 +2,19 @@
 
 Marcar conforme execução no hardware real. Alinhado a [PHASE-P.md](PHASE-P.md) e [PHASE-P-DECISIONS.md](PHASE-P-DECISIONS.md).
 
+**Não marque itens como feitos sem hardware.** Agentes/CI não substituem reboot, Syncthing real nem restauração no PC Hub.
+
+## Como rodar no Hub (guia rápido)
+
+Ordem sugerida depois das [decisões do dono](PHASE-P-DECISIONS.md):
+
+1. Inventário (Fase 1): usuário Linux, `YBY_VAULT_PATH`, Python, `ollama list`, Syncthing instalado.
+2. Serviço: `bash scripts/install-hub-service.sh --enable` → `systemctl --user status yby-hub` → `loginctl enable-linger $USER` se login sem GUI.
+3. Saúde: `python yby.py hub --once` e reboot completo (Fase 3 / Fase 6).
+4. Syncthing: só a pasta do vault; ver `examples/syncthing/` (Fase 4).
+5. Backup: `bash scripts/backup-vault.sh` e restauração em pasta vazia — [BACKUP.md](BACKUP.md) (Fase 5).
+6. Nuvem: confirmar que falha de Ollama **não** chama nuvem; pedidos `--heavy` pedem confirmação (D12 / #42).
+
 ## Fase 1 — Inventário
 
 - [ ] Confirmar usuário Linux e diretório do projeto.

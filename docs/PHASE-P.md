@@ -67,6 +67,7 @@ PC Hub alvo: Ryzen 5, 16 GB RAM, GTX 1650 4 GB, Ubuntu — ver [HARDWARE_SPEC.md
 | [PHASE-P-DECISIONS.md](PHASE-P-DECISIONS.md) | Escolhas pendentes do dono |
 | [PLATFORM.md](PLATFORM.md) | Hub systemd já descrito no repositório |
 | [docs/syncthing/](../docs/syncthing/) | Exemplos de pasta do vault |
+| [BACKUP.md](BACKUP.md) | Backup/restauração do vault (`scripts/backup-vault.sh`) |
 
 ## Referências de decisão
 
