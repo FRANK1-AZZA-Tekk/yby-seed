@@ -51,6 +51,7 @@ def _engine(
     log = CloudUsageLog(tmp_path / "cloud_usage.jsonl")
     budget = CloudBudget.from_env(
         {
+            "YBY_CLOUD_DB_PATH": "off",
             "YBY_CLOUD_MODE": "ask",
             "YBY_CLOUD_LOG_PATH": str(log.path),
             "YBY_CLOUD_REQUIRE_CONFIRM": "1",
@@ -127,6 +128,7 @@ def test_local_only_sem_http(tmp_path) -> None:
     log = CloudUsageLog(tmp_path / "cloud_usage.jsonl")
     budget = CloudBudget.from_env(
         {
+            "YBY_CLOUD_DB_PATH": "off",
             "YBY_CLOUD_MODE": "local_only",
             "YBY_CLOUD_LOG_PATH": str(log.path),
             "YBY_CLOUD_REQUIRE_CONFIRM": "0",
@@ -173,6 +175,7 @@ def test_limiar_de_tokens_forca_confirm_mesmo_com_require_off(tmp_path) -> None:
     log = CloudUsageLog(tmp_path / "cloud_usage.jsonl")
     budget = CloudBudget.from_env(
         {
+            "YBY_CLOUD_DB_PATH": "off",
             "YBY_CLOUD_MODE": "ask",
             "YBY_CLOUD_LOG_PATH": str(log.path),
             "YBY_CLOUD_REQUIRE_CONFIRM": "0",
@@ -226,6 +229,7 @@ def test_sessao_confirmada_repede_na_faixa_aviso(tmp_path) -> None:
 
     budget = CloudBudget.from_env(
         {
+            "YBY_CLOUD_DB_PATH": "off",
             "YBY_CLOUD_MODE": "ask",
             "YBY_CLOUD_LOG_PATH": str(log.path),
             "YBY_CLOUD_REQUIRE_CONFIRM": "1",
