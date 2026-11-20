@@ -268,12 +268,17 @@ def _preview(proposal: ToolProposal) -> str:
 
 def _audit(config: AssistConfig, result: ToolResult) -> None:
     try:
+        meta: dict[str, object] = {"keys": sorted(result.data.keys())}
+        if result.tool == "routine.run":
+            for key in ("ran", "failed", "skipped", "name"):
+                if key in result.data:
+                    meta[key] = result.data[key]
         append_audit(
             config.audit_log_path,
             tool=result.tool,
             ok=result.ok,
             error=result.error,
-            meta={"keys": sorted(result.data.keys())},
+            meta=meta,
         )
     except OSError:
         pass
