@@ -36,6 +36,7 @@ Depois do setup: `make doctor` (ambiente) e `make test` (pytest).
 | `python yby.py evo report --day YYYY-MM-DD` | Evo v0.1: relatório local (offline) |
 | `python -m src.evo report --seed-demo --no-ollama` | mesmo fluxo via módulo |
 | `python yby.py assist` | sessão PT-BR para tools cadastradas do PC ([ASSIST.md](ASSIST.md)) |
+| `python yby.py assist --voice` | mesmo assist com pressionar para falar (Whisper/Piper) |
 | `python yby.py reminders once` | entrega de lembretes vencidos (sem sessão; [ASSIST.md](ASSIST.md)) |
 | `python yby.py painel` | painel local de consulta (somente leitura; [PAINEL.md](PAINEL.md)) |
 | `python yby.py sentinel once` | Sentinela: uma passagem coletar/avaliar/notificar ([SENTINEL.md](SENTINEL.md)) |
