@@ -101,6 +101,20 @@ def test_import_jsonl_if_empty_only_once(tmp_path) -> None:
     assert reg.count_events() == 1
 
 
+def test_import_jsonl_twice_dedupes(tmp_path) -> None:
+    jsonl = tmp_path / "cloud_usage.jsonl"
+    event = _completed_event(input_tokens_estimate=7, output_tokens_estimate=3)
+    jsonl.write_text(json.dumps(event) + "\n", encoding="utf-8")
+    reg = CloudUsageRegistry(tmp_path / "db.sqlite3")
+    first = reg.import_jsonl(jsonl)
+    second = reg.import_jsonl(jsonl)
+    assert first.imported_n == 1
+    assert second.imported_n == 0
+    assert second.skipped_n == 1
+    assert reg.count_events() == 1
+    assert reg.sum_completed_usage().day_tokens == 10
+
+
 def test_facade_dual_write_t14(tmp_path) -> None:
     jsonl = tmp_path / "cloud_usage.jsonl"
     db_path = tmp_path / "cloud_usage.sqlite3"

@@ -11,7 +11,7 @@ from typing import Literal
 
 from src.engine.budget import CloudBudget, CODE_BLOCKED_BUDGET, CODE_BLOCKED_LOCAL_ONLY, CODE_BLOCKED_NO_TTY
 from src.engine.cache import ResponseCache
-from src.engine.cloud_pricing import estimate_cost_usd
+from src.engine.cloud_pricing import estimate_cost
 from src.engine.cloud_usage_log import (
     CloudUsageLog,
     EVENT_BLOCKED_AUTHZ,
@@ -332,7 +332,7 @@ class HybridEngine:
             }
         )
 
-        est_cost = estimate_cost_usd(
+        est = estimate_cost(
             provider=provider_label,
             model=model,
             input_tokens=input_est,
@@ -340,7 +340,7 @@ class HybridEngine:
         )
         needs_confirm = self.budget.should_confirm(
             input_tokens=input_est,
-            estimated_cost_usd=est_cost,
+            estimated_cost_usd=est.usd,
             purpose=purpose,
             session_confirmed=self._cloud_session_confirmed,
             evaluation=evaluation,
@@ -365,9 +365,15 @@ class HybridEngine:
                     decision.reasons,
                     "Confirmação de nuvem exige TTY (stdin/stdout interativo).",
                 )
+            cost_label = (
+                f"~${est.usd:.4f}"
+                if est.basis != "unknown_conservative"
+                else f"tarifa desconhecida (teto local ~${est.usd:.4f})"
+            )
             question = (
                 f"Nuvem {provider_label}/{model} ({purpose}): "
-                f"~{input_est} tokens in, ~${est_cost:.4f}. Confirmar? [s/n]"
+                f"~{input_est} tokens in (estimados), {cost_label}. "
+                f"Confirmar? [s/n] (SEED ≠ fatura do provedor)"
             )
             if not self.confirm_fn(question):
                 self.cloud_log.append(
@@ -483,7 +489,7 @@ class HybridEngine:
             raise exc
 
         output_est = CloudUsageLog.estimate_tokens(result.text)
-        cost = estimate_cost_usd(
+        cost = estimate_cost(
             provider=result.via,
             model=result.model,
             input_tokens=input_est,
@@ -497,8 +503,12 @@ class HybridEngine:
                 "purpose": purpose,
                 "input_tokens_estimate": input_est,
                 "output_tokens_estimate": output_est,
-                "estimated_cost_usd": cost,
+                "estimated_cost_usd": cost.usd,
                 "result": EVENT_COMPLETED,
+                "meta": {
+                    "token_basis": "estimated",
+                    "cost_basis": cost.basis,
+                },
             }
         )
         self.cache.set(key, result.text)

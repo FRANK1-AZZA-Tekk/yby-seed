@@ -5,6 +5,7 @@ Sem ORM. stdlib sqlite3 + WAL. Segredos nunca são persistidos.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -167,7 +168,11 @@ class CloudUsageRegistry:
         return int(cur.lastrowid)
 
     def import_jsonl(self, path: Path) -> ImportReport:
-        """Import one-shot de linhas JSONL válidas."""
+        """Import de linhas JSONL válidas (idempotente: duplicatas são skipped).
+
+        Chave de dedupe: timestamp+provider+model+purpose+status+tokens.
+        Reimportar o mesmo histórico não conta a tentativa duas vezes.
+        """
 
         if not path.is_file():
             return ImportReport(0, 0, None)
@@ -188,6 +193,10 @@ class CloudUsageRegistry:
                     skipped += 1
                     continue
                 try:
+                    row = _normalize_event(payload)
+                    if self._has_equivalent_event(row):
+                        skipped += 1
+                        continue
                     self.insert_event(payload)
                 except (ValueError, KeyError, TypeError):
                     skipped += 1
@@ -197,6 +206,49 @@ class CloudUsageRegistry:
                 if isinstance(ts, (int, float)):
                     last_ts = float(ts)
         return ImportReport(imported, skipped, last_ts)
+
+    def _has_equivalent_event(self, row: dict[str, Any]) -> bool:
+        """True se já existe evento com a mesma chave de dedupe de import."""
+
+        conn = self.open()
+        found = conn.execute(
+            """
+            SELECT 1 FROM cloud_usage_events
+            WHERE timestamp = ?
+              AND provider = ?
+              AND model = ?
+              AND purpose = ?
+              AND status = ?
+              AND input_tokens = ?
+              AND output_tokens = ?
+            LIMIT 1
+            """,
+            (
+                row["timestamp"],
+                row["provider"],
+                row["model"],
+                row["purpose"],
+                row["status"],
+                row["input_tokens"],
+                row["output_tokens"],
+            ),
+        ).fetchone()
+        return found is not None
+
+    def fingerprint(self) -> tuple[int, str]:
+        """(count, sha256) estável para provar dry-run sem alteração."""
+
+        conn = self.open()
+        rows = conn.execute(
+            """
+            SELECT id, timestamp, provider, model, purpose, status,
+                   input_tokens, output_tokens, estimated_cost_usd
+            FROM cloud_usage_events
+            ORDER BY id
+            """
+        ).fetchall()
+        digest = hashlib.sha256(repr(rows).encode("utf-8")).hexdigest()
+        return len(rows), digest
 
     def import_jsonl_if_empty(self, path: Path) -> ImportReport | None:
         """Importa JSONL só se a tabela estiver vazia (migração one-shot)."""

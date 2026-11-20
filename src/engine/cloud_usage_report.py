@@ -159,4 +159,9 @@ def format_cloud_usage_report(report: CloudUsageReport) -> str:
             f"  month: {report.month_tokens}/{report.monthly_token_limit} tok, "
             f"${report.month_cost_usd:.4f}/${report.monthly_cost_usd_limit:.2f}"
         )
+        lines.append(
+            "  note: tokens/custo SEED são estimativas locais "
+            "(token_basis=estimated; cost_basis known|free|unknown_conservative); "
+            "não são a fatura do provedor."
+        )
     return "\n".join(lines) + "\n"
