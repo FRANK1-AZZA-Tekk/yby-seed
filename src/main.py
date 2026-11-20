@@ -20,6 +20,7 @@ Comandos:
     agent   - Loop de agente P0 (opt-in; não altera o ask)
     evo     - Observabilidade local v0.1 (relatórios; sem aplicar código)
     assist  - Sessão PT-BR para tools cadastradas do PC (sem nuvem)
+    reminders - Entrega de lembretes (once; sem sessão)
     painel  - Painel local de consulta (somente leitura, loopback)
     sentinel - Sentinela local (coletar → avaliar → notificar)
 """
@@ -37,6 +38,7 @@ from src.agent_loop.loop import ControlledAgentLoop
 from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
 from src.agent_loop.tools import vault_registry_or_skip
 from src.assist.cli import assist_cli
+from src.assist.reminders_cli import reminders_cli
 from src.engine.config import EngineConfig
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.engine.providers import OllamaProvider
@@ -74,6 +76,7 @@ def cli():
 
 cli.add_command(evo_cli)
 cli.add_command(assist_cli)
+cli.add_command(reminders_cli)
 cli.add_command(painel_cmd)
 cli.add_command(sentinel_cli)
 

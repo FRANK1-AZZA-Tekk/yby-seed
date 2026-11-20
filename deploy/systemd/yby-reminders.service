@@ -1,0 +1,12 @@
+[Unit]
+Description=YBY SEED Lembretes (uma passagem de entrega)
+After=graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__YBY_ROOT__
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-__YBY_ROOT__/.env
+ExecStart=__YBY_PYTHON__ __YBY_ROOT__/yby.py reminders once
+# Assist cadastra; este oneshot só verifica e notifica. Sem enable automático.

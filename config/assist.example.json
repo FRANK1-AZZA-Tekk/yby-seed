@@ -26,5 +26,9 @@
     }
   },
   "reminders_path": "~/.local/state/yby-seed/assist-reminders.json",
-  "audit_log_path": "~/.local/state/yby-seed/assist-audit.jsonl"
+  "audit_log_path": "~/.local/state/yby-seed/assist-audit.jsonl",
+  "reminder_quiet_hours": {
+    "start": "22:00",
+    "end": "07:00"
+  }
 }

@@ -36,6 +36,7 @@ class AssistConfig:
     ollama_base_url: str
     ollama_timeout: float
     find_limit_default: int = 10
+    reminder_quiet_hours: tuple[str, str] | None = None  # (HH:MM, HH:MM) ou None
 
     def app_names(self) -> list[str]:
         return sorted(self.apps)
@@ -116,6 +117,11 @@ def load_assist_config(
         str(data.get("audit_log_path") or state / "assist-audit.jsonl")
     ).expanduser()
 
+    quiet: tuple[str, str] | None = None
+    qh = data.get("reminder_quiet_hours")
+    if isinstance(qh, dict) and qh.get("start") and qh.get("end"):
+        quiet = (str(qh["start"]), str(qh["end"]))
+
     from src.engine.config import EngineConfig
 
     cfg = EngineConfig.from_env(source)
@@ -128,6 +134,7 @@ def load_assist_config(
         ollama_base_url=cfg.ollama_base_url,
         ollama_timeout=cfg.ollama_timeout,
         find_limit_default=int(data.get("find_limit_default") or 10),
+        reminder_quiet_hours=quiet,
     )
 
 
