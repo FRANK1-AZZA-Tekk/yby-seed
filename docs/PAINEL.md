@@ -28,21 +28,23 @@ curl -s -H "Authorization: Bearer $YBY_PAINEL_TOKEN" http://127.0.0.1:8765/api/r
 
 Não há endpoints de execução, shell, captura ou input sintético.
 
-## Fontes (uma por domínio)
+## Fontes (uma por domínio — writers)
 
-| Domínio | Path padrão |
-|---|---|
-| Rotinas | `~/.local/state/yby-seed/assist-audit.jsonl` (`tool=routine.run`) |
-| Lembretes | `~/.local/state/yby-seed/assist-reminders.json` |
-| Alertas | `~/.local/state/yby-seed/sentinel/incidents.json` |
-| Develop | `~/.local/state/yby-seed/develop/plans/*.json` (fallback `.yby/develop/plans/`) |
-| Ollama | `check_ollama` (mesmo hub/assist) |
+| Domínio | Path padrão | Writer |
+|---|---|---|
+| Rotinas | `~/.local/state/yby-seed/assist-audit.jsonl` (`tool=routine.run`) | `assist` (executor) |
+| Lembretes | `~/.local/state/yby-seed/assist-reminders.json` | `assist` |
+| Alertas | `~/.local/state/yby-seed/sentinel/incidents.json` | Sentinela (PR #92; `yby sentinel once`) |
+| Develop | `~/.local/state/yby-seed/develop/plans/*.json` (fallback `.yby/develop/plans/`) | `yby develop` ([DEV_DEVELOP.md](DEV_DEVELOP.md)) |
+| Ollama | `check_ollama` | hub / assist (somente leitura no painel) |
+
+O painel **só lê** esses arquivos. Não cria segunda fonte de verdade.
 
 Estados de item na UI: `proposto` | `executado` | `falhou` | `aguardando_aprovacao`.
 
-- Rotina parcial: meta do audit com `ran` / `failed` / `skipped` (o executor do assist grava isso em `routine.run`).
+- Rotina parcial: meta do audit com `ran` / `failed` / `skipped`.
 - Camada develop `preparada`/`enviada` → `aguardando_aprovacao`.
-- Arquivos ausentes → listas vazias (Sentinela/develop ainda podem não existir no disco).
+- Arquivos ausentes → listas vazias.
 
 ## Segurança
 
@@ -50,6 +52,6 @@ Estados de item na UI: `proposto` | `executado` | `falhou` | `aguardando_aprovac
 - Token do painel **não** é o `GATEWAY_TOKEN` do MQTT/gateway.
 - Cores só via classes CSS estáticas (`state-falhou`, etc.).
 
-## Fora deste PR
+## Fora de escopo do painel
 
-Motor Sentinela, motor `develop` multi-camada, `assist --voice`, endpoints de aprovação/execução, Grafana/Prometheus.
+Endpoints de aprovação/execução, `assist --voice`, Grafana/Prometheus.

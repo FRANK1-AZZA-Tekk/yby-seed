@@ -37,6 +37,7 @@ Depois do setup: `make doctor` (ambiente) e `make test` (pytest).
 | `python -m src.evo report --seed-demo --no-ollama` | mesmo fluxo via módulo |
 | `python yby.py assist` | sessão PT-BR para tools cadastradas do PC ([ASSIST.md](ASSIST.md)) |
 | `python yby.py painel` | painel local de consulta (somente leitura; [PAINEL.md](PAINEL.md)) |
+| `python yby.py develop …` | piloto multi-camada Ollama→MD→Cursor ([DEV_DEVELOP.md](DEV_DEVELOP.md)) |
 
 Voz: `pip install -r requirements-voice.txt`, binário Piper no PATH e `YBY_PIPER_MODEL`. Sem isso, `ask` em texto segue; a voz avisa com mensagem clara.
 
