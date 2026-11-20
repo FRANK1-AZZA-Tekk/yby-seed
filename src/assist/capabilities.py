@@ -45,6 +45,14 @@ class ChatArgs(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
 
 
+class SentinelRulesListArgs(BaseModel):
+    pass
+
+
+class SentinelRuleArgs(BaseModel):
+    rule: str = Field(min_length=1, max_length=64)
+
+
 @dataclass(frozen=True)
 class Capability:
     name: str
@@ -119,6 +127,30 @@ CAPABILITIES: dict[str, Capability] = {
         requires_confirm=False,
         scope="sessão",
         result_format="{ok, text}",
+    ),
+    "sentinel.rules.list": Capability(
+        name="sentinel.rules.list",
+        description="Lista regras do Sentinela (pausa e incidente ativo).",
+        args_model=SentinelRulesListArgs,
+        requires_confirm=False,
+        scope="sentinel local",
+        result_format="{ok, rules[]}",
+    ),
+    "sentinel.rules.pause": Capability(
+        name="sentinel.rules.pause",
+        description="Pausa uma regra do Sentinela (não abre/notifica novos).",
+        args_model=SentinelRuleArgs,
+        requires_confirm=True,
+        scope="sentinel local",
+        result_format="{ok, rule, paused}",
+    ),
+    "sentinel.rules.resume": Capability(
+        name="sentinel.rules.resume",
+        description="Retoma uma regra pausada do Sentinela.",
+        args_model=SentinelRuleArgs,
+        requires_confirm=True,
+        scope="sentinel local",
+        result_format="{ok, rule, paused}",
     ),
 }
 

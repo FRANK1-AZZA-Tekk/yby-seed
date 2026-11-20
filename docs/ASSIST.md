@@ -35,4 +35,5 @@ python yby.py assist
 - Lembretes **só** avisam com a sessão `assist` aberta (sem daemon).
 - Rotinas **não** podem chamar outras rotinas.
 - Alias é **exato** (casefold); frases parecidas não autorizam.
-- Voz / Sentinela / OpenRouter / Cursor-como-tool: fora deste PR.
+- Controlo do Sentinela: `sentinel.rules.list|pause|resume` ([SENTINEL.md](SENTINEL.md)).
+- Voz / OpenRouter / Cursor-como-tool: fora deste PR.

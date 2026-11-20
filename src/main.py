@@ -21,6 +21,7 @@ Comandos:
     evo     - Observabilidade local v0.1 (relatórios; sem aplicar código)
     assist  - Sessão PT-BR para tools cadastradas do PC (sem nuvem)
     painel  - Painel local de consulta (somente leitura, loopback)
+    sentinel - Sentinela local (coletar → avaliar → notificar)
 """
 
 import json
@@ -44,6 +45,7 @@ from src.memory.vault import VaultError, vault_from_env
 from src.painel.cli import painel_cmd
 from src.platform.hub import main as hub_main
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
+from src.sentinel.cli import sentinel_cli
 from src.voice.config import voice_config_from_env
 from src.voice.session import VoiceError, listen_once
 
@@ -73,6 +75,7 @@ def cli():
 cli.add_command(evo_cli)
 cli.add_command(assist_cli)
 cli.add_command(painel_cmd)
+cli.add_command(sentinel_cli)
 
 
 @cli.command(

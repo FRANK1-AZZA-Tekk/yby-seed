@@ -44,6 +44,12 @@ def decide_policy(config: AssistConfig, proposal: ToolProposal) -> PolicyDecisio
     if tool in {"clarify", "chat"}:
         return PolicyDecision("allow", "sem efeito colateral")
 
+    if tool == "sentinel.rules.list":
+        return PolicyDecision("allow", "listagem somente leitura")
+
+    if tool in {"sentinel.rules.pause", "sentinel.rules.resume"}:
+        return PolicyDecision("confirm", "altera observação do Sentinela")
+
     if cap.requires_confirm:
         return PolicyDecision("confirm", "confirmação exigida pela capacidade")
     return PolicyDecision("allow", "capacidade registrada")

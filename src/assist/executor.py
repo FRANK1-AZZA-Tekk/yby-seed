@@ -17,6 +17,9 @@ from src.assist.tools import (
     tool_clarify,
     tool_files_find,
     tool_reminder_create_confirmed,
+    tool_sentinel_rules_list,
+    tool_sentinel_rules_pause,
+    tool_sentinel_rules_resume,
     tool_system_status,
     tool_vault_search,
 )
@@ -254,6 +257,12 @@ def _dispatch(
         return tool_clarify(question=str(args.get("question", "")))
     if tool == "chat":
         return tool_chat(text=str(args.get("text", "")))
+    if tool == "sentinel.rules.list":
+        return tool_sentinel_rules_list()
+    if tool == "sentinel.rules.pause":
+        return tool_sentinel_rules_pause(rule=str(args.get("rule", "")))
+    if tool == "sentinel.rules.resume":
+        return tool_sentinel_rules_resume(rule=str(args.get("rule", "")))
     return ToolResult(
         ok=False,
         tool=tool,

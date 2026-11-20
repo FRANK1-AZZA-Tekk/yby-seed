@@ -221,6 +221,74 @@ def tool_reminder_create_confirmed(
     )
 
 
+def tool_sentinel_rules_list() -> ToolResult:
+    from src.sentinel.config import load_sentinel_config
+    from src.sentinel.engine import list_rules
+
+    config = load_sentinel_config()
+    rows = list_rules(config)
+    lines = []
+    for row in rows:
+        state = "pausada" if row["paused"] else "em observação"
+        inc = row["active_incident"]
+        if inc:
+            lines.append(f"{row['id']}: {state}; incidente ativo ({inc['id']})")
+        else:
+            lines.append(f"{row['id']}: {state}; sem incidente ativo")
+    return ToolResult(
+        ok=True,
+        tool="sentinel.rules.list",
+        data={"rules": rows},
+        narration="Regras do Sentinela:\n" + "\n".join(lines),
+    )
+
+
+def tool_sentinel_rules_pause(*, rule: str) -> ToolResult:
+    from src.sentinel.config import load_sentinel_config
+    from src.sentinel.engine import pause_rule
+    from src.sentinel.models import KNOWN_RULES
+
+    rule_id = rule.strip()
+    if rule_id not in KNOWN_RULES:
+        return ToolResult(
+            ok=False,
+            tool="sentinel.rules.pause",
+            error="regra desconhecida",
+            narration=f"Regra desconhecida: {rule_id}. Conhecidas: {', '.join(KNOWN_RULES)}",
+        )
+    config = load_sentinel_config()
+    pause_rule(config, rule_id)
+    return ToolResult(
+        ok=True,
+        tool="sentinel.rules.pause",
+        data={"rule": rule_id, "paused": True},
+        narration=f"Regra {rule_id} pausada (não abre nem notifica novos alertas).",
+    )
+
+
+def tool_sentinel_rules_resume(*, rule: str) -> ToolResult:
+    from src.sentinel.config import load_sentinel_config
+    from src.sentinel.engine import resume_rule
+    from src.sentinel.models import KNOWN_RULES
+
+    rule_id = rule.strip()
+    if rule_id not in KNOWN_RULES:
+        return ToolResult(
+            ok=False,
+            tool="sentinel.rules.resume",
+            error="regra desconhecida",
+            narration=f"Regra desconhecida: {rule_id}. Conhecidas: {', '.join(KNOWN_RULES)}",
+        )
+    config = load_sentinel_config()
+    resume_rule(config, rule_id)
+    return ToolResult(
+        ok=True,
+        tool="sentinel.rules.resume",
+        data={"rule": rule_id, "paused": False},
+        narration=f"Regra {rule_id} retomada.",
+    )
+
+
 def tool_clarify(*, question: str) -> ToolResult:
     return ToolResult(
         ok=True,
