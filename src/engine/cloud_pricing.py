@@ -1,12 +1,21 @@
-"""Estimativa local de custo USD (advisory; não é fatura).
+"""Estimativa local de custo USD (advisory; não é fatura do provedor).
 
 Política do dono: teto OpenRouter **US$ 10/mês** (`YBY_CLOUD_MONTHLY_COST_USD_LIMIT`).
 Preços de referência alinhados a `docs/PLANEJAMENTO-CUSTOS-IA.md`.
-Modelos desconhecidos (não-free) usam fallback conservador (faixa Sonnet)
-para o orçamento não subestimar gasto real.
+
+Bases de custo (`cost_basis`):
+- `known` — modelo na tabela / substring conhecida
+- `free` — modelo :free / tabela 0
+- `unknown_conservative` — tarifa desconhecida; usa floor Sonnet para o **orçamento**
+  não subestimar. Não é fatura; nunca deve aparecer como custo zero conhecido.
 """
 
 from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Literal
+
+CostBasis = Literal["known", "free", "unknown_conservative"]
 
 # USD por 1M tokens (input, output) — OpenRouter ref. out/2026
 _PRICE_TABLE: dict[tuple[str, str], tuple[float, float]] = {
@@ -41,6 +50,32 @@ _SUBSTRING_PRICES: tuple[tuple[str, tuple[float, float]], ...] = (
 _UNKNOWN_PAID: tuple[float, float] = (3.00, 15.00)
 
 
+@dataclass(frozen=True)
+class CostEstimate:
+    """Custo local para orçamento + base honesta (não é fatura)."""
+
+    usd: float
+    basis: CostBasis
+
+
+def estimate_cost(
+    *,
+    provider: str,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+) -> CostEstimate:
+    """Retorna USD para o teto local + `basis` (known|free|unknown_conservative)."""
+
+    in_tok = max(0, int(input_tokens))
+    out_tok = max(0, int(output_tokens))
+    price_in, price_out, basis = _lookup(provider, model)
+    cost = (in_tok / 1_000_000.0) * price_in + (out_tok / 1_000_000.0) * price_out
+    if cost < 0:
+        cost = 0.0
+    return CostEstimate(usd=round(cost, 8), basis=basis)
+
+
 def estimate_cost_usd(
     *,
     provider: str,
@@ -48,32 +83,32 @@ def estimate_cost_usd(
     input_tokens: int,
     output_tokens: int,
 ) -> float:
-    """Retorna custo estimado em USD (sempre >= 0)."""
+    """Compat: só o USD usado no orçamento (nunca trata unknown como 0 conhecido)."""
 
-    in_tok = max(0, int(input_tokens))
-    out_tok = max(0, int(output_tokens))
-    price_in, price_out = _lookup(provider, model)
-    cost = (in_tok / 1_000_000.0) * price_in + (out_tok / 1_000_000.0) * price_out
-    if cost < 0:
-        return 0.0
-    return round(cost, 8)
+    return estimate_cost(
+        provider=provider,
+        model=model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    ).usd
 
 
-def _lookup(provider: str, model: str) -> tuple[float, float]:
+def _lookup(provider: str, model: str) -> tuple[float, float, CostBasis]:
     prov = provider.strip().casefold()
     model_id = model.strip()
     key = (prov, model_id)
     if key in _PRICE_TABLE:
-        return _PRICE_TABLE[key]
+        prices = _PRICE_TABLE[key]
+        if prices == (0.0, 0.0):
+            return (*prices, "free")
+        return (*prices, "known")
     if prov == "cache" or model_id == "*":
-        return (0.0, 0.0)
+        return (0.0, 0.0, "free")
     folded = model_id.casefold()
     if "free" in folded or folded.endswith(":free"):
-        return (0.0, 0.0)
+        return (0.0, 0.0, "free")
     for needle, prices in _SUBSTRING_PRICES:
         if needle in folded:
-            return prices
-    # openrouter / cloud genérico sem preço conhecido → conservador
-    if prov in {"openrouter", "cloud", "xai", "grok"}:
-        return _UNKNOWN_PAID
-    return _UNKNOWN_PAID
+            return (*prices, "known")
+    # Tarifa desconhecida: floor conservador para o teto — não é $0 conhecido.
+    return (*_UNKNOWN_PAID, "unknown_conservative")
