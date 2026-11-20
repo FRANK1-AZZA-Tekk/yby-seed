@@ -52,6 +52,7 @@ Estados de item na UI: `proposto` | `executado` | `falhou` | `aguardando_aprovac
 
 ## Fora deste PR
 
-Motor `develop` multi-camada, `assist --voice`, endpoints de aprovação/execução, Grafana/Prometheus.
+Motor `develop` multi-camada, endpoints de aprovação/execução, Grafana/Prometheus.
+`assist --voice` está no assist ([ASSIST.md](ASSIST.md)); o painel só lê estado.
 
 O motor Sentinela grava `incidents.json` (ver [SENTINEL.md](SENTINEL.md)); o painel só lê.

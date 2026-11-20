@@ -63,7 +63,7 @@ class AssistSession:
             "`python yby.py reminders once` (timer opcional).\n"
             "Busca de arquivos: candidatos listados; diga 'o segundo' para "
             "selecionar (não abre o arquivo).\n"
-            "Voz: fora deste PR."
+            "Voz: `python yby.py assist --voice` (pressionar para falar)."
         )
 
     def handle(self, utterance: str) -> TurnOutcome:

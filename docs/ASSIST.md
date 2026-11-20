@@ -1,7 +1,7 @@
-# YBY assist (PR1 — texto)
+# YBY assist (texto + voz)
 
 Sessão conversacional em PT-BR para **ferramentas cadastradas** do PC Ubuntu.
-Não substitui o `ask`. Sem nuvem, sem shell livre, sem voz neste PR.
+Não substitui o `ask`. Sem nuvem e sem shell livre.
 
 ## Setup
 
@@ -11,7 +11,21 @@ cp config/assist.example.json ~/.config/yby-seed/assist.json
 export YBY_ASSIST_CONFIG=~/.config/yby-seed/assist.json
 export YBY_VAULT_PATH=~/Obsidian/Vault   # se for usar vault.search
 python yby.py assist
+python yby.py assist --voice   # pressionar para falar (Whisper/Piper locais)
 ```
+
+## Voz (`assist --voice`)
+
+Pressionar para falar: `record_until_enter` → `transcribe` → **mesma** `AssistSession` / executor / política do texto → `speak`. Não usa `listen_once` (caminho do `ask`/`listen`). Sem gravação contínua, sem nuvem e sem log de áudio.
+
+- Confirmação: a prévia é falada com os dados exatos; `sim` confirma; `cancela` / silêncio / transcrição ambígua não confirmam; mudar a hora gera **outra** prévia.
+- Falha de STT: nada executado; dá para continuar por texto no mesmo turno.
+- Falha de TTS depois da ação: imprime o estado real e **não** repete a ação.
+- Tempos (`stt` / `interpret` / `exec` / `tts`) só no stderr, sem conteúdo da fala.
+- Desempenho no PC Hub (primeira vs seguintes vs rotina sem Ollama): **pendente** até haver fone e modelo real — não marcar como aprovado.
+- PR futuro (só após medição): se a transcrição dominar, menor correção candidata é manter o `WhisperModel` vivo entre turnos (hoje cada `transcribe_detailed` instancia de novo). Medir antes/depois; **não** mudar modelo/`num_ctx`/aquecimento neste PR.
+
+`listen` e `ask --voice` permanecem no HybridEngine; este modo não os altera.
 
 ## Lembretes (cadastro × entrega)
 
@@ -57,4 +71,4 @@ bash scripts/install-reminders-timer.sh --enable # só se você pedir
 - Rotinas **não** podem chamar outras rotinas.
 - Alias é **exato** (casefold); frases parecidas não autorizam.
 - Controlo do Sentinela: `sentinel.rules.list|pause|resume` ([SENTINEL.md](SENTINEL.md)).
-- Voz / OpenRouter / Cursor-como-tool: fora deste PR.
+- OpenRouter / Cursor-como-tool: fora deste PR.

@@ -1,4 +1,4 @@
-"""Click: `yby assist` — sessão texto PT-BR."""
+"""Click: `yby assist` — sessão texto ou voz (pressionar para falar)."""
 
 from __future__ import annotations
 
@@ -23,10 +23,15 @@ from src.engine.providers import OllamaProvider
     default=None,
     help="JSON de apps/pastas/rotinas (padrão: YBY_ASSIST_CONFIG).",
 )
-def assist_cli(config_path: Path | None) -> None:
+@click.option(
+    "--voice/--no-voice",
+    default=False,
+    help="Pressionar para falar (Whisper/Piper locais). Mesma sessão do texto.",
+)
+def assist_cli(config_path: Path | None, voice: bool) -> None:
     """Sessão local para ferramentas cadastradas do PC (sem nuvem).
 
-    Lembretes só avisam enquanto esta sessão estiver aberta.
+    Lembretes: o assist só cadastra; entrega via `reminders once`.
     Rotinas por alias exato funcionam mesmo se o Ollama estiver fora.
     """
 
@@ -51,6 +56,34 @@ def assist_cli(config_path: Path | None) -> None:
         planner=planner,
         confirm_fn=confirm_fn,
     )
+
+    if voice:
+        from src.assist.voice_loop import run_voice_session, voice_available
+        from src.voice.config import voice_config_from_env
+
+        vcfg = voice_config_from_env()
+        ok, msg = voice_available(vcfg)
+        if not ok:
+            click.echo(msg, err=True)
+            click.echo(
+                "Texto continua disponível: python yby.py assist",
+                err=True,
+            )
+            raise SystemExit(1)
+        if msg != "voz pronta":
+            click.echo(msg, err=True)
+
+        def _wait(_prompt: str = "") -> str:
+            return click.get_text_stream("stdin").readline()
+
+        run_voice_session(
+            session,
+            vcfg,
+            input_fn=_wait,
+            output_fn=click.echo,
+            err_fn=lambda m: click.echo(m, err=True),
+        )
+        return
 
     click.echo("YBY assist (texto). Digite 'ajuda', 'cancela' ou 'sair'.")
     for msg in session.startup_messages():
