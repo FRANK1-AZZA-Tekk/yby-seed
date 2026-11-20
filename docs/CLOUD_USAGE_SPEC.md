@@ -1,7 +1,7 @@
 # Cloud Usage Registry & FinOps — Technical Spec (Issue #42)
 
-**Status (código):** **quase fechado nesta stack** — JSONL + **SQLite S1/S3** + budget tokens/USD + exception + confirm §6.2 + D12 + sanitizer + **authz vault (S4)** + hard cap OpenRouter **US$10/mês** + **mirror JSONL default off + prune (S5 fino)**.  
-**Ainda aberto:** doctor/report CLI (resto S5).  
+**Status (código):** **S0–S5 fechados nesta stack** — JSONL + **SQLite S1/S3** + budget tokens/USD + exception + confirm §6.2 + D12 + sanitizer + **authz vault (S4)** + hard cap OpenRouter **US$10/mês** + **mirror off + prune + `yby cloud report|prune` (S5)**.  
+**Ainda aberto:** `prompt_hash` / cache-by-hash (opcional); merge da stack em `main`.  
 **Este documento:** SPEC / PLAN (não muda comportamento por si só).  
 **Decisions:** D12 (economia de execução) governs cloud; **D11 (voz local) is unchanged**.  
 **Constraint:** no sensitive data leaves the machine without explicit authz; no OpenRouter auto-fallback; no heavy deps (stdlib `sqlite3` + existing `pydantic`).
@@ -17,7 +17,7 @@
 | **S2** | Daily budget + custo + exception | **Feito** (tokens + USD + exception 1-shot + tabela preços) |
 | **S3** | Wire hybrid com registry status | **Feito** (budget primary SQLite; fallback JSONL; hybrid já escrevia via S1) |
 | **S4** | Sanitizer/authz gated antes do egress | **Feito** (`cloud_sanitizer` + `cloud_authz` / `YBY_CLOUD_ALLOW_VAULT`) |
-| **S5** | Dual-write off default / doctor / retenção | **Parcial** (mirror default=0 + `registry.prune`; doctor CLI aberto) |
+| **S5** | Dual-write off default / doctor / retenção | **Feito** (mirror default=0 + `prune` + `yby cloud report|prune`) |
 
 ---
 
@@ -382,7 +382,7 @@ Event lifecycle:
 2. Optionally `confirmed` / `exception_granted`.  
 3. Terminal: `completed` | `failed` | `cancelled` | `blocked_*`.
 
-Consumers: `CloudBudget` rollups, future `yby doctor` / local report CLI — **not** remote analytics.
+Consumers: `CloudBudget` rollups, `yby cloud report` / `yby cloud prune` — **not** remote analytics.
 
 Aligns with bare-metal SQLite bias in `docs/OBSERVABILITY.md` without coupling to MQTT traces.
 
