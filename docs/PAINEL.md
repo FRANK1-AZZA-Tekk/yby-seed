@@ -33,7 +33,7 @@ Não há endpoints de execução, shell, captura ou input sintético.
 | Domínio | Path padrão |
 |---|---|
 | Rotinas | `~/.local/state/yby-seed/assist-audit.jsonl` (`tool=routine.run`) |
-| Lembretes | `~/.local/state/yby-seed/assist-reminders.json` |
+| Lembretes | `~/.local/state/yby-seed/assist-reminders.json` (`delivery`: scheduled / pending / delivered; detalhe `vence em` / `entrega pendente` / `entregue`) |
 | Alertas | `~/.local/state/yby-seed/sentinel/incidents.json` |
 | Develop | `~/.local/state/yby-seed/develop/plans/*.json` (fallback `.yby/develop/plans/`) |
 | Ollama | `check_ollama` (mesmo hub/assist) |

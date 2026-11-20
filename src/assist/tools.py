@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from src.assist.config import AssistConfig
-from src.assist.reminders import Clock, ReminderStore, build_reminder
+from src.assist.reminders import ReminderStore, build_reminder
 from src.assist.types import ToolResult
 from src.memory.vault import Vault, VaultError, vault_from_env
 from src.platform.hub import check_ollama
@@ -216,7 +216,7 @@ def tool_reminder_create_confirmed(
         },
         narration=(
             f"Salvei o lembrete '{reminder.text}' para {date} {time} ({tz}). "
-            "Avisos só enquanto o assist estiver aberto."
+            "A entrega fica a cargo de `yby reminders once` (não desta sessão)."
         ),
     )
 
@@ -307,19 +307,3 @@ def tool_chat(*, text: str) -> ToolResult:
     )
 
 
-def deliver_due_reminders(
-    store: ReminderStore,
-    clock: Clock,
-    already: set[str],
-) -> list[str]:
-    """Marca e devolve mensagens de lembretes vencidos ainda não anunciados."""
-
-    messages: list[str] = []
-    now = clock.now()
-    for rem in store.due_undelivered(now):
-        if rem.id in already:
-            continue
-        store.mark_delivered(rem.id)
-        already.add(rem.id)
-        messages.append(f"Lembrete: {rem.text} (previsto {rem.when_iso}, tz={rem.tz})")
-    return messages

@@ -127,11 +127,15 @@ def read_routines(path: Path, *, limit: int = 20) -> list[PainelItem]:
 
 
 def read_reminders(path: Path) -> list[PainelItem]:
+    from src.assist.delivery import format_when_detail
+    from src.assist.reminders import SystemClock, effective_delivery
+
     store = ReminderStore(path)
     try:
         reminders = store.load()
     except OSError:
         return []
+    now = SystemClock().now()
     items: list[PainelItem] = []
     for rem in reminders:
         try:
@@ -139,15 +143,21 @@ def read_reminders(path: Path) -> list[PainelItem]:
             ts = when.timestamp()
         except ValueError:
             ts = time.time()
-        state: ItemState = "executado" if rem.delivered else "proposto"
+        delivery = effective_delivery(rem, now)
+        state: ItemState = "executado" if delivery == "delivered" else "proposto"
+        detail = format_when_detail(delivery, rem.when_iso, now)
         items.append(
             PainelItem(
                 origin="assist.reminders",
                 timestamp=ts,
                 state=state,
                 title=rem.text,
-                detail=f"id={rem.id}",
-                meta={"id": rem.id, "delivered": rem.delivered},
+                detail=f"id={rem.id}; {detail}",
+                meta={
+                    "id": rem.id,
+                    "delivered": rem.delivered,
+                    "delivery": delivery,
+                },
             )
         )
     return items

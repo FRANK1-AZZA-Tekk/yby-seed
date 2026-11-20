@@ -317,7 +317,9 @@ def test_parse_proposal_and_ask_regression(monkeypatch) -> None:
     assert "ok-ask" in result.output
 
 
-def test_reminder_due_once(tmp_path: Path) -> None:
+def test_reminder_sessao_nao_entrega(tmp_path: Path) -> None:
+    """Assist só cadastra; startup não marca nem anuncia lembretes."""
+
     store = ReminderStore(tmp_path / "r.json")
     rem = build_reminder(text="água", date="2020-01-01", time="00:00", tz="UTC")
     store.add(rem)
@@ -329,8 +331,6 @@ def test_reminder_due_once(tmp_path: Path) -> None:
         clock=clock,
         confirm_fn=lambda _m: True,
     )
-    msgs = session.startup_messages()
-    assert len(msgs) == 1
-    assert "água" in msgs[0]
-    # segunda chamada não repete
     assert session.startup_messages() == []
+    assert store.load()[0].delivery == "scheduled"
+    assert store.load()[0].delivered is False
