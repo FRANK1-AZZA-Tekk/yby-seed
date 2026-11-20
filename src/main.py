@@ -19,6 +19,7 @@ Comandos:
     recall  - Busca no vault
     agent   - Loop de agente P0 (opt-in; não altera o ask)
     evo     - Observabilidade local v0.1 (relatórios; sem aplicar código)
+    cloud   - FinOps local (report / prune; S5 / #42)
 """
 
 import json
@@ -34,6 +35,7 @@ from src.actions.runner import DEFAULT_TIMEOUT, run_command
 from src.agent_loop.loop import ControlledAgentLoop
 from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
 from src.agent_loop.tools import vault_registry_or_skip
+from src.engine.cloud_cli import cloud_cli
 from src.engine.config import EngineConfig
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.engine.providers import OllamaProvider
@@ -68,6 +70,7 @@ def cli():
 
 
 cli.add_command(evo_cli)
+cli.add_command(cloud_cli)
 
 
 @cli.command(

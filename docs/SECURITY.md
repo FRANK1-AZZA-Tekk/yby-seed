@@ -38,7 +38,8 @@ O arquivo fica fora do git (`logs/` no `.gitignore`).
 - Campos adicionais: custo estimado, status, session/task id, `prompt_hash` / refs sem segredos
 - Authz: vault/refs só com `YBY_CLOUD_ALLOW_VAULT=1`; sem grant → `cloud_blocked_authz` (sem HTTP)
 - Redaction (`YBY_CLOUD_SANITIZE=1`) antes do egress
-- Mirror JSONL off por padrão (`YBY_CLOUD_JSONL_MIRROR=0`); retenção via `CloudUsageRegistry.prune`
+- Mirror JSONL off por padrão (`YBY_CLOUD_JSONL_MIRROR=0`); retenção via `CloudUsageRegistry.prune` / `yby cloud prune`
+- Relatório local: `yby cloud report` (metadados/orçamento; sem prompts)
 - Modo `local_only` e offline continuam sem chamada de nuvem
 - Sem fallback automático OpenRouter↔Grok (D12)
 - D11 (voz local) permanece o padrão
