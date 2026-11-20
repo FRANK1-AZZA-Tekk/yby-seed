@@ -1,0 +1,11 @@
+[Unit]
+Description=YBY SEED Sentinela timer (padrão: a cada 1 min)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=30s
+Unit=yby-sentinel.service
+
+[Install]
+WantedBy=timers.target
