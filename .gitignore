@@ -10,3 +10,4 @@ evo/reports/*
 !evo/reports/EXAMPLE.md
 !evo/reports/.gitkeep
 *.sqlite3
+.yby/

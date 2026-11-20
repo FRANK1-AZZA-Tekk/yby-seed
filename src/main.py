@@ -19,6 +19,9 @@ Comandos:
     recall  - Busca no vault
     agent   - Loop de agente P0 (opt-in; não altera o ask)
     evo     - Observabilidade local v0.1 (relatórios; sem aplicar código)
+    assist  - Sessão PT-BR para tools cadastradas do PC (sem nuvem)
+    painel  - Painel local de consulta (somente leitura, loopback)
+    develop - Piloto multi-camada Ollama → MD → Cursor (sem OpenRouter)
 """
 
 import json
@@ -33,11 +36,14 @@ from src.actions.runner import DEFAULT_TIMEOUT, run_command
 from src.agent_loop.loop import ControlledAgentLoop
 from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
 from src.agent_loop.tools import vault_registry_or_skip
+from src.assist.cli import assist_cli
+from src.develop.cli import develop_cli
 from src.engine.config import EngineConfig
 from src.engine.hybrid import HybridEngine, engine_from_env
 from src.engine.providers import OllamaProvider
 from src.evo.cli import evo_cli
 from src.memory.vault import VaultError, vault_from_env
+from src.painel.cli import painel_cmd
 from src.platform.hub import main as hub_main
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
 from src.voice.config import voice_config_from_env
@@ -67,6 +73,9 @@ def cli():
 
 
 cli.add_command(evo_cli)
+cli.add_command(assist_cli)
+cli.add_command(painel_cmd)
+cli.add_command(develop_cli)
 
 
 @cli.command(
