@@ -7,8 +7,9 @@ from hashlib import sha256
 import json
 from typing import Literal
 
+from src.safety.policy import SKILL_ACTIONS, is_allowed_skill_action
 
-ALLOWED_ACTIONS = frozenset({"copy_files_to_backup_dir"})
+ALLOWED_ACTIONS = SKILL_ACTIONS
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,7 @@ class ActionBriefing:
             value = getattr(self, name)
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} deve ser uma string não vazia")
-        if self.action not in ALLOWED_ACTIONS:
+        if not is_allowed_skill_action(self.action):
             raise ValueError(f"Ação não permitida: {self.action!r}")
         if not isinstance(self.inputs, tuple) or not self.inputs:
             raise ValueError("inputs deve ser uma tupla não vazia de pares")
