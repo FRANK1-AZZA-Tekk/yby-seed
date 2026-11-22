@@ -26,7 +26,11 @@ _SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 _COMBINED_SECRET_PATTERN = re.compile(
-    "|".join(pattern.pattern for pattern in _SECRET_PATTERNS)
+    "|".join(
+        pattern.pattern.replace("(?i)", "")
+        for pattern in _SECRET_PATTERNS
+    ),
+    re.IGNORECASE,
 )
 
 _FORBIDDEN_KEYS = frozenset(
