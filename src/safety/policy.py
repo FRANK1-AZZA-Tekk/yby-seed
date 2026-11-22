@@ -11,6 +11,12 @@ Action = Literal["run", "ask", "refuse"]
 _INTERPRETERS = frozenset({"python", "python3", "bash", "sh"})
 _YES = frozenset({"s", "sim", "y", "yes"})
 
+SKILL_ACTIONS = frozenset(
+    {
+        "copy_files_to_backup_dir",
+    }
+)
+
 
 @dataclass(frozen=True)
 class Policy:
@@ -28,6 +34,12 @@ class Decision:
 
     action: Action
     reason: str
+
+
+def is_allowed_skill_action(action: str) -> bool:
+    """Decide se uma ação declarada por uma skill está na allowlist."""
+
+    return action in SKILL_ACTIONS
 
 
 def load_policy(path: Path) -> Policy:
