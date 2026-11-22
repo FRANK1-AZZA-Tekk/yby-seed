@@ -77,7 +77,10 @@ def listen_once(
             wav.unlink(missing_ok=True)
 
         say(f"você: {transcript}")
-        reply = engine.reply(transcript, explicit_heavy=explicit_heavy)
+        try:
+            reply = engine.reply(transcript, explicit_heavy=explicit_heavy)
+        except Exception as exc:  # noqa: BLE001
+            raise VoiceError(f"Engine falhou após a transcrição: {exc}") from exc
 
         tts_path: Path | None = None
         tts_notice: str | None = None
