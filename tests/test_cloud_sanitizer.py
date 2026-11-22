@@ -68,6 +68,34 @@ def test_sanitize_strips_secrets_email_and_bearer() -> None:
     assert "[CPF_REDACTED]" in result.text
 
 
+def test_sanitize_counts_multiple_secrets_individually() -> None:
+    raw = (
+        "api_key=sk-abcdefghijklmnopqrstuvwxyz012345 "
+        "token=abcdef1234567890abcdef "
+        "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abcde"
+    )
+
+    result = sanitize_for_cloud(raw)
+
+    assert result.enabled is True
+    assert result.by_type["secret"] == 3
+    assert result.redactions >= 3
+    assert "sk-abcdefghijklmnopqrstuvwxyz" not in result.text
+    assert "abcdef1234567890abcdef" not in result.text
+    assert "eyJhbGciOi" not in result.text
+
+
+def test_sanitize_counts_zero_when_no_sensitive_data() -> None:
+    raw = "Configure o GPIO18 como saída e aguarde 500 ms."
+
+    result = sanitize_for_cloud(raw)
+
+    assert result.enabled is True
+    assert result.redactions == 0
+    assert result.by_type == {}
+    assert result.text == raw
+
+
 def test_sanitize_can_be_disabled_via_env() -> None:
     assert sanitize_enabled({"YBY_CLOUD_SANITIZE": "0"}) is False
     raw = "OPENROUTER_API_KEY=sk-abcdefghijklmnopqrstuvwxyz012345"
