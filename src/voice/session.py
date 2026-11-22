@@ -79,7 +79,7 @@ def listen_once(
         say(f"você: {transcript}")
         try:
             reply = engine.reply(transcript, explicit_heavy=explicit_heavy)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise VoiceError(f"Engine falhou após a transcrição: {exc}") from exc
 
         tts_path: Path | None = None
