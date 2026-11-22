@@ -69,8 +69,32 @@ def test_refuse_auto_run():
 
 
 def test_request_human_confirm_refuses_auto():
-    assert request_human_confirm(auto=True, skill_name="x") is False
-    assert request_human_confirm(auto=False, skill_name="x") is False
+    with pytest.raises(AutoRunRefused):
+        request_human_confirm(auto=True, skill_name="backup-automation")
+
+
+def test_request_human_confirm_without_prompt_is_not_approved():
+    confirmation = request_human_confirm(
+        skill_name="backup-automation",
+        request="backup local",
+    )
+
+    assert confirmation.approved is False
+    assert confirmation.confirmation_id == ""
+    assert confirmation.mode == "not_requested"
+
+
+def test_request_human_confirm_accepts_interactive_approval():
+    confirmation = request_human_confirm(
+        skill_name="backup-automation",
+        request="backup local",
+        prompt=True,
+    )
+
+    assert confirmation.approved is True
+    assert confirmation.confirmation_id
+    assert confirmation.approved_at
+    assert confirmation.mode == "interactive"
 
 
 def test_cli_lists_skills(tmp_path: Path):
@@ -110,5 +134,83 @@ def test_cli_preview_unknown_skill(tmp_path: Path):
         skills,
         ["preview", "nao-existe", "--skills-dir", str(tmp_path / "skills")],
     )
+    assert result.exit_code == 2
+    assert "não encontrada" in result.output
+
+
+def test_cli_confirm_requires_explicit_approval(tmp_path: Path):
+    _write_skill(tmp_path, "backup-automation")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        skills,
+        [
+            "confirm",
+            "backup-automation",
+            "Fazer backup dos documentos",
+            "--skills-dir",
+            str(tmp_path / "skills"),
+        ],
+        input="n\n",
+    )
+
+    assert result.exit_code == 1
+    assert "Execução não aprovada." in result.output
+
+
+def test_cli_confirm_accepts_explicit_approval(tmp_path: Path):
+    _write_skill(tmp_path, "backup-automation")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        skills,
+        [
+            "confirm",
+            "backup-automation",
+            "Fazer backup dos documentos",
+            "--skills-dir",
+            str(tmp_path / "skills"),
+        ],
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert "Aprovação registrada." in result.output
+    assert "ID:" in result.output
+
+
+def test_cli_confirm_refuses_auto(tmp_path: Path):
+    _write_skill(tmp_path, "backup-automation")
+    runner = CliRunner()
+
+    result = runner.invoke(
+        skills,
+        [
+            "confirm",
+            "backup-automation",
+            "--auto",
+            "--skills-dir",
+            str(tmp_path / "skills"),
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "recusada" in result.output.lower()
+
+
+def test_cli_confirm_unknown_skill(tmp_path: Path):
+    (tmp_path / "skills").mkdir()
+    runner = CliRunner()
+
+    result = runner.invoke(
+        skills,
+        [
+            "confirm",
+            "nao-existe",
+            "--skills-dir",
+            str(tmp_path / "skills"),
+        ],
+    )
+
     assert result.exit_code == 2
     assert "não encontrada" in result.output

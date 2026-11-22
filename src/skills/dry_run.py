@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
+import uuid
 
 
 @dataclass(frozen=True)
@@ -31,6 +34,18 @@ class DryRunPreview:
     )
 
 
+@dataclass(frozen=True)
+class HumanConfirmation:
+    """Registro imutável de uma confirmação humana."""
+
+    confirmation_id: str
+    skill_name: str
+    request: str
+    approved: bool
+    approved_at: str
+    mode: Literal["interactive", "not_requested"] = "not_requested"
+
+
 class AutoRunRefused(RuntimeError):
     """Execução automática recusada — política da Camada C."""
 
@@ -43,16 +58,62 @@ def refuse_auto_run(skill_name: str) -> None:
     )
 
 
-def request_human_confirm(*, auto: bool = False, skill_name: str = "") -> bool:
-    """Confirmação humana.
+def request_human_confirm(
+    *,
+    auto: bool = False,
+    skill_name: str = "",
+    request: str = "",
+    prompt: bool = False,
+) -> HumanConfirmation:
+    """Solicita confirmação humana explícita.
 
-    - auto=True → sempre False (política: sem auto-run).
-    - auto=False → stub: retorna False até existir fluxo interativo real.
+    - `auto=True` é sempre recusado.
+    - `prompt=False` não solicita interação e retorna uma recusa registrada.
+    - `prompt=True` solicita confirmação interativa.
+    - Esta função nunca executa código.
     """
     if auto:
-        return False
-    _ = skill_name
-    return False
+        raise AutoRunRefused(
+            f"Execução automática recusada para {skill_name!r}. "
+            "A confirmação humana é obrigatória."
+        )
+
+    if not prompt:
+        return HumanConfirmation(
+            confirmation_id="",
+            skill_name=skill_name,
+            request=request,
+            approved=False,
+            approved_at="",
+            mode="not_requested",
+        )
+
+    import click
+
+    approved = click.confirm(
+        f"Aprovar execução da skill {skill_name!r}?",
+        default=False,
+        abort=False,
+    )
+
+    if not approved:
+        return HumanConfirmation(
+            confirmation_id="",
+            skill_name=skill_name,
+            request=request,
+            approved=False,
+            approved_at="",
+            mode="interactive",
+        )
+
+    return HumanConfirmation(
+        confirmation_id=str(uuid.uuid4()),
+        skill_name=skill_name,
+        request=request,
+        approved=True,
+        approved_at=datetime.now(timezone.utc).isoformat(),
+        mode="interactive",
+    )
 
 
 def _thin_read_skill(skill_md: Path, skill_dir: Path) -> SkillSummary | None:
