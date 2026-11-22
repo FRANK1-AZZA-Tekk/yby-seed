@@ -10,7 +10,7 @@ import os
 import re
 from dataclasses import dataclass
 
-from src.evo.sanitize import sanitize_text as _sanitize_secrets
+from src.evo.sanitize import sanitize_text_with_count as _sanitize_secrets
 
 # PII / identificadores além dos segredos já cobertos por evo.sanitize.
 _PII_PATTERNS: tuple[tuple[str, re.Pattern[str], str], ...] = (
@@ -91,10 +91,10 @@ def sanitize_for_cloud(
 
     by_type: dict[str, int] = {}
     # Segredos primeiro (API keys, bearer, env vars).
-    before_secrets = text
-    out = _sanitize_secrets(text)
-    if out != before_secrets:
-        by_type["secret"] = 1
+    secrets = _sanitize_secrets(text)
+    out = secrets.text
+    if secrets.redactions:
+        by_type["secret"] = secrets.redactions
 
     for name, pattern, replacement in _PII_PATTERNS:
         matches = pattern.findall(out)

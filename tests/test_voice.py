@@ -102,6 +102,9 @@ def test_mic_avisa_ao_atingir_teto(monkeypatch, tmp_path: Path) -> None:
         def __exit__(self, *_exc):
             return False
 
+        def close(self):
+            pass
+
     def _input_stream(**kwargs):
         callback = kwargs["callback"]
         chunk = _Chunk(4)
@@ -111,7 +114,11 @@ def test_mic_avisa_ao_atingir_teto(monkeypatch, tmp_path: Path) -> None:
 
     fake_np = types.ModuleType("numpy")
     fake_np.concatenate = lambda frames, axis=0: _Chunk(sum(len(f) for f in frames))
-    fake_sd = types.SimpleNamespace(InputStream=_input_stream)
+    fake_sd = types.SimpleNamespace(
+        InputStream=_input_stream,
+        query_devices=lambda *_args: {"name": "Fake input", "max_input_channels": 1},
+        check_input_settings=lambda **_kwargs: None,
+    )
     monkeypatch.setattr(mic_mod, "check_mic", lambda: (True, "ok"))
     monkeypatch.setitem(sys.modules, "sounddevice", fake_sd)
     monkeypatch.setitem(sys.modules, "numpy", fake_np)
