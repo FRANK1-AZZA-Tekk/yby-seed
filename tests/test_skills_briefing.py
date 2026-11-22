@@ -6,7 +6,8 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from src.skills.briefing import ActionBriefing, ALLOWED_ACTIONS
+from src.safety.policy import SKILL_ACTIONS, is_allowed_skill_action
+from src.skills.briefing import ActionBriefing
 
 
 def _briefing(**overrides):
@@ -41,7 +42,7 @@ def test_valid_briefing_has_pending_status_and_hash():
     assert briefing.status == "pending"
     assert briefing.briefing_hash
     assert briefing.briefing_id == f"sha256:{briefing.briefing_hash}"
-    assert briefing.action in ALLOWED_ACTIONS
+    assert briefing.action in SKILL_ACTIONS
 
 
 def test_hash_is_deterministic():
@@ -125,3 +126,18 @@ def test_canonical_json_contains_schema_version():
 
     assert '"schema_version":1' in briefing.canonical_json()
     assert '"action":"copy_files_to_backup_dir"' in briefing.canonical_json()
+
+
+def test_skill_actions_allowlist_contains_backup_action():
+    assert "copy_files_to_backup_dir" in SKILL_ACTIONS
+
+
+def test_is_allowed_skill_action_accepts_known_action():
+    assert is_allowed_skill_action("copy_files_to_backup_dir") is True
+
+
+def test_is_allowed_skill_action_refuses_unknown_action():
+    assert is_allowed_skill_action("run_script") is False
+    assert is_allowed_skill_action("install") is False
+    assert is_allowed_skill_action("network") is False
+    assert is_allowed_skill_action("delete") is False
