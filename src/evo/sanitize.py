@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any
 
 REDACTED = "[REDACTED]"
@@ -45,15 +46,33 @@ _FORBIDDEN_KEYS = frozenset(
 )
 
 
+@dataclass(frozen=True)
+class SanitizeTextResult:
+    """Texto sanitizado e número de redações aplicadas."""
+
+    text: str
+    redactions: int
+
+
 def sanitize_text(text: str) -> str:
     """Remove valores de segredos em texto livre."""
 
+    return sanitize_text_with_count(text).text
+
+
+def sanitize_text_with_count(text: str) -> SanitizeTextResult:
+    """Remove valores de segredos em texto livre e conta as redações."""
+
     if not text:
-        return text
+        return SanitizeTextResult(text=text, redactions=0)
+
+    redactions = 0
     out = text
     for pattern in _SECRET_PATTERNS:
-        out = pattern.sub(_replace_match, out)
-    return out
+        out, count = pattern.subn(_replace_match, out)
+        redactions += count
+
+    return SanitizeTextResult(text=out, redactions=redactions)
 
 
 def _replace_match(match: re.Match[str]) -> str:
