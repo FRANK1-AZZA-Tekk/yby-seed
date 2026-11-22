@@ -12,7 +12,7 @@ from src.voice.config import VoiceConfig
 
 
 class TtsError(RuntimeError):
-    """Falha ao sintetizar ou dependência ausente."""
+    """Falha ao sintetizar ou reproduzir áudio."""
 
 
 def check_tts(config: VoiceConfig) -> tuple[bool, str]:
@@ -38,8 +38,11 @@ def check_tts(config: VoiceConfig) -> tuple[bool, str]:
 
 
 def speak(text: str, config: VoiceConfig) -> Path:
-    """Sintetiza `text` em WAV temporário e tenta tocar. Retorna o caminho do WAV."""
+    """Sintetiza e reproduz; no sucesso o chamador deve remover o WAV.
 
+    Em falha ou cancelamento, tenta remover o arquivo antes de propagar o erro.
+    Player ausente ou com retorno não zero é falha, não sucesso silencioso.
+    """
     cleaned = text.strip()
     if not cleaned:
         raise TtsError("Texto vazio; nada para falar.")
@@ -48,34 +51,45 @@ def speak(text: str, config: VoiceConfig) -> Path:
     if not ok:
         raise TtsError(message)
 
-    out = _temp_wav()
     try:
-        proc = subprocess.run(
-            [
-                config.piper_bin,
-                "--model",
-                config.piper_model,
-                "--output_file",
-                str(out),
-            ],
-            input=cleaned.encode("utf-8"),
-            capture_output=True,
-            check=False,
-            timeout=120,
-        )
-    except FileNotFoundError as exc:
-        raise TtsError(message) from exc
-    except subprocess.TimeoutExpired as exc:
-        out.unlink(missing_ok=True)
-        raise TtsError("Piper demorou demais.") from exc
+        out = _temp_wav()
+    except OSError as exc:
+        raise TtsError(f"Não deu para criar o WAV temporário: {exc}") from exc
 
-    if proc.returncode != 0 or not out.is_file() or out.stat().st_size == 0:
-        err = (proc.stderr or b"").decode("utf-8", errors="replace").strip()
-        out.unlink(missing_ok=True)
-        raise TtsError(err or "Piper não gerou áudio.")
+    try:
+        try:
+            proc = subprocess.run(
+                [
+                    config.piper_bin,
+                    "--model",
+                    config.piper_model,
+                    "--output_file",
+                    str(out),
+                ],
+                input=cleaned.encode("utf-8"),
+                capture_output=True,
+                check=False,
+                timeout=120,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise TtsError("Piper demorou demais.") from exc
+        except OSError as exc:
+            raise TtsError(f"Não deu para executar o Piper: {exc}") from exc
 
-    _play(out, config)
-    return out
+        if proc.returncode != 0 or not out.is_file() or out.stat().st_size == 0:
+            err = (proc.stderr or b"").decode("utf-8", errors="replace").strip()
+            raise TtsError(err or "Piper não gerou áudio.")
+
+        _play(out, config)
+        return out
+    except BaseException as exc:
+        try:
+            out.unlink(missing_ok=True)
+        except OSError as cleanup_error:
+            exc.add_note(f"Não deu para remover o WAV temporário: {cleanup_error}")
+        if isinstance(exc, OSError):
+            raise TtsError(f"Falha ao acessar o WAV: {exc}") from exc
+        raise
 
 
 def _temp_wav() -> Path:
@@ -87,14 +101,21 @@ def _temp_wav() -> Path:
 
 
 def _play(wav_path: Path, config: VoiceConfig) -> None:
-    """Toca o WAV se houver player; senão só deixa o arquivo."""
-
-    player = shutil.which(config.play_bin)
-    if player is None:
-        return
-    subprocess.run(
-        [player, str(wav_path)],
-        capture_output=True,
-        check=False,
-        timeout=120,
-    )
+    """Reproduz o WAV ou levanta TtsError com a causa da falha."""
+    try:
+        player = shutil.which(config.play_bin)
+        if player is None:
+            raise TtsError(f"Player '{config.play_bin}' não encontrado no PATH.")
+        proc = subprocess.run(
+            [player, str(wav_path)],
+            capture_output=True,
+            check=False,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise TtsError("Reprodução de áudio demorou demais.") from exc
+    except OSError as exc:
+        raise TtsError(f"Não deu para executar o player: {exc}") from exc
+    if proc.returncode != 0:
+        err = (proc.stderr or b"").decode("utf-8", errors="replace").strip()
+        raise TtsError(f"Player falhou (código {proc.returncode}): {err or 'sem detalhes'}")
