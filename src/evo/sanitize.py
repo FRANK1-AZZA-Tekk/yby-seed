@@ -25,6 +25,10 @@ _SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
 )
 
+_COMBINED_SECRET_PATTERN = re.compile(
+    "|".join(pattern.pattern for pattern in _SECRET_PATTERNS)
+)
+
 _FORBIDDEN_KEYS = frozenset(
     {
         "api_key",
@@ -66,19 +70,22 @@ def sanitize_text_with_count(text: str) -> SanitizeTextResult:
     if not text:
         return SanitizeTextResult(text=text, redactions=0)
 
-    redactions = 0
-    out = text
-    for pattern in _SECRET_PATTERNS:
-        out, count = pattern.subn(_replace_match, out)
-        redactions += count
+    out, redactions = _COMBINED_SECRET_PATTERN.subn(_replace_match, text)
 
     return SanitizeTextResult(text=out, redactions=redactions)
 
 
 def _replace_match(match: re.Match[str]) -> str:
-    groups = match.groups()
-    if len(groups) >= 2 and groups[0] is not None:
-        return f"{groups[0]}={REDACTED}"
+    matched = match.group(0)
+
+    if "=" in matched:
+        prefix, _, _ = matched.partition("=")
+        return f"{prefix}={REDACTED}"
+
+    if ":" in matched:
+        prefix, _, _ = matched.partition(":")
+        return f"{prefix}: {REDACTED}"
+
     return REDACTED
 
 
