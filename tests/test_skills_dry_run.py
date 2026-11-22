@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import click
 import pytest
 from click.testing import CliRunner
 
@@ -84,7 +85,9 @@ def test_request_human_confirm_without_prompt_is_not_approved():
     assert confirmation.mode == "not_requested"
 
 
-def test_request_human_confirm_accepts_interactive_approval():
+def test_request_human_confirm_accepts_interactive_approval(monkeypatch):
+    monkeypatch.setattr(click, "confirm", lambda *args, **kwargs: True)
+
     confirmation = request_human_confirm(
         skill_name="backup-automation",
         request="backup local",
@@ -94,6 +97,21 @@ def test_request_human_confirm_accepts_interactive_approval():
     assert confirmation.approved is True
     assert confirmation.confirmation_id
     assert confirmation.approved_at
+    assert confirmation.mode == "interactive"
+
+
+def test_request_human_confirm_rejects_interactive_approval(monkeypatch):
+    monkeypatch.setattr(click, "confirm", lambda *args, **kwargs: False)
+
+    confirmation = request_human_confirm(
+        skill_name="backup-automation",
+        request="backup local",
+        prompt=True,
+    )
+
+    assert confirmation.approved is False
+    assert confirmation.confirmation_id == ""
+    assert confirmation.approved_at == ""
     assert confirmation.mode == "interactive"
 
 
