@@ -5,23 +5,33 @@ Mapeamento e correções incrementais. Um PR por camada; métricas finais em `do
 | PR | Camada | Status |
 | :--- | :--- | :--- |
 | **PR-1** | `src/core`, `src/engine`, `src/agent_loop` | Concluído (#113) |
-| **PR-2** | `src/memory`, `src/rag` | Em review |
+| **PR-A** | Revisão da camada 1 (pós-merge #113) | Concluído (#116) |
+| **PR-2** | `src/memory`, `src/rag` | Concluído (#114) |
 | **PR-3** | `src/iot` | Em review |
 | PR-4 | `src/voice`, `src/vision` | Pendente |
 | PR-5 | `src/safety`, `src/security` | Pendente |
 | PR-6 | `src/gateway`, `src/monitoring` | Pendente |
 | PR-7 | Transversal + `docs/PERFORMANCE.md` | Pendente |
 
-Detalhes de cada entrega: `PROGRESS.md` (seção Robustez PR-n).
+Detalhes de cada entrega: `PROGRESS.md` (seção Robustez PR-n / PR-A).
 
 ## Skips conhecidos (`pytest -rs`)
 
-Captura em 2026-11-23 (**341 passed, 14 skipped**).
+Captura 2026-11-23 (pós #114–#119 + PR-3): **350 passed**, **14 skipped**.
 
-| Teste | Motivo |
+| Área | Qtd | Motivo |
+| :--- | ---: | :--- |
+| `tests/test_agents.py` | 8 | Agentes (Router/Planning/Execution/Validation/Learning) ainda não implementados |
+| `tests/test_gateway.py` | 3 | Gateway depende de Ollama/PostgreSQL/MQTT — fixtures pendentes |
+| `tests/test_rag.py` | 3 | RAG depende de embeddings reais — fixtures pendentes |
+
+## PR-A — checklist (core / engine / agent_loop)
+
+| Item | Estado |
 | :--- | :--- |
-| `tests/test_agents.py` (8) | Agentes (Router/Planning/Execution/Validation/Learning) ainda não implementados |
-| `tests/test_gateway.py` (3) | Gateway depende de Ollama/PostgreSQL/MQTT — fixtures pendentes |
-| `tests/test_rag.py` (3) | RAG depende de embeddings reais — fixtures pendentes |
-
-Saída completa: `/opt/cursor/artifacts/pytest-rs-pr3.txt`
+| HTTP retry/backoff (`_post_with_retry`, 408/429/502/503/504) | OK (#113) |
+| `HybridEngine.close()` / provedores | OK (#113) |
+| `tool_timeout_seconds` no `ControlledAgentLoop` | OK (#113) |
+| `OllamaClientError` + timeouts no legado | OK (#113) |
+| Exceção não prevista em tool → `status=error` (sem crash) | Corrigido (PR-A) |
+| `yby ask` / `yby agent --local` sem `close()` explícito no CLI | Follow-up (fora de `src/agent_loop`) |
