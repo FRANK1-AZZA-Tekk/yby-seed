@@ -109,6 +109,32 @@ def test_git_destrutivo_com_flags_fora_de_ordem() -> None:
     assert glued.action == "refuse"
 
 
+def test_git_config_runtime_nao_roda_sem_confirmacao() -> None:
+    """`git -c core.fsmonitor=... status` executa shell; não pode ser auto-run."""
+
+    from src.safety.policy import default_policy_path
+
+    policy = load_policy(default_policy_path())
+    root = Path(__file__).resolve().parents[1]
+    hooked = "git -c core.fsmonitor='touch /tmp/yby-not-created' status"
+    assert decide(hooked, policy=policy, project_root=root).action == "ask"
+    attached = "git -ccore.pager='touch /tmp/yby-not-created' diff"
+    assert decide(attached, policy=policy, project_root=root).action == "ask"
+    assert (
+        decide(
+            "git --config-env=core.fsmonitor=YBY_FS status",
+            policy=policy,
+            project_root=root,
+        ).action
+        == "ask"
+    )
+    assert decide("git status", policy=policy, project_root=root).action == "run"
+    assert decide("git log -c", policy=policy, project_root=root).action == "run"
+    assert decide("git log -c --grep=foo", policy=policy, project_root=root).action == "run"
+    forced = "git -c color.ui=false push --force"
+    assert decide(forced, policy=policy, project_root=root).action == "refuse"
+
+
 def test_git_forcado_e_recusado(tmp_path: Path) -> None:
     policy = _policy(tmp_path)
     decision = decide(

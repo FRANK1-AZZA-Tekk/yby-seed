@@ -114,6 +114,11 @@ def decide(command: str, *, policy: Policy, project_root: Path) -> Decision:
         return Decision("run", f"comando somente leitura: {program}")
 
     if program in policy.git:
+        if _git_runtime_config(argv):
+            return Decision(
+                "ask",
+                "git com configuração em runtime (-c/--config-env); pode executar código",
+            )
         sub = _git_subcommand(argv)
         if sub in _GIT_READ_ONLY:
             return Decision("run", f"git somente leitura: {sub}")
@@ -169,6 +174,27 @@ _GIT_READ_ONLY = frozenset(
 def _git_subcommand(argv: list[str]) -> str:
     tokens = _git_command_tokens(argv)
     return tokens[0] if tokens else ""
+
+
+def _git_runtime_config(argv: list[str]) -> bool:
+    """`git -c chave=valor` e `--config-env` executam código (fsmonitor, pager).
+
+    `git log -c` (diff combinado) não entra: o `-c` não é seguido de `chave=valor`.
+    """
+
+    for index, arg in enumerate(argv[1:], start=1):
+        if arg == "--":
+            break
+        if arg == "--config-env" or arg.startswith("--config-env="):
+            return True
+        if arg == "-c":
+            nxt = argv[index + 1] if index + 1 < len(argv) else ""
+            if nxt and not nxt.startswith("-") and "=" in nxt:
+                return True
+            continue
+        if arg.startswith("-c") and "=" in arg and not arg.startswith("--"):
+            return True
+    return False
 
 
 _GIT_OPTIONS_WITH_VALUE = frozenset(
