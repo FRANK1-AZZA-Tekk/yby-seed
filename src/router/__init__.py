@@ -1,4 +1,4 @@
-"""Roteador de IAs offline do YBY — fundação + classificador por regras."""
+"""Roteador de IAs offline do YBY — fundação, classificador, registry e fallback."""
 
 from src.router.classifier import classify, classify_result
 from src.router.config import (
@@ -16,6 +16,8 @@ from src.router.errors import (
     RoutingError,
     SafetyViolationError,
 )
+from src.router.fallback import FallbackError, FallbackPolicy, FallbackResult
+from src.router.observability import RouterEvent, RouterObserver
 from src.router.policy import (
     ALLOWED_TOOLS,
     INTENT_PROFILES,
@@ -24,6 +26,7 @@ from src.router.policy import (
     profile_for_intent,
     validate_route_decision,
 )
+from src.router.registry import ModelEntry, ModelRegistry
 from src.router.schemas import (
     DEFAULT_LANGUAGE,
     INTENTS,
@@ -45,17 +48,24 @@ __all__ = [
     "DEFAULT_LANGUAGE",
     "DEFAULT_LOCAL_MODEL",
     "DEFAULT_PROFILE_NAME",
+    "FallbackError",
+    "FallbackPolicy",
+    "FallbackResult",
     "INTENT_PROFILES",
     "INTENTS",
     "Intent",
+    "ModelEntry",
     "ModelNotFoundError",
     "ModelProfile",
+    "ModelRegistry",
     "RISK_LEVELS",
     "Request",
     "RiskLevel",
     "RouteDecision",
     "RouterConfig",
     "RouterError",
+    "RouterEvent",
+    "RouterObserver",
     "RouterResult",
     "RoutingError",
     "RoutingPolicy",
