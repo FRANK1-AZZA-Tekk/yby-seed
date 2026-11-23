@@ -122,3 +122,13 @@ Quando for avaliada, ela deve:
 - registrar sessões, tokens e custo;
 - manter o modo local funcional sem internet;
 - entrar somente após a fase P — PC Hub sempre ligado — estiver estável.
+
+## D14 — Visão FUSION-3B (2026-11-23)
+
+A visão do YBY usa **FUSION-X-Phi3.5-3B** (`starriver030515/FUSION-X-Phi3.5-3B-Stage1`) para análise de imagens em português brasileiro, integrado ao pipeline via LiteLLM (rota `yby-vision`) e FastAPI local.
+
+**Quantização:** como não há checkpoint GGUF/AWQ/GPTQ oficial publicado pelo autor, a rota de redução de VRAM é **bitsandbytes 4-bit** (`FUSION_QUANTIZATION=4bit`), já implementada em `src/vision/fusion/config.py`. O fallback é 8-bit caso o 4-bit degrade demais a qualidade em pt-BR.
+
+**Limitações:** pt-BR não é garantido pelo treinamento original (base Phi-3.5, foco em inglês) — validar com `tests/fusion_ptbr/test_fusion.py` antes de productizar. Se a qualidade for insuficiente, o fallback é **Qwen3-VL-2B**.
+
+**VRAM:** 8 GB quantizado (4-bit) ou 12–16 GB FP16. A rota `yby-vision` não entra nos fallbacks de outros níveis para evitar latência.
