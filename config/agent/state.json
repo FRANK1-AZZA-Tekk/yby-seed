@@ -1,0 +1,57 @@
+{
+  "task_id": "YBY-SEED-001",
+  "title": "",
+  "status": "NOT_STARTED",
+  "updated_at": "",
+  "scope": {
+    "allowed_paths": [
+      "src/",
+      "tests/",
+      "docs/"
+    ],
+    "forbidden_paths": [
+      ".env",
+      ".git/",
+      "deploy/",
+      "secrets/",
+      "firmware/"
+    ]
+  },
+  "done_when": [
+    "tests pass",
+    "lint passes",
+    "doctor passes when applicable",
+    "documentation updated",
+    "progress updated",
+    "commit created"
+  ],
+  "sensors": [
+    {
+      "name": "tests",
+      "command": "make test",
+      "expected_exit_code": 0,
+      "required": true
+    },
+    {
+      "name": "lint",
+      "command": "make lint",
+      "expected_exit_code": 0,
+      "required": true
+    },
+    {
+      "name": "doctor",
+      "command": "make doctor",
+      "expected_exit_code": 0,
+      "required": false
+    }
+  ],
+  "limits": {
+    "max_retries_same_error": 2,
+    "max_runtime_minutes": 30,
+    "max_api_cost": 0
+  },
+  "irreversible_actions_require_human_approval": true,
+  "blocked": [],
+  "decisions": [],
+  "next_step": ""
+}
