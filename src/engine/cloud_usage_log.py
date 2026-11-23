@@ -1,7 +1,7 @@
 """Log local de uso de nuvem — façade JSONL + SQLite (S1 / #42).
 
 API pública estável: `CloudUsageLog.append`. Com registry habilitado escreve
-SQLite primeiro; espelha JSONL se `YBY_CLOUD_JSONL_MIRROR=1` (default na migração).
+SQLite primeiro; espelha JSONL só se `YBY_CLOUD_JSONL_MIRROR=1` (S5: default off).
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ EVENT_CANCELLED = "cloud_cancelled"
 EVENT_BLOCKED_LOCAL_ONLY = "cloud_blocked_local_only"
 EVENT_BLOCKED_BUDGET = "cloud_blocked_budget"
 EVENT_BLOCKED_NO_TTY = "cloud_blocked_no_tty"
+EVENT_BLOCKED_AUTHZ = "cloud_blocked_authz"
 EVENT_EXCEPTION_GRANTED = "cloud_exception_granted"
 
 FORBIDDEN_KEYS = frozenset({"prompt", "api_key", "response", "text", "audio"})
@@ -47,7 +48,7 @@ class CloudUsageLog:
         path: Path,
         *,
         registry: CloudUsageRegistry | None = None,
-        jsonl_mirror: bool = True,
+        jsonl_mirror: bool = False,
         db_enabled: bool = True,
     ) -> None:
         self.path = path
@@ -65,7 +66,7 @@ class CloudUsageLog:
         db_enabled = db_raw.casefold() not in {"", "0", "off", "-", "none"}
         if not db_raw:
             db_raw = DEFAULT_DB_PATH
-        mirror = _bool(source, "YBY_CLOUD_JSONL_MIRROR", True)
+        mirror = _bool(source, "YBY_CLOUD_JSONL_MIRROR", False)
         registry = CloudUsageRegistry(Path(db_raw)) if db_enabled else None
         return cls(
             Path(raw),

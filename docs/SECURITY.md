@@ -36,7 +36,10 @@ O arquivo fica fora do git (`logs/` no `.gitignore`).
 
 - Store primário: SQLite local (`YBY_CLOUD_DB_PATH`, default `logs/cloud_usage.sqlite3`)
 - Campos adicionais: custo estimado, status, session/task id, `prompt_hash` / refs sem segredos
-- Authz: vault/refs só com autorização explícita; redaction antes de egress
+- Authz: vault/refs só com `YBY_CLOUD_ALLOW_VAULT=1`; sem grant → `cloud_blocked_authz` (sem HTTP)
+- Redaction (`YBY_CLOUD_SANITIZE=1`) antes do egress
+- Mirror JSONL off por padrão (`YBY_CLOUD_JSONL_MIRROR=0`); retenção via `CloudUsageRegistry.prune`
 - Modo `local_only` e offline continuam sem chamada de nuvem
 - Sem fallback automático OpenRouter↔Grok (D12)
 - D11 (voz local) permanece o padrão
+- Exception de budget **não** bypassa authz deny nem `local_only`
