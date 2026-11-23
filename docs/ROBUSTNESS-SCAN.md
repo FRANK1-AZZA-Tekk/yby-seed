@@ -16,4 +16,4 @@ Detalhes de cada entrega: `PROGRESS.md` (seção Robustez PR-n).
 
 ## Skips conhecidos (`pytest -rs`)
 
-Captura 2026-11-23 (pós PR-CRIT-2): **327 passed**, **14 skipped** — 8× `tests/test_agents.py`; 3× `tests/test_gateway.py`; 3× `tests/test_rag.py`.
+Captura 2026-11-23 (pós #118 + A02): **329 passed**, **14 skipped** — 8× `tests/test_agents.py` (agentes não implementados); 3× `tests/test_gateway.py` (Ollama/PostgreSQL/MQTT, fixtures pendentes); 3× `tests/test_rag.py` (embeddings reais).

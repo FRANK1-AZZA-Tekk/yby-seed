@@ -34,7 +34,7 @@ Artefatos: `/opt/cursor/artifacts/pytest-full.txt`, `pytest-cov.txt`, `pytest-sk
 
 | ID | Sev. | Área | Resumo |
 |----|------|------|--------|
-| A01 | **Crítico** | gateway | `insert` assíncrono chamado sem `await` |
+| A01 | ~~**Crítico**~~ **Corrigido** (PR-CRIT-1) | gateway | `insert` assíncrono chamado sem `await` |
 | A02 | ~~**Crítico**~~ **Corrigido** (PR-CRIT-2) | gateway | `asyncio.Queue` manipulada de thread MQTT |
 | A03 | **Alto** | security | Sandbox propaga secrets via `os.environ.copy()` |
 | A04 | **Alto** | iot/gateway | MQTT sem TLS/autenticação transporte |
@@ -57,12 +57,13 @@ Artefatos: `/opt/cursor/artifacts/pytest-full.txt`, `pytest-cov.txt`, `pytest-sk
 
 ## 3. Detalhe por achado
 
-### A01 — Crítico · Gateway não persiste batch
+### A01 — ~~Crítico~~ Corrigido (PR-CRIT-1) · Gateway não persiste batch
 
 | Campo | Valor |
 |-------|--------|
 | Arquivo | `src/gateway/fastapi_mqtt_bridge.py` |
 | Linhas | 217-234, 159 (`insert` é `async def`) |
+| Status | **Corrigido** — `process_batch` é `async` e faz `await db_client.insert`; testes em `tests/gateway/test_process_batch.py`. |
 | Descrição | `process_batch` é síncrona e invoca `db_client.insert({...})` sem `await`. Em Python 3.12 isso produz uma corrotina descartada; nenhuma escrita LanceDB ocorre. |
 | Impacto | Telemetria wearables aparenta “processar” nos logs, mas dados não chegam ao banco — falha silenciosa em produção. |
 | Correção sugerida | Tornar pipeline consistente: `await db_client.insert` no event loop, ou `asyncio.run_coroutine_threadsafe` / fila dedicada com worker async. |
