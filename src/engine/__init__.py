@@ -1,4 +1,4 @@
-"""Motor híbrido do YBY SEED: Ollama local e fallback OpenAI-compatível."""
+"""Motor híbrido do YBY SEED: Ollama local; nuvem só quando o roteamento pede."""
 
 from src.engine.hybrid import EngineReply, HybridEngine, engine_from_env
 
