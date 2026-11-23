@@ -12,17 +12,17 @@ A plataforma desse PC Hub está em D9: servidor doméstico sempre ligado.
 
 Inventário real de repositórios e arquitetura por domínios antes de qualquer código novo.
 
-## D3 — Local-first, nuvem sob demanda (2026-11-11; nota OpenRouter 2026-11-11)
+## D3 — Local-first, nuvem sob demanda (2026-11-11; revisão alinhada ao código v1)
 
-Ollama local primeiro. A nuvem entra quando a heurística de complexidade ou tamanho dispara, ou quando a pessoa pede (`--heavy`, frases como "pensa mais").
+Ollama local primeiro. A nuvem entra **somente** quando o roteamento classifica o pedido como pesado (`src/engine/routing.py`): flag `--heavy`, frases configuradas, limites de tamanho/complexidade — não por falha silenciosa do Ollama (ver D12 / fase P).
 
-O provedor de nuvem é compatível com a API da OpenAI e configurável por URL, modelo e chave. Destino de nuvem padrão: **OpenRouter com modelo free** (`openrouter/free`). Se OpenRouter falhar ou não houver chave, fallback para **Grok (xAI)**. Chaves só no `.env` do servidor.
+Quando o destino é nuvem, o provedor compatível com a API OpenAI é configurável por URL, modelo e chave no `.env` do servidor. **Destino padrão do caminho nuvem:** OpenRouter, modelo `openrouter/free` (`YBY_CLOUD_*` / `OPENROUTER_API_KEY`).
 
-Nota do dono (aprovado): OpenRouter free é o alvo de nuvem padrão; Grok é o fallback **quando** o failover automático for reativado com autorização explícita.
+**OpenRouter → Grok:** no v1 atual **não há** failover automático de OpenRouter para Grok (xAI). Se OpenRouter falhar no caminho nuvem, o motor degrada para resposta **local** (ou aviso), com log conforme D12. Chaves `YBY_GROK_*` / `XAI_API_KEY` permanecem no template de ambiente para evolução futura (issue **#42**: reativar cascade só com autorização explícita e confirmação).
 
-**Implementação (código vigente):** o `ask` usa OpenRouter como nuvem **primária** quando o roteamento pede nuvem (`src/engine/providers.py`, `CascadingCloudProvider`). **Falha do OpenRouter não chama Grok automaticamente** — regra operacional em **D12** e issue **#42**. Chaves Grok (`YBY_GROK_*`) permanecem no `.env` para evolução futura, não para cascade silencioso.
+**Implementação:** `HybridEngine` + `CascadingCloudProvider` (`src/engine/hybrid.py`, `src/engine/providers.py`) chamam apenas o provedor primário (OpenRouter) no caminho nuvem.
 
-Substitui a redação intermediária em que Grok era o destino automático e OpenRouter só configuração alternativa. Também substitui a redação antiga "Ollama local primeiro; OpenRouter apenas como fallback."
+Substitui redações que descreviam Grok como fallback automático imediato ou "OpenRouter apenas como fallback" do caminho local.
 
 ## D4 — Modelo local (2026-11-11)
 
@@ -93,9 +93,11 @@ Tetos operacionais:
 
 Regras:
 - O caminho padrão é local: Ollama, `qwen2.5-coder:3b`, testes e ferramentas locais.
-- Nuvem só entra quando a tarefa exigir capacidade indisponível localmente ou quando o usuário autorizar explicitamente.
-- OpenRouter é alternativa manual/configurável, não fallback automático.
-- Grok/xAI pode ser o destino de nuvem configurado; OpenRouter permanece opcional.
+- Nuvem só entra quando o roteamento classifica a tarefa como pesada ou quando o usuário autorizar explicitamente.
+- No caminho nuvem, OpenRouter é o destino padrão configurável (`openrouter/free`).
+- Não há failover automático de OpenRouter para Grok (xAI) no v1.
+- Se OpenRouter falhar no caminho nuvem, o motor degrada para resposta local ou aviso, com log conforme a implementação vigente.
+- Grok/xAI permanece integração futura, condicionada a autorização explícita e confirmação (issue #42).
 - Cursor executa tarefas com escopo fechado: arquivos-alvo, critério de aceite, diff mínimo e testes.
 - Evitar exploração ampla do repositório, refatoração não solicitada, documentação nova sem aprovação e subagentes paralelos.
 - Modelos locais de 7B ou maiores não entram no v1, salvo decisão explícita do dono.
