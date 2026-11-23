@@ -123,12 +123,14 @@ Quando for avaliada, ela deve:
 - manter o modo local funcional sem internet;
 - entrar somente após a fase P — PC Hub sempre ligado — estiver estável.
 
-## D14 — Visão FUSION-3B (2026-11-23)
+## D14 — Visão FUSION-3B (2026-11-23; atualizada com plano B Qwen3-VL-2B)
 
 A visão do YBY usa **FUSION-X-Phi3.5-3B** (`starriver030515/FUSION-X-Phi3.5-3B-Stage1`) para análise de imagens em português brasileiro, integrado ao pipeline via LiteLLM (rota `yby-vision`) e FastAPI local.
 
 **Quantização:** como não há checkpoint GGUF/AWQ/GPTQ oficial publicado pelo autor, a rota de redução de VRAM é **bitsandbytes 4-bit** (`FUSION_QUANTIZATION=4bit`), já implementada em `src/vision/fusion/config.py`. O fallback é 8-bit caso o 4-bit degrade demais a qualidade em pt-BR.
 
-**Limitações:** pt-BR não é garantido pelo treinamento original (base Phi-3.5, foco em inglês) — validar com `tests/fusion_ptbr/test_fusion.py` antes de productizar. Se a qualidade for insuficiente, o fallback é **Qwen3-VL-2B**.
+**Plano B — Qwen3-VL-2B (GGUF oficial):** caso o FUSION-3B em 4-bit não atenda ao requisito de VRAM ou à qualidade em pt-BR, o fallback é o **Qwen3-VL-2B** com GGUF oficial publicado pela equipe Qwen (`Qwen/Qwen3-VL-2B-Instruct-GGUF`, com variantes FP16, Q8_0 e Q4_K_M, incluindo `mmproj` para o encoder visual). Instalação via Ollama: `ollama run qwen3-vl:2b`. VRAM estimada: ~2–3 GB em Q4_K_M, bem abaixo dos 8 GB do FUSION-3B quantizado. Suporte multilíngue (incluindo pt-BR) tende a ser melhor que o FUSION (base Phi-3.5, foco em inglês).
 
-**VRAM:** 8 GB quantizado (4-bit) ou 12–16 GB FP16. A rota `yby-vision` não entra nos fallbacks de outros níveis para evitar latência.
+**Limitações:** pt-BR não é garantido pelo treinamento original do FUSION (base Phi-3.5, foco em inglês) — validar com `tests/fusion_ptbr/test_fusion.py` antes de productizar. Se a qualidade for insuficiente, usar Qwen3-VL-2B.
+
+**VRAM:** FUSION-3B: 8 GB quantizado (4-bit) ou 12–16 GB FP16. Qwen3-VL-2B: ~2–3 GB em Q4_K_M. A rota `yby-vision` não entra nos fallbacks de outros níveis para evitar latência.
