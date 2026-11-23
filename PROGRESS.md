@@ -33,3 +33,27 @@ make check
 - `config/agent/state.json` e `CONTRACT.md` não criados (fora do necessário nesta camada).
 
 **Próximo passo:** uma camada pequena — alinhar docstring de `src/engine/routing.py` (L17–18) com D12 / `_after_local_failure`, ou integrar `ask --agent` (só após decisão humana).
+
+## Camada: P0-D12-ROUTING-DOC (docs only)
+
+**Objetivo:** docstring de `routing.py` alinhada a D12 — falha Ollama **não** auto-cai para nuvem.
+
+**Status:** implementada; aguarda review humano (sem commit).
+
+**Arquivos:**
+
+- Editado: `src/engine/routing.py` (docstring L17–19)
+- Editado: `src/engine/__init__.py` (one-liner sem “fallback”)
+- Editado: `PROGRESS.md` (esta nota)
+
+**Evidências (baseline pré-edit + pós-edit, 2026-11-23):**
+
+```text
+branch: cursor/agent-cli-contract-bcee @ 281afb9
+PYTHONPATH=. python3 -m pytest tests/test_engine.py -k ollama_fora -q
+→ 3 passed, 25 deselected (exit 0)
+make check
+→ doctor: PASS; ruff: All checks passed!; 301 passed, 14 skipped (exit 0)
+```
+
+**Decisões:** só docstring/`__init__`; sem mudança de comportamento; sem commit/push.

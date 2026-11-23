@@ -15,7 +15,8 @@ Sinais, em OU:
 3. Complexidade: quantidade de `?` >= `YBY_HEAVY_MIN_QUESTIONS` (padrão 3).
 
 Sem esses sinais, o destino é o Ollama local. A escolha daqui não consulta
-a rede: se o Ollama estiver fora, o motor troca para a nuvem na hora da chamada.
+a rede. Falha do Ollama no caminho local não dispara nuvem silenciosa (D12);
+nuvem só entra quando o roteamento já pediu (sinais acima / `--heavy`).
 """
 
 from __future__ import annotations
