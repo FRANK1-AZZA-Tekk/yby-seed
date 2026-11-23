@@ -40,9 +40,11 @@ class EpisodePipeline:
         metadata: dict[str, Any] | None = None,
         *,
         now: float | None = None,
+        apply_guard: bool = True,
+        fingerprint: str | None = None,
     ) -> EpisodeSaveResult:
-        fp = episode_fingerprint(text, metadata)
-        if not self.guard.should_accept(source_id, fp, now=now):
+        fp = fingerprint if fingerprint is not None else episode_fingerprint(text, metadata)
+        if apply_guard and not self.guard.should_accept(source_id, fp, now=now):
             return EpisodeSaveResult(accepted=False, persisted=False, queued=False)
 
         payload = {
@@ -50,6 +52,8 @@ class EpisodePipeline:
             "user_id": self.user_id,
             "metadata": metadata or {},
             "source_id": source_id,
+            "fingerprint": fp,
+            "guard_applied": not apply_guard,
         }
         if self.remote is None:
             raise ValueError("cliente remoto não configurado")

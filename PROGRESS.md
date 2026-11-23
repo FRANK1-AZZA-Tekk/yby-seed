@@ -151,3 +151,22 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 **Testes:** `tests/memory/test_episode_pipeline.py`, `tests/rag/test_context_window.py`
 
 **Próximo:** PR-3 endurecer `src/iot` (flood MQTT).
+
+## Robustez PR-3 — `src/iot`
+
+**Objetivo:** reconexão MQTT com backoff + jitter, validação de payload sem crash, fila anti-flood e dedupe única com `EpisodePipeline`.
+
+**Status:** implementada; PR aberto.
+
+**Correções:**
+
+- `src/iot/reconnect.py` — atraso exponencial (1s, 2s, 4s, 8s…) com jitter.
+- `src/iot/message_queue.py` — fila limitada (`IOT_MAX_QUEUE_SIZE`, padrão 100) com drop e log estruturado.
+- `src/iot/client.py` — reconexão configurável (`IOT_RECONNECT_MAX_ATTEMPTS`, padrão 5), fila de ingestão.
+- `src/iot/handlers.py` — `parse_message_safe()` e log `iot_payload_rejected` (sem corpo da mensagem).
+- `src/iot/mem0_bridge.py` — `save_episode_via_pipeline()` (guard uma vez; `apply_guard=False` no pipeline).
+- `src/memory/episode_pipeline.py` — flag `apply_guard` / `fingerprint` para evitar dupla filtragem no flush.
+
+**Testes:** `tests/iot/test_mqtt_robustness.py` (+ ajustes em `test_mqtt_client.py`).
+
+**Próximo:** PR-4 voz + visão.

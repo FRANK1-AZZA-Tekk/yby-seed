@@ -29,6 +29,8 @@ def test_iot_config_from_env_defaults() -> None:
     assert cfg.broker_port == 1883
     assert cfg.username is None
     assert cfg.topics == ["yby/sensors/#"]
+    assert cfg.reconnect_max_attempts == 5
+    assert cfg.max_queue_size == 100
 
 
 def test_iot_config_from_env_overrides(monkeypatch) -> None:
