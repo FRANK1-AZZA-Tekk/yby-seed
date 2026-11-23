@@ -36,6 +36,13 @@ Depois do setup: `make doctor` (ambiente) e `make test` (pytest).
 | `python yby.py evo report --day YYYY-MM-DD` | Evo v0.1: relatório local (offline) |
 | `python -m src.evo report --seed-demo --no-ollama` | mesmo fluxo via módulo |
 
+Agente P0 (fora do `ask`; `--local` exige Ollama). Exit: `0` completed, `2` aborted, `1` erro:
+
+```bash
+python yby.py agent "demo P0" --script examples/agent_demo_script.json
+python yby.py agent "demo P0" --script examples/agent_demo_script.json --json
+```
+
 Voz: `pip install -r requirements-voice.txt`, binário Piper no PATH e `YBY_PIPER_MODEL`. Sem isso, `ask` em texto segue; a voz avisa com mensagem clara.
 
 Hub no boot: `bash scripts/install-hub-service.sh --enable`. Detalhe: [PLATFORM.md](PLATFORM.md).
