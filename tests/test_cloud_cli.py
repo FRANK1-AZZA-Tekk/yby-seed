@@ -53,6 +53,7 @@ def test_build_and_format_report(tmp_path, monkeypatch) -> None:
     assert "YBY cloud usage" in text
     assert "events: 1" in text
     assert "allow_vault: 0" in text
+    assert "não são a fatura do provedor" in text
 
 
 def test_cli_report_and_prune(tmp_path, monkeypatch) -> None:

@@ -242,9 +242,14 @@ JSON Schema mirror (optional file for tooling): see §11 `docs/schemas/cloud_usa
 
 ### 4.5 Cost estimation (local-only)
 
-- Maintain a tiny in-repo price table (USD per 1M in/out tokens) keyed by `provider`+`model`, defaulting to `0` for `:free` / unknown.
-- `estimated_cost_usd = in/1e6 * price_in + out/1e6 * price_out`.
-- Estimates are **advisory**; never claim invoice accuracy.
+- Maintain a tiny in-repo price table (USD per 1M in/out tokens) keyed by `provider`+`model`.
+- `estimated_cost_usd = in/1e6 * price_in + out/1e6 * price_out` (advisory para o **teto local**).
+- **`cost_basis`** em meta / API: `known` | `free` | `unknown_conservative`.
+  - `:free` / tabela 0 → `free` (USD 0 é custo conhecido zero).
+  - modelo tabelado → `known`.
+  - tarifa **desconhecida** → `unknown_conservative` (floor Sonnet para o orçamento **não** furar o teto). **Não** apresentar unknown como custo zero conhecido.
+- Tokens no registry, hoje: **`token_basis=estimated`** (heurística local). Tokens reportados pelo provedor são futuros; não misturar.
+- **O número do SEED não é a fatura do provedor.** Relatório/orçamento batem no histórico local; cobrança real fica no painel do vendor.
 - D12 / dono: **OpenRouter hard cap US$ 10/mês** (`YBY_CLOUD_MONTHLY_COST_USD_LIMIT=10`, default). Cursor Premium permanece política humana separada. Env limits abaixo são machine-enforced.
 
 ---
@@ -256,7 +261,8 @@ JSON Schema mirror (optional file for tooling): see §11 `docs/schemas/cloud_usa
 3. **Dual-write window** (slice 1–2): write SQLite primary + append JSONL if `YBY_CLOUD_JSONL_MIRROR=1` (default `1` during migration, then `0`).
 4. **Checksum:** import reports `imported_n`, `skipped_n`, `last_timestamp`.
 5. Do **not** delete JSONL automatically; operator may archive.
-6. Budget readers switch to SQLite sums; fallback to JSONL only if DB missing (compat).
+6. Budget readers switch to SQLite sums; fallback to JSONL only if DB missing (compat). Durante coexistência mirror JSONL + SQLite, o budget **só** soma SQLite (evita double-count).
+7. `import_jsonl` é **idempotente** (dedupe por timestamp+provider+model+purpose+status+tokens); reimportar o mesmo histórico não duplica tentativas.
 
 ---
 
