@@ -1,0 +1,3 @@
+# Dependências opcionais — sensores MQTT (issue #111)
+# pip install -r requirements-iot.txt
+paho-mqtt>=1.6,<3
