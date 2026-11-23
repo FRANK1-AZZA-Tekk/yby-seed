@@ -1,0 +1,30 @@
+{
+  "apps": {
+    "obsidian": {
+      "argv": ["obsidian"]
+    },
+    "terminal": {
+      "argv": ["gnome-terminal"]
+    }
+  },
+  "search_roots": [
+    "~/Documents",
+    "~/Downloads"
+  ],
+  "find_limit_default": 10,
+  "routines": {
+    "modo_estudo": {
+      "aliases": [
+        "modo estudo",
+        "ativa modo estudo",
+        "ativar modo estudo"
+      ],
+      "steps": [
+        { "tool": "app.open", "args": { "name": "obsidian" } },
+        { "tool": "vault.search", "args": { "query": "embarcados", "k": 5 } }
+      ]
+    }
+  },
+  "reminders_path": "~/.local/state/yby-seed/assist-reminders.json",
+  "audit_log_path": "~/.local/state/yby-seed/assist-audit.jsonl"
+}
