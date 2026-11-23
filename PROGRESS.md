@@ -135,3 +135,13 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 **Testes novos:** `test_ollama_client.py`, `test_robustness_pr1.py`, + provider 503, agent loop timeout.
 
 **Próximo passo (fila):** PR-2 `src/memory` + `src/rag`; depois PR-3 `src/iot`, etc. (`docs/PERFORMANCE.md` na PR-7).
+
+## Correção crítica 1 — Gateway `await` em `insert` (A01)
+
+**Objetivo:** corrigir achado crítico A01 da auditoria (#117).
+
+**Status:** implementada; PR aberto.
+
+**Correções:** `process_batch` assíncrono com `await db_client.insert`; worker chama `await process_batch` no event loop.
+
+**Testes:** `tests/gateway/test_process_batch.py` (sucesso só após insert; falha propaga erro).
