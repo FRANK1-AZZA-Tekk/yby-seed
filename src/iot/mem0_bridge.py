@@ -7,6 +7,7 @@ from typing import Any, Callable, Protocol
 
 from src.iot.handlers import SensorEvent
 from src.memory.episode_guard import DEFAULT_DEDUPE_SECONDS, DEFAULT_RATE_PER_MINUTE, EpisodeGuard
+from src.memory.episode_pipeline import EpisodePipeline, EpisodeSaveResult
 
 DEDUPE_SECONDS = DEFAULT_DEDUPE_SECONDS
 RATE_LIMIT_PER_MINUTE = DEFAULT_RATE_PER_MINUTE
@@ -51,6 +52,18 @@ def _event_fingerprint(event: SensorEvent) -> str:
     return f"{event.event_type.value}:{event.value!r}"
 
 
+def _guard_accepts(
+    event: SensorEvent,
+    store: EpisodeGuard | EpisodeStore | None,
+    *,
+    now: float | None,
+) -> bool:
+    if isinstance(store, EpisodeStore):
+        return store.should_accept(event, now=now)
+    guard = store or EpisodeGuard()
+    return guard.should_accept(event.sensor_id, _event_fingerprint(event), now=now)
+
+
 def save_episode(
     event: SensorEvent,
     *,
@@ -59,19 +72,15 @@ def save_episode(
     user_id: str = "yby-iot",
     store: EpisodeGuard | EpisodeStore | None = None,
     now: float | None = None,
+    skip_guard: bool = False,
 ) -> bool:
     """
     Grava o evento no Mem0 se passar dedupe e rate-limit.
 
     Retorna True quando persistiu, False quando ignorado.
     """
-    if isinstance(store, EpisodeStore):
-        if not store.should_accept(event, now=now):
-            return False
-    else:
-        guard = store or EpisodeGuard()
-        if not guard.should_accept(event.sensor_id, _event_fingerprint(event), now=now):
-            return False
+    if not skip_guard and not _guard_accepts(event, store, now=now):
+        return False
 
     text = _event_to_text(event)
     metadata = {
@@ -95,3 +104,36 @@ def save_episode(
         return True
 
     raise ValueError("Informe mem0_client ou save_fn para persistir o episódio.")
+
+
+def save_episode_via_pipeline(
+    event: SensorEvent,
+    pipeline: EpisodePipeline,
+    *,
+    guard: EpisodeGuard | EpisodeStore | None = None,
+    now: float | None = None,
+) -> EpisodeSaveResult:
+    """
+    Aplica :class:`EpisodeGuard` uma única vez e delega ao pipeline sem segunda filtragem.
+    """
+
+    if not _guard_accepts(event, guard, now=now):
+        return EpisodeSaveResult(accepted=False, persisted=False, queued=False)
+
+    text = _event_to_text(event)
+    metadata = {
+        "sensor_id": event.sensor_id,
+        "event_type": event.event_type.value,
+        "room": event.room,
+        "topic": event.topic,
+        "value": event.value,
+    }
+    fp = _event_fingerprint(event)
+    return pipeline.save(
+        event.sensor_id,
+        text,
+        metadata,
+        now=now,
+        apply_guard=False,
+        fingerprint=fp,
+    )

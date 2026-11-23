@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 _EVENT_SUFFIXES = frozenset({"presence", "temperature", "door", "motion"})
 
@@ -69,6 +72,27 @@ def validate_payload(data: dict[str, Any]) -> Any:
     if "value" not in data:
         raise PayloadValidationError('payload deve conter a chave "value"')
     return data["value"]
+
+
+def parse_message_safe(topic: str, payload: bytes | str) -> SensorEvent | None:
+    """
+    Igual a :func:`parse_message`, mas rejeita payloads inválidos com log estruturado.
+
+    Não registra o corpo da mensagem (D10).
+    """
+
+    try:
+        return parse_message(topic, payload)
+    except PayloadValidationError as exc:
+        logger.warning(
+            "iot_payload_rejected",
+            extra={
+                "topic": topic,
+                "error_type": type(exc).__name__,
+                "reason": str(exc),
+            },
+        )
+        return None
 
 
 def parse_message(topic: str, payload: bytes | str) -> SensorEvent:
