@@ -1,0 +1,7 @@
+# Visão computacional FUSION-X (opcional — não faz parte do CI mínimo)
+transformers>=4.44.0
+torch>=2.1.0
+pillow>=10.0.0
+# bitsandbytes>=0.43.0  # opcional: FUSION_QUANTIZATION=4bit|8bit
+fastapi>=0.104.0
+uvicorn>=0.24.0
