@@ -4,8 +4,8 @@ Mapeamento e correções incrementais. Um PR por camada; métricas finais em `do
 
 | PR | Camada | Status |
 | :--- | :--- | :--- |
-| **PR-1** | `src/core`, `src/engine`, `src/agent_loop` | Em review |
-| PR-2 | `src/memory`, `src/rag` | Pendente |
+| **PR-1** | `src/core`, `src/engine`, `src/agent_loop` | Concluído (#113) |
+| **PR-2** | `src/memory`, `src/rag` | Em review |
 | PR-3 | `src/iot` | Pendente |
 | PR-4 | `src/voice`, `src/vision` | Pendente |
 | PR-5 | `src/safety`, `src/security` | Pendente |

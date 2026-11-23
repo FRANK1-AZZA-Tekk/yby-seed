@@ -135,3 +135,19 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 **Testes novos:** `test_ollama_client.py`, `test_robustness_pr1.py`, + provider 503, agent loop timeout.
 
 **Próximo passo (fila):** PR-2 `src/memory` + `src/rag`; depois PR-3 `src/iot`, etc. (`docs/PERFORMANCE.md` na PR-7).
+
+## Robustez PR-2 — `src/memory` + `src/rag`
+
+**Objetivo:** dedupe/rate episódios, fila local sqlite3, retry HTTP Mem0, janela de contexto RAG e cache de busca/embeddings.
+
+**Status:** implementada; PR aberto.
+
+**Novos módulos:**
+
+- `src/memory/episode_guard.py`, `pending_queue.py`, `remote_store.py`, `episode_pipeline.py`
+- `src/rag/context_window.py`, `search_cache.py`
+- IoT: `mem0_bridge` reutiliza `EpisodeGuard`
+
+**Testes:** `tests/memory/test_episode_pipeline.py`, `tests/rag/test_context_window.py`
+
+**Próximo:** PR-3 endurecer `src/iot` (flood MQTT).
