@@ -17,7 +17,7 @@ Isto descreve o que o repositório já faz hoje, alinhado às decisões fechadas
 | Syncthing | Fora do processo YBY; exemplos em `examples/syncthing/` e `docs/syncthing/`. Serviço de **usuário** (decisão #6 / A). |
 | Backup vault | Script mínimo `scripts/backup-vault.sh` (tar + retenção 7); destino padrão `~/backups/yby-vault/` (decisão #4 / A). Destino via env — **não** comprovado no hardware deste ambiente. |
 | Política nuvem vs falha Ollama | Caminho local: falha Ollama **não** chama nuvem (`HybridEngine._after_local_failure`, D12 / fase P). Hub na estabilização: **sem** chaves de nuvem no `.env` do servidor (decisão #8 / A). Nuvem só com roteamento pesado/`--heavy` + gate (após #42 / chaves). OpenRouter→Grok: sem failover automático (`CascadingCloudProvider`). |
-| Issue #42 | Log JSONL + budget diário/mensal (tokens) + confirm TTY já existem; SQLite FinOps / custo / exception / sanitizer gated ainda abertos. |
+| Issue #42 | JSONL + budget diário/mensal (tokens+USD) + exception 1-shot + sanitizer gated + confirm TTY; SQLite FinOps (S1) e authz vault ainda abertos. |
 
 ## Decisões fechadas (dono — 2026-11-19)
 

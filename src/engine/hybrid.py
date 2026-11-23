@@ -11,6 +11,7 @@ from typing import Literal
 
 from src.engine.budget import CloudBudget, CODE_BLOCKED_BUDGET, CODE_BLOCKED_LOCAL_ONLY, CODE_BLOCKED_NO_TTY
 from src.engine.cache import ResponseCache
+from src.engine.cloud_pricing import estimate_cost_usd
 from src.engine.cloud_usage_log import (
     CloudUsageLog,
     EVENT_BLOCKED_BUDGET,
@@ -19,6 +20,7 @@ from src.engine.cloud_usage_log import (
     EVENT_CANCELLED,
     EVENT_COMPLETED,
     EVENT_CONFIRMED,
+    EVENT_EXCEPTION_GRANTED,
     EVENT_FAILED,
     EVENT_REQUESTED,
     utc_timestamp,
@@ -282,7 +284,21 @@ class HybridEngine:
             self.cloud_log.append(event)
             return EngineReply("", "none", "", decision.reasons, evaluation.reason)
 
-        if evaluation.reason.startswith("Aviso:"):
+        if evaluation.exception_granted:
+            self.cloud_log.append(
+                {
+                    "timestamp": utc_timestamp(),
+                    "provider": provider_label,
+                    "model": model,
+                    "purpose": purpose,
+                    "input_tokens_estimate": input_est,
+                    "output_tokens_estimate": 0,
+                    "result": EVENT_EXCEPTION_GRANTED,
+                    "meta": {"exception": True},
+                }
+            )
+            self._budget_warn = evaluation.reason
+        elif evaluation.reason.startswith("Aviso:"):
             self._budget_warn = evaluation.reason
 
         self.cloud_log.append(
@@ -297,10 +313,42 @@ class HybridEngine:
             }
         )
 
-        needs_confirm = self.budget.require_confirm and not self._cloud_session_confirmed
+        est_cost = estimate_cost_usd(
+            provider=provider_label,
+            model=model,
+            input_tokens=input_est,
+            output_tokens=0,
+        )
+        needs_confirm = self.budget.should_confirm(
+            input_tokens=input_est,
+            estimated_cost_usd=est_cost,
+            purpose=purpose,
+            session_confirmed=self._cloud_session_confirmed,
+            evaluation=evaluation,
+        )
         if needs_confirm:
+            if not self.has_tty_fn() and not self.budget.allow_no_tty:
+                self.cloud_log.append(
+                    {
+                        "timestamp": utc_timestamp(),
+                        "provider": provider_label,
+                        "model": model,
+                        "purpose": purpose,
+                        "input_tokens_estimate": input_est,
+                        "output_tokens_estimate": 0,
+                        "result": EVENT_BLOCKED_NO_TTY,
+                    }
+                )
+                return EngineReply(
+                    "",
+                    "none",
+                    "",
+                    decision.reasons,
+                    "Confirmação de nuvem exige TTY (stdin/stdout interativo).",
+                )
             question = (
-                "Este pedido pode usar nuvem (tokens/custo). Confirmar? [s/n]"
+                f"Nuvem {provider_label}/{model} ({purpose}): "
+                f"~{input_est} tokens in, ~${est_cost:.4f}. Confirmar? [s/n]"
             )
             if not self.confirm_fn(question):
                 self.cloud_log.append(
@@ -400,6 +448,12 @@ class HybridEngine:
             raise exc
 
         output_est = CloudUsageLog.estimate_tokens(result.text)
+        cost = estimate_cost_usd(
+            provider=result.via,
+            model=result.model,
+            input_tokens=input_est,
+            output_tokens=output_est,
+        )
         self.cloud_log.append(
             {
                 "timestamp": utc_timestamp(),
@@ -408,6 +462,7 @@ class HybridEngine:
                 "purpose": purpose,
                 "input_tokens_estimate": input_est,
                 "output_tokens_estimate": output_est,
+                "estimated_cost_usd": cost,
                 "result": EVENT_COMPLETED,
             }
         )

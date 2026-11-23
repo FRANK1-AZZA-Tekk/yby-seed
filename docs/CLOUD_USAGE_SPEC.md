@@ -1,7 +1,7 @@
 # Cloud Usage Registry & FinOps — Technical Spec (Issue #42)
 
-**Status (código):** **parcial** — baseline JSONL + budget **diário+mensal (tokens)** + confirmação TTY + **falha Ollama no caminho local sem cascade nuvem** (D12 / fase P) + **sanitizer gated no `_cloud_call`** (`cloud_sanitizer.py`, S4 parcial) já no runtime.  
-**Ainda aberto:** SQLite FinOps (S1), custo USD + exception path (resto de S2), authz vault antes do egress (resto de S4).  
+**Status (código):** **parcial** — baseline JSONL + budget **diário+mensal (tokens + USD)** + **exception 1-shot** (`YBY_CLOUD_BUDGET_EXCEPTION` / `--cloud-exception`) + confirmação TTY + **falha Ollama local sem cascade nuvem** (D12) + **sanitizer gated** (S4 parcial) já no runtime.  
+**Ainda aberto:** SQLite FinOps (S1), authz vault antes do egress (resto de S4).  
 **Este documento:** SPEC / PLAN (não muda comportamento por si só).  
 **Decisions:** D12 (economia de execução) governs cloud; **D11 (voz local) is unchanged**.  
 **Constraint:** no sensitive data leaves the machine without explicit authz; no OpenRouter auto-fallback; no heavy deps (stdlib `sqlite3` + existing `pydantic`).
@@ -14,7 +14,7 @@
 | **D12 / fase P** | Falha Ollama local → sem nuvem automática (`HybridEngine._after_local_failure`) | Feito (código + testes) |
 | Baseline pré-spec | JSONL `cloud_usage_log` + budget mensal + confirm TTY | Feito |
 | **S1** | `cloud_usage_db.py` + import JSONL | Aberto |
-| **S2** | Daily budget + custo + exception | **Parcial** — teto/aviso diário de **tokens** em `budget.py`; custo USD + exception ainda abertos |
+| **S2** | Daily budget + custo + exception | **Feito** (tokens + USD + exception 1-shot; tabela de preços ainda mínima / free→0) |
 | **S3** | Wire hybrid com registry status | Aberto (parcial: eventos JSONL no caminho cloud) |
 | **S4** | Sanitizer/authz gated antes do egress | Parcial (sanitizer no hybrid; authz vault aberto) |
 | **S5** | Dual-write / doctor / retenção | Aberto |
