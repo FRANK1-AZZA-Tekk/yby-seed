@@ -104,7 +104,7 @@ def test_from_env_le_openrouter_e_grok_aliases() -> None:
 def test_openrouter_falha_nao_chama_grok_automaticamente(monkeypatch) -> None:
     monkeypatch.setattr("src.engine.providers.time.sleep", lambda _delay: None)
     busy = _Response(503, {"error": "busy"})
-    openrouter_session = _Session([busy, busy])
+    openrouter_session = _Session([busy, busy, busy])
     openrouter = CloudProvider(
         "https://openrouter.ai/api/v1",
         api_key="or-key",
@@ -127,7 +127,7 @@ def test_openrouter_falha_nao_chama_grok_automaticamente(monkeypatch) -> None:
     )
     with pytest.raises(ProviderError, match="não é chamada automaticamente"):
         chain.complete_with_meta("pensa mais", system="sys")
-    assert len(openrouter_session.posts) == 2
+    assert len(openrouter_session.posts) == 3
     assert grok._session.posts == []
 
 
@@ -251,13 +251,17 @@ def test_conexao_recusada_no_openrouter_nao_tenta_grok(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("src.engine.providers.time.sleep", lambda _delay: None)
-    # Dois erros: a nuvem tenta de novo uma vez em ConnectionError.
+    # Três tentativas em ConnectionError antes de desistir (_HTTP_MAX_ATTEMPTS).
     openrouter = CloudProvider(
         "https://openrouter.ai/api/v1",
         api_key="or-key",
         timeout=3,
         session=_Session(
-            [requests.ConnectionError("down"), requests.ConnectionError("down")]
+            [
+                requests.ConnectionError("down"),
+                requests.ConnectionError("down"),
+                requests.ConnectionError("down"),
+            ]
         ),
     )
     grok = CloudProvider(

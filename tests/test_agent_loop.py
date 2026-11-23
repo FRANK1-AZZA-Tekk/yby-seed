@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
+import time
 
 import pytest
+from pydantic import BaseModel, Field
 
 from src.agent_loop.loop import ControlledAgentLoop
 from src.agent_loop.planner import ScriptedPlanner
 from src.agent_loop.schemas import parse_planner_step
-from src.agent_loop.tools import default_tool_registry
+from src.agent_loop.tools import ToolRegistry, ToolSpec, default_tool_registry
 from src.engine.providers import ProviderError
 
 
@@ -120,6 +122,39 @@ def test_provider_error_vira_status_error() -> None:
     result = loop.run("oi")
     assert result.status == "error"
     assert "indisponível" in (result.steps[-1].error or "")
+
+
+class _SlowArgs(BaseModel):
+    seconds: float = Field(ge=0.01, le=10.0)
+
+
+def _slow_handler(args: BaseModel) -> dict[str, object]:
+    assert isinstance(args, _SlowArgs)
+    time.sleep(args.seconds)
+    return {"ok": True}
+
+
+def test_tool_timeout_interrupts_hung_tool() -> None:
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpec(
+            name="slow_echo",
+            description="demora de propósito",
+            args_model=_SlowArgs,
+            handler=_slow_handler,
+        )
+    )
+    script = [{"action": "tool", "name": "slow_echo", "arguments": {"seconds": 0.25}}]
+    loop = ControlledAgentLoop(
+        registry=registry,
+        planner=ScriptedPlanner(script),
+        max_iterations=2,
+        tool_timeout_seconds=0.05,
+    )
+    result = loop.run("timeout")
+    assert result.status == "error"
+    assert result.steps[-1].error is not None
+    assert "excedeu" in (result.steps[-1].error or "")
 
 
 def test_result_serializable_json() -> None:

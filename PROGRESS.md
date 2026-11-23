@@ -118,3 +118,20 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 ```
 
 **Próximo passo:** revisão humana do diff; push/autorização para abrir PR docs; depois `P1-ARCHITECTURE-BANNER`.
+
+## Robustez PR-1 — `src/core` + `src/engine` + `src/agent_loop`
+
+**Objetivo:** scan profundo (issue robustez) — camada 1 de 7: retry/backoff HTTP, shutdown de sessões, timeout por tool no loop, erros explícitos no `OllamaClient` legado.
+
+**Status:** implementada; PR aberto.
+
+**Correções:**
+
+- `src/engine/providers.py` — `_post_with_retry` (3 tentativas, backoff + 408/429/502/503/504); `close()` em Ollama/Cloud/Cascade.
+- `src/engine/hybrid.py` — `HybridEngine.close()`.
+- `src/agent_loop/loop.py` — `tool_timeout_seconds` (padrão 30s) com `ThreadPoolExecutor`.
+- `src/core/ollama_client.py` — `OllamaClientError`, timeouts, `raise_for_status`, `close()` (não retorna string vazia em falha de rede).
+
+**Testes novos:** `test_ollama_client.py`, `test_robustness_pr1.py`, + provider 503, agent loop timeout.
+
+**Próximo passo (fila):** PR-2 `src/memory` + `src/rag`; depois PR-3 `src/iot`, etc. (`docs/PERFORMANCE.md` na PR-7).
