@@ -117,7 +117,9 @@ class ControlledAgentLoop:
                 try:
                     result = self._run_tool(step.name, step.arguments)
                     record["result"] = result
-                except (KeyError, ValueError, TimeoutError) as exc:
+                except Exception as exc:
+                    if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                        raise
                     record["error"] = str(exc)
                     history.append(record)
                     return AgentRunResult(
