@@ -135,3 +135,13 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 **Testes novos:** `test_ollama_client.py`, `test_robustness_pr1.py`, + provider 503, agent loop timeout.
 
 **Próximo passo (fila):** PR-2 `src/memory` + `src/rag`; depois PR-3 `src/iot`, etc. (`docs/PERFORMANCE.md` na PR-7).
+
+## Correção crítica 2 — MQTT thread-safe → asyncio.Queue (A02)
+
+**Objetivo:** corrigir achado crítico A02 da auditoria (#117).
+
+**Status:** implementada; PR aberto.
+
+**Correções:** `enqueue_mqtt_payload` usa `loop.call_soon_threadsafe`; loop registrado no `userdata` do cliente Paho.
+
+**Testes:** `tests/gateway/test_mqtt_listener_threadsafe.py` (thread Paho, fila cheia, callbacks concorrentes).
