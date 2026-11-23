@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from src.engine.cloud_usage_db import DEFAULT_DB_PATH, CloudUsageRegistry
 from src.engine.cloud_usage_log import DEFAULT_LOG_PATH, EVENT_COMPLETED
 
 CODE_ALLOWED = "allowed"
@@ -56,9 +57,11 @@ class CloudBudget:
         budget_exception: bool = False,
         confirm_cost_usd: float = DEFAULT_CONFIRM_COST_USD,
         confirm_token_threshold: int = DEFAULT_CONFIRM_TOKEN_THRESHOLD,
+        registry: CloudUsageRegistry | None = None,
     ) -> None:
         self.cloud_mode = cloud_mode.strip().casefold() or "ask"
         self.log_path = log_path
+        self.registry = registry
         self.daily_token_limit = daily_token_limit
         self.warn_daily_token_limit = warn_daily_token_limit
         self.monthly_token_limit = monthly_token_limit
@@ -71,7 +74,7 @@ class CloudBudget:
         self.confirm_cost_usd = confirm_cost_usd
         self.confirm_token_threshold = confirm_token_threshold
         self._exception_uses_left = 1 if budget_exception else 0
-        self._usage_stamp: tuple[int, int] | None = None
+        self._usage_stamp: tuple[str, int, int] | None = None
         self._usage_day = 0
         self._usage_month = 0
         self._cost_day = 0.0
@@ -83,9 +86,15 @@ class CloudBudget:
         log_path = Path(
             source.get("YBY_CLOUD_LOG_PATH", DEFAULT_LOG_PATH).strip() or DEFAULT_LOG_PATH
         )
+        db_raw = source.get("YBY_CLOUD_DB_PATH", DEFAULT_DB_PATH).strip()
+        db_enabled = db_raw.casefold() not in {"", "0", "off", "-", "none"}
+        if not db_raw:
+            db_raw = DEFAULT_DB_PATH
+        registry = CloudUsageRegistry(Path(db_raw)) if db_enabled else None
         return cls(
             cloud_mode=source.get("YBY_CLOUD_MODE", "ask"),
             log_path=log_path,
+            registry=registry,
             daily_token_limit=_int(
                 source, "YBY_CLOUD_DAILY_TOKEN_LIMIT", DEFAULT_DAILY_TOKEN_LIMIT
             ),
@@ -249,15 +258,23 @@ class CloudBudget:
         return None
 
     def _usage(self) -> tuple[int, int, float, float]:
-        """(tokens_dia, tokens_mês, usd_dia, usd_mês) UTC de eventos completed."""
-        if not self.log_path.is_file():
+        """(tokens_dia, tokens_mês, usd_dia, usd_mês) UTC de eventos completed.
+
+        S3: primary SQLite via registry; fallback JSONL se DB ausente/desligado.
+        """
+
+        source, stamp = self._usage_source_stamp()
+        if stamp is None:
             self._usage_stamp = None
             return 0, 0, 0.0, 0.0
-        stat = self.log_path.stat()
-        stamp = (stat.st_mtime_ns, stat.st_size)
         if stamp == self._usage_stamp:
             return self._usage_day, self._usage_month, self._cost_day, self._cost_month
-        day_t, month_t, day_c, month_c = self._scan_usage()
+        if source == "sqlite" and self.registry is not None:
+            totals = self.registry.sum_completed_usage()
+            day_t, month_t = totals.day_tokens, totals.month_tokens
+            day_c, month_c = totals.day_cost_usd, totals.month_cost_usd
+        else:
+            day_t, month_t, day_c, month_c = self._scan_jsonl_usage()
         self._usage_stamp = stamp
         self._usage_day = day_t
         self._usage_month = month_t
@@ -265,7 +282,18 @@ class CloudBudget:
         self._cost_month = month_c
         return day_t, month_t, day_c, month_c
 
-    def _scan_usage(self) -> tuple[int, int, float, float]:
+    def _usage_source_stamp(self) -> tuple[str, tuple[str, int, int] | None]:
+        """Retorna (fonte, stamp) onde stamp inclui label da fonte."""
+
+        if self.registry is not None and self.registry.path.is_file():
+            stat = self.registry.path.stat()
+            return "sqlite", ("sqlite", stat.st_mtime_ns, stat.st_size)
+        if self.log_path.is_file():
+            stat = self.log_path.stat()
+            return "jsonl", ("jsonl", stat.st_mtime_ns, stat.st_size)
+        return "none", None
+
+    def _scan_jsonl_usage(self) -> tuple[int, int, float, float]:
         now = time.gmtime()
         year, month, day = now.tm_year, now.tm_mon, now.tm_mday
         day_total = 0

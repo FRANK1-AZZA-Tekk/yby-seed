@@ -1,7 +1,7 @@
 # Cloud Usage Registry & FinOps — Technical Spec (Issue #42)
 
-**Status (código):** **parcial** — baseline JSONL + **SQLite registry S1** (`cloud_usage_db` + import/mirror) + budget **diário+mensal (tokens + USD)** + **exception 1-shot** + confirm §6.2 + D12 + **sanitizer gated** (S4 parcial).  
-**Ainda aberto:** budget/hybrid lendo SQLite (S3), authz vault (resto S4), mirror off + doctor/retenção (S5).  
+**Status (código):** **parcial** — JSONL + **SQLite S1/S3** (append + budget lê `sum_completed_usage`) + budget tokens/USD + exception + confirm §6.2 + D12 + sanitizer (S4 parcial) + hard cap OpenRouter **US$10/mês**.  
+**Ainda aberto:** authz vault (resto S4), mirror off + doctor/retenção (S5).  
 **Este documento:** SPEC / PLAN (não muda comportamento por si só).  
 **Decisions:** D12 (economia de execução) governs cloud; **D11 (voz local) is unchanged**.  
 **Constraint:** no sensitive data leaves the machine without explicit authz; no OpenRouter auto-fallback; no heavy deps (stdlib `sqlite3` + existing `pydantic`).
@@ -13,9 +13,9 @@
 | **S0** | Spec + comentários SECURITY/.env | Feito (este arquivo) |
 | **D12 / fase P** | Falha Ollama local → sem nuvem automática (`HybridEngine._after_local_failure`) | Feito (código + testes) |
 | Baseline pré-spec | JSONL `cloud_usage_log` + budget mensal + confirm TTY | Feito |
-| **S1** | `cloud_usage_db.py` + import JSONL | **Feito** (façade append → SQLite + mirror JSONL; budget ainda lê JSONL) |
-| **S2** | Daily budget + custo + exception | **Feito** (tokens + USD + exception 1-shot; tabela de preços ainda mínima / free→0) |
-| **S3** | Wire hybrid com registry status | Aberto (parcial: eventos JSONL no caminho cloud) |
+| **S1** | `cloud_usage_db.py` + import JSONL | **Feito** (façade append → SQLite + mirror JSONL) |
+| **S2** | Daily budget + custo + exception | **Feito** (tokens + USD + exception 1-shot + tabela preços) |
+| **S3** | Wire hybrid com registry status | **Feito** (budget primary SQLite; fallback JSONL; hybrid já escrevia via S1) |
 | **S4** | Sanitizer/authz gated antes do egress | Parcial (sanitizer no hybrid; authz vault aberto) |
 | **S5** | Dual-write off default / doctor / retenção | Aberto (mirror ainda default=1 na migração) |
 

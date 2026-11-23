@@ -117,6 +117,7 @@ def test_hybrid_cloud_egress_redacts_before_http() -> None:
             cloud_log=CloudUsageLog(log),
             budget=CloudBudget.from_env(
                 {
+                    "YBY_CLOUD_DB_PATH": "off",
                     "YBY_CLOUD_MODE": "ask",
                     "YBY_CLOUD_REQUIRE_CONFIRM": "0",
                     "YBY_CLOUD_LOG_PATH": str(log),
