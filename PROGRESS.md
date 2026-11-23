@@ -123,11 +123,11 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 
 **Objetivo:** scan profundo (issue robustez) — camada 1 de 7: retry/backoff HTTP, shutdown de sessões, timeout por tool no loop, erros explícitos no `OllamaClient` legado.
 
-**Status:** implementada; PR aberto.
+**Status:** concluída (#113 em `main`).
 
 **Correções:**
 
-- `src/engine/providers.py` — `_post_with_retry` (3 tentativas, backoff + 408/429/502/503/504); `close()` em Ollama/Cloud/Cascade.
+- `src/engine/providers.py` — `_post_with_retry` (3 tentativas, backoff + 408/429/502/503/504); `close()` em Ollama/Cloud/CascadingCloud.
 - `src/engine/hybrid.py` — `HybridEngine.close()`.
 - `src/agent_loop/loop.py` — `tool_timeout_seconds` (padrão 30s) com `ThreadPoolExecutor`.
 - `src/core/ollama_client.py` — `OllamaClientError`, timeouts, `raise_for_status`, `close()` (não retorna string vazia em falha de rede).
@@ -140,7 +140,7 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 
 **Objetivo:** corrigir achado crítico A01 da auditoria (#117).
 
-**Status:** implementada; PR aberto.
+**Status:** implementada; merge #118.
 
 **Correções:** `process_batch` assíncrono com `await db_client.insert`; worker chama `await process_batch` no event loop.
 
@@ -150,8 +150,36 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 
 **Objetivo:** corrigir achado crítico A02 da auditoria (#117).
 
-**Status:** implementada; PR aberto.
+**Status:** implementada; merge #119.
 
 **Correções:** `enqueue_mqtt_payload` usa `loop.call_soon_threadsafe`; loop registrado no `userdata` do cliente Paho.
 
 **Testes:** `tests/gateway/test_mqtt_listener_threadsafe.py` (thread Paho, fila cheia, callbacks concorrentes).
+
+## Robustez PR-A — revisão camada 1 (pós #113)
+
+**Objetivo:** segunda passagem em `src/core`, `src/engine`, `src/agent_loop` — confirmar merge #113, atualizar skips, fechar lacunas de exceção no loop.
+
+**Status:** em review (`cursor/robustness-pr-a-core-0543`).
+
+**Auditoria (resumo):**
+
+- Retry/backoff, timeouts de provedor, `HybridEngine.close()`, tool timeout: conforme #113 (coberto por testes existentes).
+- Lacuna: exceção genérica em handler de tool propagava e derrubava o CLI — tratada como `status=error`.
+- Follow-up documentado: `yby ask` / `yby agent --local` não chamam `close()` no engine/provider (escopo `src/main.py`).
+
+**Correções PR-A:**
+
+- `src/agent_loop/loop.py` — captura `Exception` em execução de tool (preserva `KeyboardInterrupt` / `SystemExit`).
+
+**Testes novos:** `tests/test_robustness_pr_a.py` (tool RuntimeError, `CascadingCloudProvider.close`, chat OllamaClient rede, close idempotente).
+
+**Evidências (2026-11-23):**
+
+```text
+PYTHONPATH=. python3 -m pytest -rs → 328 passed, 14 skipped
+PYTHONPATH=. python3 -m pytest -q → 328 passed, 14 skipped
+PYTHONPATH=. python3 -m ruff check src/agent_loop/loop.py tests/test_robustness_pr_a.py
+→ All checks passed!
+make check → doctor FAIL (venv sem ensurepip neste VM); pytest/ruff OK via python3 -m
+```
