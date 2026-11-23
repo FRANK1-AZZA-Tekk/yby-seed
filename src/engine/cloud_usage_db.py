@@ -245,17 +245,32 @@ class CloudUsageRegistry:
                 day_cost += cost_f
         return UsageTotals(day_tokens, month_tokens, day_cost, month_cost)
 
+    def count_by_status(self) -> dict[str, int]:
+        """Contagem por status canônico (relatório local S5)."""
+
+        conn = self.open()
+        rows = conn.execute(
+            """
+            SELECT status, COUNT(*)
+            FROM cloud_usage_events
+            GROUP BY status
+            ORDER BY status
+            """
+        ).fetchall()
+        return {str(status): int(count) for status, count in rows}
+
     def prune(
         self,
         *,
         retention_days: int | None = None,
         before_ts: float | None = None,
         now: float | None = None,
+        dry_run: bool = False,
     ) -> int:
         """Remove completed/failed antigos (S5). Mantém blocked_* / requested.
 
         Preferir `before_ts`; senão `retention_days` (default 90 via env helper
-        do chamador). Retorna quantidade apagada.
+        do chamador). Retorna quantidade apagada (ou candidata se dry_run).
         """
 
         if before_ts is None:
@@ -263,6 +278,16 @@ class CloudUsageRegistry:
             when = now if now is not None else time.time()
             before_ts = float(when) - (days * 86400.0)
         conn = self.open()
+        if dry_run:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) FROM cloud_usage_events
+                WHERE timestamp < ?
+                  AND status IN ('completed', 'failed')
+                """,
+                (float(before_ts),),
+            ).fetchone()
+            return int(row[0] if row else 0)
         cur = conn.execute(
             """
             DELETE FROM cloud_usage_events
