@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import time
-from collections import defaultdict, deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
 from src.iot.handlers import SensorEvent
+from src.memory.episode_guard import DEFAULT_DEDUPE_SECONDS, DEFAULT_RATE_PER_MINUTE, EpisodeGuard
 
-DEDUPE_SECONDS = 5.0
-RATE_LIMIT_PER_MINUTE = 10
+DEDUPE_SECONDS = DEFAULT_DEDUPE_SECONDS
+RATE_LIMIT_PER_MINUTE = DEFAULT_RATE_PER_MINUTE
 
 
 class Mem0Client(Protocol):
@@ -25,35 +24,19 @@ Mem0Saver = Callable[[str, dict[str, Any]], None]
 
 @dataclass
 class EpisodeStore:
-    """Controla dedupe e rate-limit por sensor."""
+    """Adaptador IoT sobre :class:`EpisodeGuard` (API antiga com ``SensorEvent``)."""
 
-    dedupe_window: float = DEDUPE_SECONDS
-    max_per_minute: int = RATE_LIMIT_PER_MINUTE
-    _last_fingerprint: dict[str, tuple[str, float]] = field(default_factory=dict)
-    _timestamps: dict[str, deque[float]] = field(default_factory=lambda: defaultdict(deque))
+    dedupe_window: float = DEFAULT_DEDUPE_SECONDS
+    max_per_minute: int = DEFAULT_RATE_PER_MINUTE
 
-    def _fingerprint(self, event: SensorEvent) -> str:
-        return f"{event.event_type.value}:{event.value!r}"
+    def __post_init__(self) -> None:
+        self._guard = EpisodeGuard(
+            dedupe_window=self.dedupe_window,
+            max_per_minute=self.max_per_minute,
+        )
 
     def should_accept(self, event: SensorEvent, *, now: float | None = None) -> bool:
-        """Retorna False se duplicado (<5s) ou acima de 10 eventos/min."""
-        clock = now if now is not None else time.time()
-        sensor = event.sensor_id
-        fp = self._fingerprint(event)
-
-        last = self._last_fingerprint.get(sensor)
-        if last is not None and last[0] == fp and clock - last[1] < self.dedupe_window:
-            return False
-
-        window = self._timestamps[sensor]
-        while window and clock - window[0] > 60.0:
-            window.popleft()
-        if len(window) >= self.max_per_minute:
-            return False
-
-        window.append(clock)
-        self._last_fingerprint[sensor] = (fp, clock)
-        return True
+        return self._guard.should_accept(event.sensor_id, _event_fingerprint(event), now=now)
 
 
 def _event_to_text(event: SensorEvent) -> str:
@@ -64,13 +47,17 @@ def _event_to_text(event: SensorEvent) -> str:
     )
 
 
+def _event_fingerprint(event: SensorEvent) -> str:
+    return f"{event.event_type.value}:{event.value!r}"
+
+
 def save_episode(
     event: SensorEvent,
     *,
     mem0_client: Mem0Client | None = None,
     save_fn: Mem0Saver | None = None,
     user_id: str = "yby-iot",
-    store: EpisodeStore | None = None,
+    store: EpisodeGuard | EpisodeStore | None = None,
     now: float | None = None,
 ) -> bool:
     """
@@ -78,9 +65,13 @@ def save_episode(
 
     Retorna True quando persistiu, False quando ignorado.
     """
-    guard = store or EpisodeStore()
-    if not guard.should_accept(event, now=now):
-        return False
+    if isinstance(store, EpisodeStore):
+        if not store.should_accept(event, now=now):
+            return False
+    else:
+        guard = store or EpisodeGuard()
+        if not guard.should_accept(event.sensor_id, _event_fingerprint(event), now=now):
+            return False
 
     text = _event_to_text(event)
     metadata = {

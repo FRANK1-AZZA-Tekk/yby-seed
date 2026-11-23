@@ -4,10 +4,10 @@ Mapeamento e correções incrementais. Um PR por camada; métricas finais em `do
 
 | PR | Camada | Status |
 | :--- | :--- | :--- |
-| PR-1 | `src/core`, `src/engine`, `src/agent_loop` | Concluído (#113) |
-| **PR-A** | Revisão da camada 1 (pós-merge #113) | Em review |
-| PR-2 / PR-B | `src/memory`, `src/rag` | Pendente |
-| PR-3 / PR-C | `src/iot` | Pendente |
+| **PR-1** | `src/core`, `src/engine`, `src/agent_loop` | Concluído (#113) |
+| **PR-A** | Revisão da camada 1 (pós-merge #113) | Concluído (#116) |
+| **PR-2** | `src/memory`, `src/rag` | Em review |
+| PR-3 | `src/iot` | Pendente |
 | PR-4 | `src/voice`, `src/vision` | Pendente |
 | PR-5 | `src/safety`, `src/security` | Pendente |
 | PR-6 | `src/gateway`, `src/monitoring` | Pendente |
@@ -17,7 +17,7 @@ Detalhes de cada entrega: `PROGRESS.md` (seção Robustez PR-n / PR-A).
 
 ## Skips conhecidos (`pytest -rs`)
 
-Captura 2026-11-23 (pós #118/#119 + PR-A): **333 passed**, **14 skipped**.
+Captura 2026-11-23 (pós #116–#119 + PR-2): **342 passed**, **14 skipped**.
 
 | Área | Qtd | Motivo |
 | :--- | ---: | :--- |

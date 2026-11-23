@@ -136,6 +136,22 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 
 **Próximo passo (fila):** PR-2 `src/memory` + `src/rag`; depois PR-3 `src/iot`, etc. (`docs/PERFORMANCE.md` na PR-7).
 
+## Robustez PR-2 — `src/memory` + `src/rag`
+
+**Objetivo:** dedupe/rate episódios, fila local sqlite3, retry HTTP Mem0, janela de contexto RAG e cache de busca/embeddings.
+
+**Status:** implementada; PR aberto.
+
+**Novos módulos:**
+
+- `src/memory/episode_guard.py`, `pending_queue.py`, `remote_store.py`, `episode_pipeline.py`
+- `src/rag/context_window.py`, `search_cache.py`
+- IoT: `mem0_bridge` reutiliza `EpisodeGuard`
+
+**Testes:** `tests/memory/test_episode_pipeline.py`, `tests/rag/test_context_window.py`
+
+**Próximo:** PR-3 endurecer `src/iot` (flood MQTT).
+
 ## Correção crítica 1 — Gateway `await` em `insert` (A01)
 
 **Objetivo:** corrigir achado crítico A01 da auditoria (#117).
@@ -160,7 +176,7 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 
 **Objetivo:** segunda passagem em `src/core`, `src/engine`, `src/agent_loop` — confirmar merge #113, atualizar skips, fechar lacunas de exceção no loop.
 
-**Status:** em review (`cursor/robustness-pr-a-core-0543`).
+**Status:** concluída (merge #116).
 
 **Auditoria (resumo):**
 
