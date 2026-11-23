@@ -88,6 +88,19 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 
 O `ask` atual fala com Ollama/nuvem direto via `src/engine`; o proxy LiteLLM é opcional/legado de custo.
 
+## Claude Code (árvore Sonnet / Haiku / Opus)
+
+Sessão econômica para trabalho no editor Claude Code (não altera o `ask` local):
+
+```bash
+claude --model sonnet --advisor opus
+```
+
+- Settings: [`.claude/settings.json`](../.claude/settings.json) (`model: sonnet`, `advisorModel: opus`).
+- Subagentes Haiku só-leitura: [`.claude/agents/`](../.claude/agents/) (`search`, `grep`, `docs`) — um por vez.
+- Portões do consultor e nota sobre forks rápidos: [CLAUDE.md](../CLAUDE.md).
+- O motor local continua D4/D12; JEV / `jev-router` não entram neste repo.
+
 ## Testes e CI
 
 ```bash
