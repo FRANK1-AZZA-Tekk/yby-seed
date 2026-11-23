@@ -14,6 +14,49 @@ DEFAULT_OLLAMA_KEEP_ALIVE = "30m"
 DEFAULT_OLLAMA_NUM_CTX = 4096
 DEFAULT_OLLAMA_NUM_PREDICT = 1024
 _RETRY_STATUS = frozenset({408, 429, 502, 503, 504})
+_HTTP_MAX_ATTEMPTS = 3
+
+
+def _backoff_seconds(attempt: int) -> float:
+    """Backoff exponencial curto (1ª=0.25s, 2ª=0.5s)."""
+
+    return min(0.25 * (2 ** (attempt - 1)), 5.0)
+
+
+def _post_with_retry(
+    session: HttpSession,
+    url: str,
+    *,
+    timeout: tuple[float, float],
+    json_body: dict[str, Any],
+    headers: dict[str, str] | None = None,
+    who: str,
+) -> Any:
+    """POST com retry em falha de rede e HTTP 408/429/502/503/504."""
+
+    last_error: requests.RequestException | None = None
+    response: Any = None
+    for attempt in range(1, _HTTP_MAX_ATTEMPTS + 1):
+        try:
+            kwargs: dict[str, Any] = {"json": json_body, "timeout": timeout}
+            if headers:
+                kwargs["headers"] = headers
+            response = session.post(url, **kwargs)
+        except requests.RequestException as exc:
+            last_error = exc
+            if attempt < _HTTP_MAX_ATTEMPTS:
+                time.sleep(_backoff_seconds(attempt))
+                continue
+            raise ProviderUnreachable(f"{who} indisponível em {url} ({exc})") from exc
+        last_error = None
+        if response.status_code in _RETRY_STATUS and attempt < _HTTP_MAX_ATTEMPTS:
+            time.sleep(_retry_wait(response))
+            continue
+        return response
+
+    if last_error is not None:
+        raise ProviderUnreachable(f"{who} indisponível em {url} ({last_error})") from last_error
+    return response
 # Ollama #18044: think:false no /api/generate pode vazar markup em response.
 _THINK_BLOCK = re.compile(r"<think\b[^>]*>[\s\S]*?</think>", re.IGNORECASE)
 _THINK_OPEN = re.compile(r"<think\b[^>]*>", re.IGNORECASE)
@@ -50,6 +93,9 @@ class HttpSession(Protocol):
 
     def post(self, url: str, **kwargs: Any) -> Any:
         """Envia um POST e devolve uma resposta com status e JSON."""
+
+    def close(self) -> None:
+        """Encerra conexões keep-alive (opcional no mock)."""
 
 
 def _ollama_runtime_tuning() -> tuple[str, int, int, bool]:
@@ -136,30 +182,24 @@ class OllamaProvider:
         self.timeout = timeout
         self._session = session or requests.Session()
 
+    def close(self) -> None:
+        """Fecha a sessão HTTP (shutdown limpo)."""
+
+        closer = getattr(self._session, "close", None)
+        if callable(closer):
+            closer()
+
     def complete(self, prompt: str, *, model: str, system: str) -> str:
         url = f"{self.base_url}/api/generate"
         body = build_ollama_generate_payload(prompt, model=model, system=system)
         timeout = _request_timeout(self.timeout)
-        response: Any = None
-        last_error: requests.RequestException | None = None
-        for attempt in (1, 2):
-            try:
-                response = self._session.post(url, json=body, timeout=timeout)
-            except requests.RequestException as exc:
-                last_error = exc
-                if attempt == 1:
-                    time.sleep(0.25)
-                    continue
-                raise ProviderUnreachable(
-                    f"Ollama indisponível em {self.base_url} ({exc})"
-                ) from exc
-            last_error = None
-            break
-
-        if last_error is not None:
-            raise ProviderUnreachable(
-                f"Ollama indisponível em {self.base_url} ({last_error})"
-            ) from last_error
+        response = _post_with_retry(
+            self._session,
+            url,
+            timeout=timeout,
+            json_body=body,
+            who="Ollama",
+        )
         if response is None or response.status_code >= 400:
             status = getattr(response, "status_code", "?")
             raise ProviderError(f"Ollama respondeu HTTP {status} em {self.base_url}.")
@@ -184,6 +224,11 @@ class CloudProvider:
         self.timeout = timeout
         self._session = session or requests.Session()
 
+    def close(self) -> None:
+        closer = getattr(self._session, "close", None)
+        if callable(closer):
+            closer()
+
     def has_credentials(self) -> bool:
         return bool(self.api_key)
 
@@ -204,29 +249,14 @@ class CloudProvider:
             "Content-Type": "application/json",
         }
         timeout = _request_timeout(self.timeout)
-        response: Any = None
-        last_error: requests.RequestException | None = None
-        for attempt in (1, 2):
-            try:
-                response = self._session.post(url, headers=headers, json=body, timeout=timeout)
-            except requests.RequestException as exc:
-                last_error = exc
-                if attempt == 1:
-                    time.sleep(0.25)
-                    continue
-                raise ProviderUnreachable(
-                    f"Nuvem indisponível em {self.base_url} ({exc})"
-                ) from exc
-            last_error = None
-            if response.status_code in _RETRY_STATUS and attempt == 1:
-                time.sleep(_retry_wait(response))
-                continue
-            break
-
-        if last_error is not None:
-            raise ProviderUnreachable(
-                f"Nuvem indisponível em {self.base_url} ({last_error})"
-            ) from last_error
+        response = _post_with_retry(
+            self._session,
+            url,
+            timeout=timeout,
+            json_body=body,
+            headers=headers,
+            who="Nuvem",
+        )
         if response is None or response.status_code >= 400:
             status = getattr(response, "status_code", "?")
             raise ProviderError(f"Nuvem respondeu HTTP {status} em {self.base_url}.")
@@ -297,6 +327,11 @@ class CascadingCloudProvider:
                 "Nuvem alternativa não é chamada automaticamente (D12)."
             ) from exc
         return CloudResult(text, self.primary_model, self.primary_label)
+
+    def close(self) -> None:
+        self.primary.close()
+        if self.fallback is not None:
+            self.fallback.close()
 
 
 def _retry_wait(response: Any) -> float:

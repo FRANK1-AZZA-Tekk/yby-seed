@@ -92,6 +92,16 @@ class HybridEngine:
         self._budget_warn: str | None = None
         self._sanitize_notice: str | None = None
 
+    def close(self) -> None:
+        """Encerra sessões HTTP dos provedores (shutdown limpo)."""
+
+        for candidate in (self.ollama, self.cloud, self.cloud_chain):
+            if candidate is None:
+                continue
+            closer = getattr(candidate, "close", None)
+            if callable(closer):
+                closer()
+
     def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
         decision = decide_route(
             prompt,

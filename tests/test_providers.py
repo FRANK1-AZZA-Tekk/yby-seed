@@ -265,6 +265,40 @@ def test_ollama_conexao_recusada_compativel() -> None:
         provider.complete("oi", model="qwen2.5-coder:3b", system="sistema")
 
 
+def test_ollama_retry_http_503(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("src.engine.providers.time.sleep", lambda _delay: None)
+
+    class _Flaky:
+        def __init__(self) -> None:
+            self.posts: list[dict[str, object]] = []
+            self._n = 0
+
+        def post(self, url: str, **kwargs: object) -> _Resp:
+            self.posts.append({"url": url, **kwargs})
+            self._n += 1
+            if self._n == 1:
+                return _Resp(503, {"error": "busy"})
+            return _Resp(200, {"response": "depois do 503"})
+
+    flaky = _Flaky()
+    provider = OllamaProvider("http://127.0.0.1:11434", timeout=1, session=flaky)
+    assert provider.complete("oi", model="qwen2.5-coder:3b", system="s") == "depois do 503"
+    assert len(flaky.posts) == 2
+
+
+def test_provider_close_chama_session_close() -> None:
+    session = _Session()
+    session.closed = False
+
+    def _close() -> None:
+        session.closed = True
+
+    session.close = _close  # type: ignore[method-assign]
+    provider = OllamaProvider("http://127.0.0.1:11434", timeout=1, session=session)
+    provider.close()
+    assert session.closed is True
+
+
 def test_ollama_retry_em_falha_de_conexao(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("src.engine.providers.time.sleep", lambda _delay: None)
 

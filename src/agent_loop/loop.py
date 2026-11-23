@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -45,12 +47,16 @@ class ControlledAgentLoop:
         registry: ToolRegistry,
         planner: Planner,
         max_iterations: int = 8,
+        tool_timeout_seconds: float | None = 30.0,
     ) -> None:
         if max_iterations < 1:
             raise ValueError("max_iterations deve ser >= 1")
+        if tool_timeout_seconds is not None and tool_timeout_seconds <= 0:
+            raise ValueError("tool_timeout_seconds deve ser positivo ou None")
         self.registry = registry
         self.planner = planner
         self.max_iterations = max_iterations
+        self.tool_timeout_seconds = tool_timeout_seconds
 
     def run(self, task: str) -> AgentRunResult:
         task = task.strip()
@@ -109,9 +115,9 @@ class ControlledAgentLoop:
                     "arguments": step.arguments,
                 }
                 try:
-                    result = self.registry.run(step.name, step.arguments)
+                    result = self._run_tool(step.name, step.arguments)
                     record["result"] = result
-                except (KeyError, ValueError) as exc:
+                except (KeyError, ValueError, TimeoutError) as exc:
                     record["error"] = str(exc)
                     history.append(record)
                     return AgentRunResult(
@@ -128,6 +134,18 @@ class ControlledAgentLoop:
             steps=_history_to_records(history),
             abort_reason=f"limite de {self.max_iterations} iterações",
         )
+
+    def _run_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        if self.tool_timeout_seconds is None:
+            return self.registry.run(name, arguments)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(self.registry.run, name, arguments)
+            try:
+                return future.result(timeout=self.tool_timeout_seconds)
+            except FuturesTimeoutError as exc:
+                raise TimeoutError(
+                    f"tool {name!r} excedeu {self.tool_timeout_seconds:.0f}s"
+                ) from exc
 
 
 def _history_to_records(history: Sequence[dict[str, object]]) -> list[StepRecord]:
