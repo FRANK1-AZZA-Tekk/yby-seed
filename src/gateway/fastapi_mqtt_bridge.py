@@ -200,12 +200,7 @@ async def start_worker():
             
             if batch:
                 try:
-                    # Processar batch em thread pool (evitar bloquear event loop)
-                    await asyncio.get_event_loop().run_in_executor(
-                        None,
-                        process_batch,
-                        batch
-                    )
+                    await process_batch(batch)
                     logger.info(f"✅ Batch processado: {len(batch)} mensagens")
                 
                 except Exception as e:
@@ -214,34 +209,31 @@ async def start_worker():
     asyncio.create_task(worker())
 
 
-def process_batch(batch: List[Dict[str, Any]]):
+async def process_batch(batch: List[Dict[str, Any]]) -> None:
     """
-    Processar batch de telemetria (CPU-bound, roda em thread pool).
-    
+    Processar batch de telemetria no event loop.
+
     - Extrair features
     - Gerar embeddings
-    - Armazenar em LanceDB
+    - Armazenar em LanceDB (``await`` obrigatório)
     """
     for data in batch:
         try:
-            # Extrair features
             features = extract_features(data)
-            
-            # Gerar embedding (modelo local via Ollama)
             embedding = generate_embedding(features)
-            
-            # Armazenar em LanceDB
-            db_client.insert({
-                "device_id": data["device_id"],
-                "timestamp": data["timestamp"],
-                "metrics": data["metrics"],
-                "context": data.get("context", {}),
-                "features": features,
-                "vector": embedding
-            })
-        
+            await db_client.insert(
+                {
+                    "device_id": data["device_id"],
+                    "timestamp": data["timestamp"],
+                    "metrics": data["metrics"],
+                    "context": data.get("context", {}),
+                    "features": features,
+                    "vector": embedding,
+                }
+            )
         except Exception as e:
             logger.error(f"❌ Erro ao processar mensagem: {e}")
+            raise
 
 
 def extract_features(data: Dict[str, Any]) -> Dict[str, Any]:

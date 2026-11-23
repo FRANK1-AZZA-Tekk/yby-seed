@@ -136,6 +136,26 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 
 **Próximo passo (fila):** PR-2 `src/memory` + `src/rag`; depois PR-3 `src/iot`, etc. (`docs/PERFORMANCE.md` na PR-7).
 
+## Correção crítica 1 — Gateway `await` em `insert` (A01)
+
+**Objetivo:** corrigir achado crítico A01 da auditoria (#117).
+
+**Status:** implementada; merge #118.
+
+**Correções:** `process_batch` assíncrono com `await db_client.insert`; worker chama `await process_batch` no event loop.
+
+**Testes:** `tests/gateway/test_process_batch.py` (sucesso só após insert; falha propaga erro).
+
+## Correção crítica 2 — MQTT thread-safe → asyncio.Queue (A02)
+
+**Objetivo:** corrigir achado crítico A02 da auditoria (#117).
+
+**Status:** implementada; merge #119.
+
+**Correções:** `enqueue_mqtt_payload` usa `loop.call_soon_threadsafe`; loop registrado no `userdata` do cliente Paho.
+
+**Testes:** `tests/gateway/test_mqtt_listener_threadsafe.py` (thread Paho, fila cheia, callbacks concorrentes).
+
 ## Robustez PR-A — revisão camada 1 (pós #113)
 
 **Objetivo:** segunda passagem em `src/core`, `src/engine`, `src/agent_loop` — confirmar merge #113, atualizar skips, fechar lacunas de exceção no loop.

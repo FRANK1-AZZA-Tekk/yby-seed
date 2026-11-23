@@ -17,7 +17,7 @@ Detalhes de cada entrega: `PROGRESS.md` (seção Robustez PR-n / PR-A).
 
 ## Skips conhecidos (`pytest -rs`)
 
-Captura em 2026-11-23 (**324 passed, 14 skipped**). Saída completa: `/opt/cursor/artifacts/pytest-rs-pr-a.txt`.
+Captura 2026-11-23 (pós #118/#119 + PR-A): **333 passed**, **14 skipped**.
 
 | Área | Qtd | Motivo |
 | :--- | ---: | :--- |

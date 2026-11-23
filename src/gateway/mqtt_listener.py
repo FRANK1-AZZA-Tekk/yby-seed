@@ -19,10 +19,12 @@ Licença: MIT
 """
 
 import asyncio
-import paho.mqtt.client as mqtt
+import json
 import logging
 from datetime import datetime
-from typing import Queue
+from typing import Any, Callable
+
+import paho.mqtt.client as mqtt
 
 from .config import settings
 
@@ -30,7 +32,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def mqtt_listener(queue: Queue):
+async def mqtt_listener(queue: asyncio.Queue[Any]) -> None:
     """
     Subscriber MQTT assíncrono.
     
@@ -39,11 +41,11 @@ async def mqtt_listener(queue: Queue):
     """
     logger.info("📡 Iniciando MQTT listener...")
     
-    # Configurar cliente MQTT
+    loop = asyncio.get_running_loop()
     client = mqtt.Client(
         client_id=settings.MQTT_CLIENT_ID,
         clean_session=False,  # Manter sessão para QoS 2
-        userdata={"queue": queue}
+        userdata={"queue": queue, "loop": loop},
     )
     
     # Callbacks
@@ -115,33 +117,47 @@ def on_subscribe(client, userdata, mid, granted_qos):
     logger.info(f"✅ Subscrição confirmada: mid={mid}, qos={granted_qos}")
 
 
-def on_message(client, userdata, msg):
+def enqueue_mqtt_payload(
+    loop: asyncio.AbstractEventLoop,
+    queue: asyncio.Queue[Any],
+    data: dict[str, Any],
+    *,
+    on_dropped: Callable[[], None] | None = None,
+) -> None:
     """
-    Callback: mensagem recebida.
-    
-    Enfileirar mensagem para processamento assíncrono (backpressure).
+    Agenda ``put_nowait`` no loop asyncio (seguro a partir da thread do Paho).
     """
-    queue: Queue = userdata["queue"]
-    
+
+    def _put() -> None:
+        try:
+            queue.put_nowait(data)
+        except asyncio.QueueFull:
+            if on_dropped is not None:
+                on_dropped()
+            else:
+                logger.warning("iot_mqtt_gateway_queue_drop", extra={"queue_size": queue.qsize()})
+
+    loop.call_soon_threadsafe(_put)
+
+
+def on_message(client, userdata, msg) -> None:
+    """
+    Callback: mensagem recebida (thread do Paho).
+
+    Enfileira via ``call_soon_threadsafe`` para o ``asyncio.Queue`` do worker.
+    """
+    del client
+    queue: asyncio.Queue[Any] = userdata["queue"]
+    loop: asyncio.AbstractEventLoop = userdata["loop"]
+
     try:
-        # Parse payload JSON
-        import json
         data = json.loads(msg.payload.decode("utf-8"))
-        
-        # Adicionar metadados
         data["_metadata"] = {
             "topic": msg.topic,
             "qos": msg.qos,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
-        
-        # Enfileirar (non-blocking)
-        try:
-            queue.put_nowait(data)
-            logger.debug(f"📨 Mensagem enfileirada: {msg.topic}")
-        
-        except asyncio.QueueFull:
-            logger.warning("⚠️  Queue cheia, descartando mensagem")
-    
+        enqueue_mqtt_payload(loop, queue, data)
+        logger.debug("iot_mqtt_gateway_enqueued", extra={"topic": msg.topic})
     except Exception as e:
-        logger.error(f"❌ Erro ao processar mensagem MQTT: {e}")
+        logger.error("iot_mqtt_gateway_parse_error", extra={"error_type": type(e).__name__})
