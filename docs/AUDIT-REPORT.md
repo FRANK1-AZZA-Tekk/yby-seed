@@ -35,7 +35,7 @@ Artefatos: `/opt/cursor/artifacts/pytest-full.txt`, `pytest-cov.txt`, `pytest-sk
 | ID | Sev. | Área | Resumo |
 |----|------|------|--------|
 | A01 | ~~**Crítico**~~ **Corrigido** (PR-CRIT-1) | gateway | `insert` assíncrono chamado sem `await` |
-| A02 | **Crítico** | gateway | `asyncio.Queue` manipulada de thread MQTT |
+| A02 | ~~**Crítico**~~ **Corrigido** (PR-CRIT-2) | gateway | `asyncio.Queue` manipulada de thread MQTT |
 | A03 | **Alto** | security | Sandbox propaga secrets via `os.environ.copy()` |
 | A04 | **Alto** | iot/gateway | MQTT sem TLS/autenticação transporte |
 | A05 | **Alto** | vision | API de inferência sem auth |
@@ -69,12 +69,13 @@ Artefatos: `/opt/cursor/artifacts/pytest-full.txt`, `pytest-cov.txt`, `pytest-sk
 | Correção sugerida | Tornar pipeline consistente: `await db_client.insert` no event loop, ou `asyncio.run_coroutine_threadsafe` / fila dedicada com worker async. |
 | Esforço | **M** |
 
-### A02 — Crítico · Thread-safety da fila MQTT
+### A02 — ~~Crítico~~ Corrigido (PR-CRIT-2) · Thread-safety da fila MQTT
 
 | Campo | Valor |
 |-------|--------|
 | Arquivo | `src/gateway/mqtt_listener.py` |
 | Linhas | 118-140 |
+| Status | **Corrigido** — `enqueue_mqtt_payload` + `loop.call_soon_threadsafe`; testes em `tests/gateway/test_mqtt_listener_threadsafe.py`. |
 | Descrição | `on_message` (thread do Paho) chama `queue.put_nowait` em `asyncio.Queue` passada por `userdata`. A documentação do asyncio exige uso do loop (`call_soon_threadsafe`) para produtores externos. |
 | Impacto | Mensagens perdidas, `RuntimeError` intermitente ou corrupção sob carga — viola backpressure prometido na arquitetura. |
 | Correção sugerida | Usar `asyncio.Queue` apenas no loop principal; bridge com `loop.call_soon_threadsafe(queue.put_nowait, data)` ou `janus.Queue`. |
