@@ -8,9 +8,9 @@ from typing import Any
 
 from src.assist.config import AssistConfig
 from src.assist.executor import ConfirmFn, execute_proposal
-from src.assist.reminders import Clock, ReminderStore, SystemClock
+from src.assist.reminders import Clock, ReminderStore
 from src.assist.router import AssistPlanner, resolve_turn_proposal
-from src.assist.tools import Launcher, deliver_due_reminders
+from src.assist.tools import Launcher
 from src.assist.types import ToolProposal, TurnOutcome
 from src.engine.providers import ProviderError
 from src.memory.vault import Vault
@@ -45,12 +45,11 @@ class AssistSession:
     clock: Clock | None = None
     file_candidates: list[dict[str, str]] = field(default_factory=list)
     pending_reminder: dict[str, Any] | None = None
-    delivered_reminder_ids: set[str] = field(default_factory=set)
 
     def startup_messages(self) -> list[str]:
-        store = self.reminder_store or ReminderStore(self.config.reminders_path)
-        clock = self.clock or SystemClock()
-        return deliver_due_reminders(store, clock, self.delivered_reminder_ids)
+        """Assist só cadastra; a entrega fica em `yby reminders once`."""
+
+        return []
 
     def help_text(self) -> str:
         apps = ", ".join(self.config.app_names()) or "(nenhum)"
@@ -60,8 +59,8 @@ class AssistSession:
             "Comandos: ajuda | cancela | sair\n"
             f"Apps: {apps}\n"
             f"Rotinas (alias exato): {routines}\n"
-            "Lembretes: só são anunciados enquanto esta sessão estiver aberta "
-            "(não há daemon em segundo plano).\n"
+            "Lembretes: o assist só cadastra; a entrega é "
+            "`python yby.py reminders once` (timer opcional).\n"
             "Busca de arquivos: candidatos listados; diga 'o segundo' para "
             "selecionar (não abre o arquivo).\n"
             "Voz: fora deste PR."
