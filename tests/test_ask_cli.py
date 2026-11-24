@@ -18,6 +18,9 @@ class _ScriptedEngine:
         self.calls.append({"prompt": prompt, "explicit_heavy": explicit_heavy})
         return self.reply_value
 
+    def close(self) -> None:
+        pass
+
 
 def test_yby_aponta_para_o_mesmo_cli() -> None:
     assert yby.cli is cli

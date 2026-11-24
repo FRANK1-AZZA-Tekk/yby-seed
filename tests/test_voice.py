@@ -37,6 +37,9 @@ class _ScriptedEngine:
         self.calls.append({"prompt": prompt, "explicit_heavy": explicit_heavy})
         return self.reply_value
 
+    def close(self) -> None:
+        pass
+
 
 def test_wav_temporario_fecha_o_descritor() -> None:
     from src.voice.mic import _temp_wav

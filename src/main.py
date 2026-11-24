@@ -149,7 +149,12 @@ def ask(heavy: bool, voice: bool, pergunta: tuple[str, ...]) -> None:
         )
         raise SystemExit(1)
 
-    resposta = build_engine().reply(texto, explicit_heavy=heavy)
+    engine = build_engine()
+    try:
+        resposta = engine.reply(texto, explicit_heavy=heavy)
+    finally:
+        engine.close()
+
     if resposta.notice:
         click.echo(resposta.notice, err=True)
     if resposta.provider == "none":
@@ -286,6 +291,7 @@ def agent_cmd(
         raise SystemExit(1)
 
     registry = vault_registry_or_skip()
+    provider: OllamaProvider | None = None
     if script:
         raw = json.loads(script.read_text(encoding="utf-8"))
         if not isinstance(raw, list):
@@ -294,8 +300,9 @@ def agent_cmd(
         planner = ScriptedPlanner(raw)
     else:
         cfg = EngineConfig.from_env()
+        provider = OllamaProvider(cfg.ollama_base_url, timeout=cfg.ollama_timeout)
         planner = OllamaJsonPlanner(
-            OllamaProvider(cfg.ollama_base_url, timeout=cfg.ollama_timeout),
+            provider,
             model=cfg.local_model,
         )
 
@@ -304,7 +311,11 @@ def agent_cmd(
         planner=planner,
         max_iterations=max_steps,
     )
-    result = loop.run(texto)
+    try:
+        result = loop.run(texto)
+    finally:
+        if provider is not None:
+            provider.close()
 
     if as_json:
         payload = {
@@ -382,23 +393,28 @@ def _wait_enter(_prompt: str = "") -> str:
 def _voice_turn(*, heavy: bool) -> None:
     """Fluxo de voz compartilhado por `ask --voice` e `listen`."""
 
+    engine = build_engine()
     try:
-        turn = listen_once(
-            build_engine(),
-            voice_config_from_env(),
-            explicit_heavy=heavy,
-            input_fn=_wait_enter,
-            output_fn=lambda msg: click.echo(msg, err=True),
-        )
-    except VoiceError as exc:
-        click.echo(str(exc), err=True)
-        click.echo(
-            "Texto continua disponível: python yby.py ask \"sua pergunta\"",
-            err=True,
-        )
-        raise SystemExit(1) from exc
+        try:
+            turn = listen_once(
+                engine,
+                voice_config_from_env(),
+                explicit_heavy=heavy,
+                input_fn=_wait_enter,
+                output_fn=lambda msg: click.echo(msg, err=True),
+            )
+        except VoiceError as exc:
+            click.echo(str(exc), err=True)
+            click.echo(
+                "Texto continua disponível: python yby.py ask \"sua pergunta\"",
+                err=True,
+            )
+            raise SystemExit(1) from exc
 
-    resposta = turn.reply
+        resposta = turn.reply
+    finally:
+        engine.close()
+
     if resposta.notice:
         click.echo(resposta.notice, err=True)
     if resposta.provider == "none":

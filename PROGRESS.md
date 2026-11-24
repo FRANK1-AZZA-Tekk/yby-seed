@@ -201,7 +201,7 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 
 - Retry/backoff, timeouts de provedor, `HybridEngine.close()`, tool timeout: conforme #113 (coberto por testes existentes).
 - Lacuna: exceção genérica em handler de tool propagava e derrubava o CLI — tratada como `status=error`.
-- Follow-up documentado: `yby ask` / `yby agent --local` não chamam `close()` no engine/provider (escopo `src/main.py`).
+- **#121 (2026-11-24):** `src/main.py` — `ask`, `ask --voice`/`listen` (`_voice_turn`) e `agent --local` chamam `engine.close()` / `provider.close()` em `finally` (sucesso, erro, timeout; `KeyboardInterrupt`/`SystemExit` inalterados). Testes: `tests/test_cli_engine_close.py`.
 
 **Correções PR-A:**
 
