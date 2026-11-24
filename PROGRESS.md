@@ -267,7 +267,7 @@ make check
 **P2 / próximos (não iniciados):**
 
 1. Smoke local: `ollama pull qwen2.5-coder:3b` + `python yby.py ask "..."` na máquina do dono.
-2. Follow-up já anotado: `yby ask` / `yby agent --local` não chamam `HybridEngine.close()` (PR #122).
+2. `yby ask` (texto e `--voice`/`listen`): `HybridEngine.close()` no `finally` (branch `cursor/ask-engine-close-6eec`). Pendente: `yby agent --local`.
 3. Warnings FastAPI `on_event` / `datetime.utcnow` no gateway (fora do núcleo `ask`).
 
 ## Camada: versionar regras + diagramas + smoke sem Ollama

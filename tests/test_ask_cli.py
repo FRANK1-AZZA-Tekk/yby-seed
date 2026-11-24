@@ -13,10 +13,14 @@ class _ScriptedEngine:
     def __init__(self, reply: EngineReply) -> None:
         self.reply_value = reply
         self.calls: list[dict[str, object]] = []
+        self.closed = False
 
     def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
         self.calls.append({"prompt": prompt, "explicit_heavy": explicit_heavy})
         return self.reply_value
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def test_yby_aponta_para_o_mesmo_cli() -> None:
@@ -40,6 +44,7 @@ def test_ask_imprime_a_resposta(monkeypatch) -> None:
     assert "uma lista guarda itens em ordem" in result.output
     assert engine.calls == [{"prompt": "explica uma lista", "explicit_heavy": False}]
     assert "qwen2.5-coder:3b" in result.output
+    assert engine.closed is True
 
 
 def test_ask_heavy_repassa_a_flag(monkeypatch) -> None:
@@ -75,6 +80,47 @@ def test_ask_sem_resposta_termina_com_erro(monkeypatch) -> None:
 
     assert result.exit_code == 1
     assert "YBY_CLOUD_API_KEY" in result.output
+    assert engine.closed is True
+
+
+class _BoomEngine:
+    def __init__(self) -> None:
+        self.closed = False
+
+    def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
+        msg = "falha simulada do motor"
+        raise RuntimeError(msg)
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_ask_fecha_o_motor_quando_reply_falha(monkeypatch) -> None:
+    engine = _BoomEngine()
+    monkeypatch.setattr("src.main.build_engine", lambda: engine)
+    result = CliRunner().invoke(cli, ["ask", "oi"])
+
+    assert result.exit_code != 0
+    assert isinstance(result.exception, RuntimeError)
+    assert str(result.exception) == "falha simulada do motor"
+    assert engine.closed is True
+
+
+def test_build_engine_falha_nao_chama_close(monkeypatch) -> None:
+    closed = {"sim": False}
+
+    class _Ghost:
+        def close(self) -> None:
+            closed["sim"] = True
+
+    def _boom() -> _Ghost:
+        raise OSError("sem motor")
+
+    monkeypatch.setattr("src.main.build_engine", _boom)
+    result = CliRunner().invoke(cli, ["ask", "oi"])
+
+    assert result.exit_code != 0
+    assert closed["sim"] is False
 
 
 def test_ask_vazio_nao_chama_o_motor(monkeypatch) -> None:

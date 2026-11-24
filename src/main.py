@@ -149,15 +149,19 @@ def ask(heavy: bool, voice: bool, pergunta: tuple[str, ...]) -> None:
         )
         raise SystemExit(1)
 
-    resposta = build_engine().reply(texto, explicit_heavy=heavy)
-    if resposta.notice:
-        click.echo(resposta.notice, err=True)
-    if resposta.provider == "none":
-        raise SystemExit(1)
+    engine = build_engine()
+    try:
+        resposta = engine.reply(texto, explicit_heavy=heavy)
+        if resposta.notice:
+            click.echo(resposta.notice, err=True)
+        if resposta.provider == "none":
+            raise SystemExit(1)
 
-    motivo = "; ".join(resposta.reasons)
-    click.echo(f"modelo: {resposta.provider} {resposta.model} ({motivo})", err=True)
-    click.echo(resposta.text)
+        motivo = "; ".join(resposta.reasons)
+        click.echo(f"modelo: {resposta.provider} {resposta.model} ({motivo})", err=True)
+        click.echo(resposta.text)
+    finally:
+        engine.close()
 
 
 @cli.command("listen")
@@ -382,31 +386,35 @@ def _wait_enter(_prompt: str = "") -> str:
 def _voice_turn(*, heavy: bool) -> None:
     """Fluxo de voz compartilhado por `ask --voice` e `listen`."""
 
+    engine = build_engine()
     try:
-        turn = listen_once(
-            build_engine(),
-            voice_config_from_env(),
-            explicit_heavy=heavy,
-            input_fn=_wait_enter,
-            output_fn=lambda msg: click.echo(msg, err=True),
-        )
-    except VoiceError as exc:
-        click.echo(str(exc), err=True)
-        click.echo(
-            "Texto continua disponível: python yby.py ask \"sua pergunta\"",
-            err=True,
-        )
-        raise SystemExit(1) from exc
+        try:
+            turn = listen_once(
+                engine,
+                voice_config_from_env(),
+                explicit_heavy=heavy,
+                input_fn=_wait_enter,
+                output_fn=lambda msg: click.echo(msg, err=True),
+            )
+        except VoiceError as exc:
+            click.echo(str(exc), err=True)
+            click.echo(
+                "Texto continua disponível: python yby.py ask \"sua pergunta\"",
+                err=True,
+            )
+            raise SystemExit(1) from exc
 
-    resposta = turn.reply
-    if resposta.notice:
-        click.echo(resposta.notice, err=True)
-    if resposta.provider == "none":
-        raise SystemExit(1)
+        resposta = turn.reply
+        if resposta.notice:
+            click.echo(resposta.notice, err=True)
+        if resposta.provider == "none":
+            raise SystemExit(1)
 
-    motivo = "; ".join(resposta.reasons)
-    click.echo(f"modelo: {resposta.provider} {resposta.model} ({motivo})", err=True)
-    click.echo(resposta.text)
+        motivo = "; ".join(resposta.reasons)
+        click.echo(f"modelo: {resposta.provider} {resposta.model} ({motivo})", err=True)
+        click.echo(resposta.text)
+    finally:
+        engine.close()
 
 
 if __name__ == "__main__":
