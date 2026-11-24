@@ -55,6 +55,27 @@ Executar **depois** de `make check` verde local. Não colar chaves no terminal c
 | Corroborar custo | Painel OpenRouter (atividade da chave); **não** use `input_tokens_estimate`/`output_tokens_estimate` do JSONL como fatura (heurística `len/4`) |
 | Limites | `YBY_CLOUD_MAX_OUTPUT_TOKENS` → campo `max_tokens` no POST (teto de saída). Distinto de `YBY_CLOUD_CONTEXT_MAX_CHARS` (entrada) e de `YBY_CLOUD_*_TOKEN_LIMIT` (orçamento local) |
 
+### Previsão de rota (offline, antes dos smokes)
+
+Usa a mesma regra que o `ask` (`decide_route` + `YBY_HEAVY_*` via `EngineConfig.from_env()`). Não chama Ollama, cache, gate nem nuvem.
+
+```bash
+python yby.py route "Em uma frase: o que é uma lista?"
+# previsão: …
+# rota: local
+# motivos: pedido dentro do limite local
+
+python yby.py route --heavy "Responda apenas com OK."
+# rota: cloud
+# motivos: flag --heavy
+
+python yby.py route "Pensa mais sobre recursão"
+# rota: cloud
+# motivos: frase explícita (lista YBY_HEAVY_PHRASES)  # rótulo fixo; não ecoa a frase nem o pedido
+```
+
+Útil para validar `--heavy` e limiares antes do smoke OpenRouter no PC. O comando **não** repete o texto do pedido na saída. Motivos de tamanho/complexidade mostram só contagens; gatilho por frase usa rótulo categórico (a decisão interna permanece igual ao `ask`).
+
 ## Comandos CLI
 
 | Comando | O que faz |
@@ -62,6 +83,8 @@ Executar **depois** de `make check` verde local. Não colar chaves no terminal c
 | `python yby.py ask "..."` | texto via HybridEngine (Ollama → nuvem se pesado/`--heavy`) |
 | `python yby.py run "..."` | porta de segurança → executa se permitido |
 | `python yby.py gate "..."` | só decide (run/ask/refuse); não executa |
+| `python yby.py route "..."` | previsão local/nuvem + motivos; **não** chama modelo nem rede |
+| `python yby.py route --heavy "..."` | mesma regra de rota que `ask --heavy` (só a decisão) |
 | `python yby.py note "título" texto da nota...` | grava no vault |
 | `python yby.py recall "consulta"` | busca no vault |
 | `python yby.py listen` | push-to-talk: Whisper → ask → Piper |

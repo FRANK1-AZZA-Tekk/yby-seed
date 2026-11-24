@@ -15,6 +15,7 @@ Comandos:
     hub     - Keepalive do PC Hub (saúde do Ollama)
     run     - Executa comando após a porta de segurança
     gate    - Só decide; não executa
+    route   - Previsão de rota (local/nuvem); não executa o pedido
     note    - Grava nota no vault
     recall  - Busca no vault
     agent   - Loop de agente P0 (opt-in; não altera o ask)
@@ -33,8 +34,9 @@ from src.actions.runner import DEFAULT_TIMEOUT, run_command
 from src.agent_loop.loop import ControlledAgentLoop
 from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
 from src.agent_loop.tools import vault_registry_or_skip
-from src.engine.config import EngineConfig
-from src.engine.hybrid import HybridEngine, engine_from_env
+from src.engine.config import EngineConfig, EngineConfigError
+from src.engine.hybrid import HybridEngine, engine_from_env, route_decision_from_config
+from src.engine.routing import route_display_reasons
 from src.engine.providers import OllamaProvider
 from src.evo.cli import evo_cli
 from src.memory.vault import VaultError, vault_from_env
@@ -119,6 +121,42 @@ def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
         click.echo(f"timeout após {timeout:g}s", err=True)
         raise SystemExit(124)
     raise SystemExit(0 if result.exit_code == 0 else (result.exit_code or 1))
+
+
+_ROUTE_DISCLAIMER = (
+    "previsão: não verifica disponibilidade, cache, confirmação, orçamento nem custo."
+)
+
+
+@cli.command("route")
+@click.option(
+    "--heavy",
+    is_flag=True,
+    help="Força a nuvem, mesmo num pedido curto (igual ao `ask`).",
+)
+@click.argument("pedido", nargs=-1, required=False)
+def route_cmd(heavy: bool, pedido: tuple[str, ...]) -> None:
+    """Mostra a rota prevista (local ou nuvem) e os motivos. Não chama modelo nem rede."""
+
+    texto = " ".join(pedido).strip()
+    if not texto:
+        click.echo(
+            'Informe um pedido. Exemplo: yby route "explica uma lista" ou yby route --heavy "oi"',
+            err=True,
+        )
+        raise SystemExit(1)
+
+    try:
+        config = EngineConfig.from_env()
+    except EngineConfigError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+
+    decision = route_decision_from_config(config, texto, explicit_heavy=heavy)
+    motivos = "; ".join(route_display_reasons(decision))
+    click.echo(_ROUTE_DISCLAIMER)
+    click.echo(f"rota: {decision.target}")
+    click.echo(f"motivos: {motivos}")
 
 
 @cli.command()
