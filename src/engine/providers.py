@@ -240,9 +240,38 @@ class CloudProvider:
         return bool(self.api_key)
 
     def complete(self, prompt: str, *, model: str, system: str) -> str:
+        return self.complete_detail(prompt, model=model, system=system).text
+
+    def complete_detail(
+        self,
+        prompt: str,
+        *,
+        model: str,
+        system: str,
+    ) -> CloudCompletion:
+        """Texto da resposta e tokens informados pelo provedor (quando existirem)."""
+
         if not self.has_credentials():
             raise ProviderError("YBY_CLOUD_API_KEY não está definida.")
 
+        payload = self._chat_completions_payload(prompt, model=model, system=system)
+        text = _message_content(payload)
+        if not text.strip():
+            raise ProviderError(f"Nuvem ({model}) devolveu uma resposta vazia.")
+        input_reported, output_reported = extract_reported_usage(payload)
+        return CloudCompletion(
+            text=text,
+            input_tokens_reported=input_reported,
+            output_tokens_reported=output_reported,
+        )
+
+    def _chat_completions_payload(
+        self,
+        prompt: str,
+        *,
+        model: str,
+        system: str,
+    ) -> dict[str, Any]:
         url = f"{self.base_url}/chat/completions"
         body = {
             "model": model,
@@ -269,11 +298,16 @@ class CloudProvider:
             status = getattr(response, "status_code", "?")
             raise ProviderError(f"Nuvem respondeu HTTP {status} em {self.base_url}.")
 
-        payload = _json_object(response, "A nuvem")
-        text = _message_content(payload)
-        if not text.strip():
-            raise ProviderError(f"Nuvem ({model}) devolveu uma resposta vazia.")
-        return text
+        return _json_object(response, "A nuvem")
+
+
+@dataclass(frozen=True)
+class CloudCompletion:
+    """Resposta HTTP de nuvem sem estado compartilhado entre chamadas."""
+
+    text: str
+    input_tokens_reported: int | None = None
+    output_tokens_reported: int | None = None
 
 
 @dataclass(frozen=True)
@@ -283,6 +317,8 @@ class CloudResult:
     text: str
     model: str
     via: str
+    input_tokens_reported: int | None = None
+    output_tokens_reported: int | None = None
 
 
 class CascadingCloudProvider:
@@ -326,15 +362,23 @@ class CascadingCloudProvider:
                 "Fallback de nuvem exige autorização explícita (issue #42)."
             )
         try:
-            text = self.primary.complete(
-                prompt, model=self.primary_model, system=system
+            detail = self.primary.complete_detail(
+                prompt,
+                model=self.primary_model,
+                system=system,
             )
         except ProviderError as exc:
             raise ProviderError(
                 f"{self.primary_label} falhou ({exc}). "
                 "Nuvem alternativa não é chamada automaticamente (D12)."
             ) from exc
-        return CloudResult(text, self.primary_model, self.primary_label)
+        return CloudResult(
+            detail.text,
+            self.primary_model,
+            self.primary_label,
+            input_tokens_reported=detail.input_tokens_reported,
+            output_tokens_reported=detail.output_tokens_reported,
+        )
 
     def close(self) -> None:
         self.primary.close()
@@ -388,6 +432,29 @@ def _ollama_text(payload: dict[str, Any], model: str) -> str:
     reason = payload.get("done_reason")
     suffix = f" done_reason={reason}." if isinstance(reason, str) and reason else ""
     raise ProviderError(f"Ollama ({model}) devolveu uma resposta vazia.{suffix}")
+
+
+def reported_token_count(value: object) -> int | None:
+    """Aceita só inteiro >= 0; bool e outros tipos não viram zero."""
+
+    if isinstance(value, bool):
+        return None
+    if not isinstance(value, int):
+        return None
+    if value < 0:
+        return None
+    return value
+
+
+def extract_reported_usage(payload: dict[str, Any]) -> tuple[int | None, int | None]:
+    """Lê usage OpenAI-compat do JSON já parseado (sem gravar o payload)."""
+
+    usage = payload.get("usage")
+    if not isinstance(usage, dict):
+        return None, None
+    prompt_tokens = reported_token_count(usage.get("prompt_tokens"))
+    completion_tokens = reported_token_count(usage.get("completion_tokens"))
+    return prompt_tokens, completion_tokens
 
 
 def _json_object(response: requests.Response, who: str) -> dict[str, Any]:

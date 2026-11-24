@@ -28,7 +28,7 @@ YBY SEED already ships a **local JSONL cloud usage log** (`src/engine/cloud_usag
 | Today (baseline) | Target (this spec) |
 |---|---|
 | `logs/cloud_usage.jsonl` (0600) | `logs/cloud_usage.sqlite3` (0600) + JSONL import once |
-| Fields: timestamp, provider, model, purpose, in/out token estimates, result | Same + estimated cost, status, session/task id, prompt hash/ref, result ref |
+| Fields: timestamp, provider, model, purpose, in/out token estimates, result | Same + optional `input_tokens_reported`/`output_tokens_reported` (API `usage` on fresh HTTP; budget unchanged) + estimated cost, status, session/task id, prompt hash/ref, result ref |
 | Monthly token limit + warn | Daily + monthly limits; warn / block / explicit exception |
 | Confirm when `YBY_CLOUD_REQUIRE_CONFIRM` | Confirm policy by mode, cost threshold, and purpose |
 | Metadata-only log (rejects prompt/key fields) | Same + outbound sanitizer gate + vault authz |

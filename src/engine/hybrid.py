@@ -453,18 +453,44 @@ class HybridEngine:
 
         output_est = CloudUsageLog.estimate_tokens(result.text)
         self.cloud_log.append(
-            {
-                "timestamp": utc_timestamp(),
-                "provider": result.via,
-                "model": result.model,
-                "purpose": purpose,
-                "input_tokens_estimate": input_est,
-                "output_tokens_estimate": output_est,
-                "result": EVENT_COMPLETED,
-            }
+            _cloud_completed_event(
+                provider=result.via,
+                model=result.model,
+                purpose=purpose,
+                input_est=input_est,
+                output_est=output_est,
+                result=result,
+            )
         )
         self.cache.set(key, result.text)
         return result
+
+
+def _cloud_completed_event(
+    *,
+    provider: str,
+    model: str,
+    purpose: str,
+    input_est: int,
+    output_est: int,
+    result: CloudResult,
+) -> dict[str, object]:
+    """Monta cloud_completed com estimativas obrigatórias e tokens reportados opcionais."""
+
+    event: dict[str, object] = {
+        "timestamp": utc_timestamp(),
+        "provider": provider,
+        "model": model,
+        "purpose": purpose,
+        "input_tokens_estimate": input_est,
+        "output_tokens_estimate": output_est,
+        "result": EVENT_COMPLETED,
+    }
+    if result.input_tokens_reported is not None:
+        event["input_tokens_reported"] = result.input_tokens_reported
+    if result.output_tokens_reported is not None:
+        event["output_tokens_reported"] = result.output_tokens_reported
+    return event
 
 
 def _blocked_event(code: str) -> str:

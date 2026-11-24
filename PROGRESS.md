@@ -4,16 +4,15 @@ Registro incremental de camadas. Sem `CONTRACT.md` / `config/agent/state.json` n
 
 ## Retomada atual
 
-**Atualizado:** 2026-11-24 (pós-merge **PR #129**; VM `/agent/repos/yby-seed`).
+**Atualizado:** 2026-11-24 (tokens reportados; VM `/agent/repos/yby-seed`).
 
 | Campo | Estado |
 |-------|--------|
-| **Tarefa concluída nesta linha** | **PR #129** merged — CLI `yby route` (+ `docs/DEV.md`, `tests/test_route_cli.py`). |
-| **`main` remoto** | `6a0bd49e8ad93cf16cf5cac039477c01ef89be77` (merge #129 sobre base `3559e41…`). |
-| **Validação integração #129** | Branch atualizada com merge de `main` (sem force push); head pré-merge **`45155a70f97ea06940e5becd5e5d2e49044b5d9b`**; CI **9/9** nesse SHA; local `make check` **372 passed**, 15 skipped; `tests/test_route_cli.py` **10 passed**. |
-| **Próxima tarefa sugerida (não iniciada)** | Stash cloud-reported tokens (aprovação explícita antes de aplicar) **ou** smokes no PC Hub. |
-| **WIP / stash** | Descrição: `wip cloud-reported tokens` (branch origem `cursor/cloud-reported-tokens-6eec`). **OID:** `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` — reconfirmar índice com `git stash list`. **Não aplicado.** |
-| **Bloqueios (PC Hub)** | Smokes Ollama/OpenRouter do [checklist](#checklist-de-aceite-do-núcleo-consolidado); `yby route` no PC opcional após `git pull` de `main` @ `6a0bd49…`. |
+| **Base de implementação** | `bf34076c3e249960f607a6acd4c5c998320a2824` (`origin/main` pós **PR #132**; não confundir com `6a0bd49…` só do #129). |
+| **Tarefa em andamento nesta linha** | Tokens cloud reportados (`complete_detail`, JSONL opcional, testes offline) — branch `cursor/cloud-reported-tokens-v2-6eec`; WIP stash **não** aplicado. |
+| **WIP / stash (preservado)** | `wip cloud-reported tokens` — OID `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` (`stash@{0}`); referência apenas. |
+| **Próxima sugerida** | Integrar PR dos tokens reportados quando CI verde; **ou** smokes no PC Hub ([checklist](#checklist-de-aceite-do-núcleo-consolidado)). |
+| **Bloqueios (PC Hub)** | Smokes Ollama/OpenRouter reais; não executados nesta VM. |
 
 *Não é fonte de autorização; regras em `AGENTS.md`. Histórico de camadas abaixo permanece.*
 
