@@ -218,3 +218,109 @@ PYTHONPATH=. python3 -m ruff check src/agent_loop/loop.py tests/test_robustness_
 → All checks passed!
 make check → doctor FAIL (venv sem ensurepip neste VM); pytest/ruff OK via python3 -m
 ```
+
+## Camada: estabilização do núcleo básico (ambiente + gates)
+
+**Objetivo:** confirmar o núcleo (instalação, `ask`, safety, memória) com `make check` neste workspace; sem expandir voz/agente/RAG/gateway; sem editar regras Cursor nem diagramas.
+
+**Status:** concluída no ambiente (gates verdes). Smoke real com Ollama **pendente** (sem pull de modelo / sem chamada externa nesta missão).
+
+**Critérios do básico:**
+
+| Critério | Estado | Evidência |
+|----------|--------|-----------|
+| Instalação + `make doctor` | concluído | `make setup` + doctor PASS |
+| Conversa texto (mocks) | concluído | suite pytest (ask/engine/cache/budget) |
+| Ações controladas | concluído | `tests/test_safety.py`, `tests/test_actions.py` |
+| Memória local (tmp) | concluído | `tests/test_vault.py` |
+| Gates locais | concluído | doctor + ruff + pytest |
+| Smoke Ollama real | bloqueado / pendente | proibido baixar modelo; não fingido |
+
+**Ambiente:**
+
+- Branch: `main` @ `7866c22`
+- Python 3.12.3; `.venv` criado após instalar `python3.12-venv` (ensurepip ausente no VM)
+- Só manifests existentes: `requirements.txt` + `requirements-dev.txt` (sem deps novas)
+
+**Arquivos desta fatia:**
+
+- Criado: `.venv/` (gitignored)
+- Editado: `PROGRESS.md` (esta nota)
+- **Não** alterados: `AGENTS.md`, `.cursor/rules/*`, `docs/diagrams/*`, código de produção
+
+**Evidências (2026-11-24):**
+
+```text
+make setup → Setup OK
+make check
+→ doctor: PASS
+→ ruff: All checks passed!
+→ pytest: 349 passed, 15 skipped, 10 warnings (14.54s)
+.venv/bin/python yby.py --help → comandos ask/run/gate/note/recall listados
+```
+
+**Preservado (diff local pré-existente):**
+
+- `AGENTS.md`, `.cursor/rules/yby.mdc`, `.cursor/rules/yby-economy.mdc` (modificados)
+- `docs/diagrams/yby-request-flow.{md,html}` (untracked)
+
+**P2 / próximos (não iniciados):**
+
+1. Smoke local: `ollama pull qwen2.5-coder:3b` + `python yby.py ask "..."` na máquina do dono.
+2. Follow-up já anotado: `yby ask` / `yby agent --local` não chamam `HybridEngine.close()` (PR #122).
+3. Warnings FastAPI `on_event` / `datetime.utcnow` no gateway (fora do núcleo `ask`).
+
+## Camada: versionar regras + diagramas + smoke sem Ollama
+
+**Objetivo:** colocar em branch/PR o trabalho local (regras, POC visual, progresso); validar núcleo neste VM Cursor; sem instalar Ollama/modelo sem aprovação extra.
+
+**Status:** branch `cursor/basic-docs-and-progress-6eec` (base `7866c22`). Smoke parcial OK; `ask`+modelo pendente.
+
+**Ambiente desta instalação:**
+
+| Item | Valor |
+|------|--------|
+| Host | `cursor` (Cloud Agent VM; **não** o PC pessoal) |
+| Usuário | `ubuntu` |
+| Diretório | `/agent/repos/yby-seed` |
+| Python | 3.12.3 + `.venv` (gitignored) |
+| Ollama | ausente |
+
+**Como repetir neste VM:**
+
+```bash
+make setup          # se .venv ausente
+make check
+YBY_VAULT_PATH=/tmp/yby-smoke-vault .venv/bin/python yby.py note "smoke" "texto"
+YBY_VAULT_PATH=/tmp/yby-smoke-vault .venv/bin/python yby.py recall "teste"
+.venv/bin/python yby.py gate "ls"
+.venv/bin/python yby.py run "ls"
+.venv/bin/python yby.py ask "ping"   # espera falha Ollama clara, sem nuvem
+```
+
+**Smoke (2026-11-24, sem Ollama):**
+
+```text
+make check → doctor PASS; ruff OK; 349 passed, 15 skipped
+help → ask/run/gate/note/recall listados
+note → /tmp/yby-smoke-vault/smoke.md
+recall "teste" → hit smoke.md
+gate ls → run (exit 0); gate "rm -rf /" → refuse (exit 1)
+run ls → exit 0
+ask "ping" → exit 1; notice: Ollama falhou… Nuvem não é acionada automaticamente (D12)
+```
+
+**Commits desta branch:**
+
+1. `docs(agents): alinhar regras Cursor sem contradições`
+2. `docs(diagrams): POC visual do fluxo yby ask`
+3. `docs(progress): estabilização, smoke e handoff VM cursor`
+
+**No PC do dono ainda falta:**
+
+1. Clone/pull da branch ou main após merge
+2. `make setup` + Ollama + `ollama pull qwen2.5-coder:3b` (~1.9 GB típico)
+3. Smoke `yby ask "..."` com modelo local
+4. Vault real via `YBY_VAULT_PATH` (não usar o `/tmp` do VM)
+
+**Não iniciado:** systemd hub, Docker, deploy remoto, PR #122 (`close()`).
