@@ -96,7 +96,9 @@ python yby.py route "Pensa mais sobre recursão"
 | `python yby.py evo report --day YYYY-MM-DD` | Evo v0.1: relatório local (offline) |
 | `python -m src.evo report --seed-demo --no-ollama` | mesmo fluxo via módulo |
 
-Agente P0 (fora do `ask`; `--local` exige Ollama). Exit: `0` completed, `2` aborted, `1` erro:
+Agente P0 (fora do `ask`; `--local` exige Ollama). Exit: `0` completed, `2` aborted, `1` erro.
+
+**Timeout de tools (`tool_timeout_seconds`, padrão 30s no `ControlledAgentLoop`):** limita só quanto o loop **espera** pelo retorno da tool em uma thread auxiliar. Em timeout o loop volta com `status=error` **sem** esperar o fim da thread (`shutdown(wait=False)`). Isso **não cancela** o handler Python em execução — efeitos tardios ainda são possíveis se a tool mutar estado ou I/O. Handlers atuais: `echo_json` (puro), `vault_search` (leitura). Use `tool_timeout_seconds=None` para executar na thread principal (sem teto). Sem cancelamento cooperativo nos handlers hoje.
 
 ```bash
 python yby.py agent "demo P0" --script examples/agent_demo_script.json
