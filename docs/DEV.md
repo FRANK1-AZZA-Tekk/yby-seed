@@ -98,6 +98,8 @@ python yby.py route "Pensa mais sobre recursão"
 
 Agente P0 (fora do `ask`; `--local` exige Ollama). Exit: `0` completed, `2` aborted, `1` erro.
 
+**Limite do prompt do planner (`YBY_PLANNER_PROMPT_MAX_CHARS`, padrão 8192):** teto conservador em **caracteres Python** (não tokens) sobre `system` + prompt do `OllamaJsonPlanner`. Abaixo do teto o histórico vai integralmente; acima disso o planner projeta um JSON válido com passos recentes, omissão explícita de passos antigos (`_yby_planner_omitted_steps`) e redução de observações grandes (`…[observação reduzida pelo limite do planner]…`). O histórico em `AgentRunResult` permanece integral. Se tarefa + tools + instruções já excedem o teto, falha com `planner_error` **antes** do HTTP. Distinto de `YBY_CLOUD_CONTEXT_MAX_CHARS` (nuvem/`ask`).
+
 **Timeout de tools (`tool_timeout_seconds`, padrão 30s no `ControlledAgentLoop`):** limita só quanto o loop **espera** pelo retorno da tool em uma thread auxiliar. Em timeout o loop volta com `status=error` **sem** esperar o fim da thread (`shutdown(wait=False)`). Isso **não cancela** o handler Python em execução — efeitos tardios ainda são possíveis se a tool mutar estado ou I/O. Handlers atuais: `echo_json` (puro), `vault_search` (leitura). Use `tool_timeout_seconds=None` para executar na thread principal (sem teto). Sem cancelamento cooperativo nos handlers hoje.
 
 ```bash
@@ -120,6 +122,7 @@ Hub no boot: `bash scripts/install-hub-service.sh --enable`. Detalhe: [PLATFORM.
 | `YBY_CACHE_*`, `YBY_CACHE_PATH`, `YBY_CLOUD_CONTEXT_MAX_CHARS` | cache TTL (disco em `~/.local/state/yby-seed/response-cache.json`; `YBY_CACHE_PATH=memory` desliga o arquivo) e limite de **entrada** (caracteres) na nuvem |
 | `YBY_CLOUD_MAX_OUTPUT_TOKENS` | teto de **saída** na chamada cloud (`max_tokens` no POST; padrão 512). Distinto de orçamento `YBY_CLOUD_*_TOKEN_LIMIT` (contabilidade local) |
 | `YBY_OLLAMA_NUM_CTX`, `YBY_OLLAMA_NUM_PREDICT`, `YBY_OLLAMA_THINK` | contexto local (padrão 4096, cabe em 4 GB), teto de tokens (padrão 1024) e thinking do Ollama (padrão omitido no JSON; `sim` envia `think: true`) |
+| `YBY_PLANNER_PROMPT_MAX_CHARS` | teto do prompt do planner Ollama (caracteres; padrão 8192; mínimo 256). Só afeta projeção enviada ao modelo — não trunca o resultado do agente. |
 | `YBY_PLANNER_OLLAMA_FORMAT` | **experimental, desligado por padrão:** só o planner (`yby agent --local`) envia `format:"json"` no `POST /api/generate` quando o valor é exatamente `json`; ausente/vazio mantém o comportamento anterior; outros valores falham na config antes do HTTP. Não afeta `ask`/híbrido. **Smoke pendente** no PC Hub (versão Ollama + `qwen2.5-coder:3b`). Não ativar em deploy até validar. |
 | `YBY_HEAVY_*` | limiares / frases que sobem para nuvem |
 | `YBY_VAULT_PATH` | pasta do vault Obsidian; backup: `scripts/backup-vault.sh` ([BACKUP.md](BACKUP.md)) |

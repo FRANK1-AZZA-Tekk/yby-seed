@@ -6,7 +6,11 @@ import json
 from collections.abc import Callable, Sequence
 from typing import Protocol
 
-from src.agent_loop.planner_env import planner_ollama_format_from_env
+from src.agent_loop.planner_env import (
+    planner_ollama_format_from_env,
+    planner_prompt_max_chars_from_env,
+)
+from src.agent_loop.planner_prompt import build_planner_user_prompt
 from src.agent_loop.schemas import PlannerStep, parse_planner_step
 from src.engine.providers import OllamaProvider, TextProvider
 
@@ -62,6 +66,7 @@ class OllamaJsonPlanner:
         *,
         model: str,
         planner_json_format: bool | None = None,
+        prompt_max_chars: int | None = None,
     ) -> None:
         self._provider = provider
         self._model = model
@@ -69,6 +74,10 @@ class OllamaJsonPlanner:
             self._planner_json_format = planner_ollama_format_from_env() == "json"
         else:
             self._planner_json_format = planner_json_format
+        if prompt_max_chars is None:
+            self._prompt_max_chars = planner_prompt_max_chars_from_env()
+        else:
+            self._prompt_max_chars = prompt_max_chars
 
     def plan(
         self,
@@ -77,12 +86,12 @@ class OllamaJsonPlanner:
         tools_blurb: str,
         history: Sequence[dict[str, object]],
     ) -> PlannerStep:
-        history_text = json.dumps(list(history), ensure_ascii=False, indent=0)
-        prompt = (
-            f"Tarefa: {task}\n\n"
-            f"Tools disponíveis:\n{tools_blurb}\n\n"
-            f"Histórico de passos (JSON):\n{history_text}\n\n"
-            "Próximo passo (um JSON):"
+        prompt = build_planner_user_prompt(
+            system=self.SYSTEM,
+            task=task,
+            tools_blurb=tools_blurb,
+            history=history,
+            max_total_chars=self._prompt_max_chars,
         )
         if self._planner_json_format and isinstance(self._provider, OllamaProvider):
             raw = self._provider.complete(
