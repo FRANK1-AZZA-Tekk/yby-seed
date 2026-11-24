@@ -9,10 +9,63 @@ import pytest
 from pydantic import BaseModel, Field
 
 from src.agent_loop.loop import ControlledAgentLoop
-from src.agent_loop.planner import ScriptedPlanner
+from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
 from src.agent_loop.schemas import parse_planner_step
 from src.agent_loop.tools import ToolRegistry, ToolSpec, default_tool_registry
 from src.engine.providers import ProviderError
+
+
+def test_parse_planner_step_json_invalido_levanta_json_decode_error() -> None:
+    with pytest.raises(json.JSONDecodeError):
+        parse_planner_step('{"action": }')
+
+
+def test_parse_planner_step_acao_desconhecida_levanta_value_error() -> None:
+    with pytest.raises(ValueError, match="ação desconhecida"):
+        parse_planner_step('{"action":"noop","name":"x"}')
+
+
+class _FakeTextProvider:
+    """Devolve texto fixo em `complete` — limite de I/O para OllamaJsonPlanner."""
+
+    def __init__(self, response: str) -> None:
+        self.response = response
+        self.calls = 0
+
+    def complete(self, prompt: str, *, model: str, system: str) -> str:
+        self.calls += 1
+        return self.response
+
+
+def _loop_com_ollama_planner(response: str) -> tuple[ControlledAgentLoop, _FakeTextProvider]:
+    provider = _FakeTextProvider(response)
+    planner = OllamaJsonPlanner(provider, model="qwen2.5-coder:3b")
+    loop = ControlledAgentLoop(
+        registry=default_tool_registry(include_vault=False),
+        planner=planner,
+        max_iterations=5,
+    )
+    return loop, provider
+
+
+def test_planner_json_invalido_vira_planner_error_sem_tool() -> None:
+    loop, provider = _loop_com_ollama_planner('{"action": }')
+    result = loop.run("tarefa")
+    assert result.status == "error"
+    assert result.steps[-1].kind == "planner_error"
+    assert result.steps[-1].error is not None
+    assert provider.calls == 1
+    assert not any(step.kind == "tool" for step in result.steps)
+
+
+def test_planner_acao_desconhecida_vira_planner_error_sem_tool() -> None:
+    loop, provider = _loop_com_ollama_planner('{"action":"fly_away","name":"x"}')
+    result = loop.run("tarefa")
+    assert result.status == "error"
+    assert result.steps[-1].kind == "planner_error"
+    assert "ação desconhecida" in (result.steps[-1].error or "")
+    assert provider.calls == 1
+    assert not any(step.kind == "tool" for step in result.steps)
 
 
 def test_parse_planner_step_tool() -> None:
