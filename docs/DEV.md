@@ -70,10 +70,11 @@ python yby.py route --heavy "Responda apenas com OK."
 # motivos: flag --heavy
 
 python yby.py route "Pensa mais sobre recursão"
-# rota: cloud  (frase em YBY_HEAVY_PHRASES / padrão)
+# rota: cloud
+# motivos: frase explícita (lista YBY_HEAVY_PHRASES)  # rótulo fixo; não ecoa a frase nem o pedido
 ```
 
-Útil para validar `--heavy` e limiares antes do smoke OpenRouter no PC. O comando **não** repete o texto do pedido na saída.
+Útil para validar `--heavy` e limiares antes do smoke OpenRouter no PC. O comando **não** repete o texto do pedido na saída. Motivos de tamanho/complexidade mostram só contagens; gatilho por frase usa rótulo categórico (a decisão interna permanece igual ao `ask`).
 
 ## Comandos CLI
 

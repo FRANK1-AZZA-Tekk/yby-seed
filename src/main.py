@@ -34,8 +34,9 @@ from src.actions.runner import DEFAULT_TIMEOUT, run_command
 from src.agent_loop.loop import ControlledAgentLoop
 from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
 from src.agent_loop.tools import vault_registry_or_skip
-from src.engine.config import EngineConfig
+from src.engine.config import EngineConfig, EngineConfigError
 from src.engine.hybrid import HybridEngine, engine_from_env, route_decision_from_config
+from src.engine.routing import route_display_reasons
 from src.engine.providers import OllamaProvider
 from src.evo.cli import evo_cli
 from src.memory.vault import VaultError, vault_from_env
@@ -145,9 +146,14 @@ def route_cmd(heavy: bool, pedido: tuple[str, ...]) -> None:
         )
         raise SystemExit(1)
 
-    config = EngineConfig.from_env()
+    try:
+        config = EngineConfig.from_env()
+    except EngineConfigError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(1) from exc
+
     decision = route_decision_from_config(config, texto, explicit_heavy=heavy)
-    motivos = "; ".join(decision.reasons)
+    motivos = "; ".join(route_display_reasons(decision))
     click.echo(_ROUTE_DISCLAIMER)
     click.echo(f"rota: {decision.target}")
     click.echo(f"motivos: {motivos}")

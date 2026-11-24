@@ -96,6 +96,22 @@ def decide_route(
     return RouteDecision("local", ("pedido dentro do limite local",), ("local_default",))
 
 
+def route_display_reasons(decision: RouteDecision) -> tuple[str, ...]:
+    """Motivos seguros para o CLI `route` (sem ecoar frases de YBY_HEAVY_PHRASES).
+
+    A decisão interna (`decide_route`) mantém `frase explícita: <needle>` para o `ask`;
+    aqui só trocamos o rótulo quando o gatilho veio da lista configurável.
+    """
+
+    displayed: list[str] = []
+    for code, reason in zip(decision.codes, decision.reasons, strict=True):
+        if code == "heavy_phrase":
+            displayed.append("frase explícita (lista YBY_HEAVY_PHRASES)")
+        else:
+            displayed.append(reason)
+    return tuple(displayed)
+
+
 def _line_count(prompt: str) -> int:
     if not prompt.strip():
         return 0
