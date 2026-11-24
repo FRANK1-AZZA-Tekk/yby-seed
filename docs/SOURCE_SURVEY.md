@@ -56,6 +56,7 @@
 | Arquivos prováveis | `tests/test_agent_loop.py`, opcionalmente imports de `parse_planner_step` |
 | Risco | Baixo; só testes |
 | Aceite | `pytest` verifica: string sem `{` → `ValueError`; JSON inválido → `JSONDecodeError`; `action` desconhecida → `ValueError`; mock planner que levanta esses erros → `AgentRunResult.status == "error"` e passo `planner_error` |
+| **Status** | **Atendida** — `tests/test_agent_loop.py` (parse direto + `OllamaJsonPlanner` + fake `complete`) |
 
 **Não recomendado nesta rodada:** ligar `format` Ollama ao planner sem spike em `/api/generate` + `qwen2.5-coder:3b` (hipótese de compatibilidade, SRC-001).
 
