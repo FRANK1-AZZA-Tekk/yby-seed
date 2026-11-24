@@ -310,11 +310,30 @@ run ls → exit 0
 ask "ping" → exit 1; notice: Ollama falhou… Nuvem não é acionada automaticamente (D12)
 ```
 
+**Skips pytest (HEAD `82f171a`, revalidado nesta sessão):**
+
+| Qtd | Motivo | Bloqueia ask/safety/memory? |
+|-----|--------|------------------------------|
+| 8 | `tests/test_agents.py` — Router/Planning/Execution/Validation/LearningAgent não implementados | Não (legado agents) |
+| 3 | `tests/test_gateway.py` — Ollama/PostgreSQL/MQTT fixtures pendentes | Não (gateway fora do núcleo) |
+| 3 | `tests/test_rag.py` — embeddings reais / fixtures pendentes | Não (RAG fora do núcleo) |
+| 1 | `tests/vision/test_fusion_client.py` — Pillow não instalado | Não (vision) |
+
+```text
+.venv/bin/python -m pytest tests -q -rs
+→ 349 passed, 15 skipped, 10 warnings (13.96s); exit 0
+```
+
+**CI / merge (PR #123):**
+
+- Doctor, Lint, Test, auto-review, Vercel: verdes em HEAD
+- Merge autorizado nesta missão quando CI limpo
+
 **Commits desta branch:**
 
-1. `docs(agents): alinhar regras Cursor sem contradições`
-2. `docs(diagrams): POC visual do fluxo yby ask`
-3. `docs(progress): estabilização, smoke e handoff VM cursor`
+1. `bec75a7` — `docs(agents): alinhar regras Cursor sem contradições`
+2. `2ed9246` — `docs(diagrams): POC visual do fluxo yby ask`
+3. `82f171a` — `docs(progress): estabilização, smoke e handoff VM cursor`
 
 **No PC do dono ainda falta:**
 
@@ -323,4 +342,4 @@ ask "ping" → exit 1; notice: Ollama falhou… Nuvem não é acionada automatic
 3. Smoke `yby ask "..."` com modelo local
 4. Vault real via `YBY_VAULT_PATH` (não usar o `/tmp` do VM)
 
-**Não iniciado:** systemd hub, Docker, deploy remoto, PR #122 (`close()`).
+**Não iniciado:** systemd hub, Docker, deploy remoto, PR #122 (`close()`). Instalar Ollama neste VM: **não** (pedido: só com aprovação).
