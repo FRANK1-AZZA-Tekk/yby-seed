@@ -14,6 +14,17 @@ Python CLI (`yby`). Mapa de módulos: [src/README.md](src/README.md) (caminho do
 
 - Autorização para editar não autoriza commit, push, abertura de PR, merge, publicação nem deploy. Cada ação exige aprovação explícita; operações destrutivas exigem aprovação específica.
 
+## Fluxo Cursor
+
+Leitura mínima, diff mínimo, dependências, gates locais e publicação: **Como trabalhar**, **Autorização** e `.cursor/rules/yby.mdc`. Planejamento com aceite e testes: **yby.mdc** (*Antes de editar*).
+
+- **Rodada:** uma tarefa completa por vez, com escopo e aceite explícitos; não encadear a próxima tarefa sem pedido.
+- **Testes:** cobrir comportamento e falhas relevantes; não enfraquecer testes nem relaxar asserts só para passar. Gates: testes direcionados à mudança e `make doctor` / `make lint` / `make test` (ou `make check`) conforme **Como trabalhar**.
+- **Preservação:** manter stash, branches e WIP de outras tarefas intactos; não aplicar nem remover stash sem instrução; não expor segredos (ver **yby.mdc** — Segurança).
+- **Git e CI:** commit, push e PR só com autorização; merge só com aprovação explícita e requisitos do repositório cumpridos no **SHA atual** do head — não reutilizar veredito de commit anterior. Consulta pontual ao CI; não vigiar continuamente.
+- **Bloqueio:** relatar fatos concretos (comando, saída, SHA, check, conflito); não repetir intenção sem evidência nova.
+- **Encerramento:** resumo curto com `RESULTADO`, `ALTERAÇÕES`, `VALIDAÇÃO`, `GIT`, `PENDÊNCIA` (somente o que impede concluir).
+
 ## Runtime YBY vs desenvolvimento no Cursor
 
 - **Runtime YBY** (`yby ask`, `run`, roteamento em `src/engine`): local-first (D12), modelo padrão e roteamento conforme `docs/DEV.md` e decisões vigentes; execução de comandos via `src/safety`; sem fallback automático para nuvem nem mudança de permissões por inferência.
