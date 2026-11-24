@@ -4,18 +4,18 @@
 
 **Níveis:** `D0` descoberta (metadados) · `L1` leitura (doc/issue) · `L2` código/teste examinado.
 
-**Rodada 1:** 2026-11-24 · `main` base `d098334175287f38639a2d7237c77cf90566ef2c`.
+**Rodada 1:** 2026-11-24 · `main` base `d098334…`
+**Rodada 2:** 2026-11-24 · `main` base `7c6ef5b403ed19593583b88dcfe34aca58c9a924` (spike `format` no planner).
 
-## Contagens (somente entradas **novas** desta rodada)
+## Contagens acumuladas (sem duplicatas)
 
-| Nível | Novas nesta rodada |
-|-------|-------------------|
-| D0 | 1 |
-| L1 | 4 |
-| L2 | 5 |
-| **Total novas** | **10** |
+| Rodada | D0 | L1 | L2 | Novas |
+|--------|----|----|-----|-------|
+| 1 | 1 | 4 | 5 | **10** |
+| 2 | 0 | 2 | 3 | **5** |
+| **Total novas** | **1** | **6** | **8** | **15** |
 
-**Acumulado útil:** 10 novas + 3 referências prévias reutilizadas (não recontadas).
+**Acumulado útil:** **15/300** entradas novas + 3 referências prévias reutilizadas (não recontadas). Reutilizadas nesta rodada: **SRC-001**, **SRC-006**, **SRC-007** (sem recontagem).
 
 ## Referências prévias (reutilizadas, sessão anterior)
 
@@ -62,4 +62,55 @@
 
 ---
 
-*Próxima rodada:* aprofundar OWASP LLM07 (L1) e doc `api/chat` vs `api/generate` Ollama; meta acumulada 20/300.
+## Entradas — rodada 2 (planner / `format` Ollama)
+
+| ID | URL / arquivo | Origem | Versão / data | Nível | Evidência útil | Licença | Decisão YBY |
+|----|---------------|--------|---------------|-------|----------------|---------|-------------|
+| SRC-011 | https://github.com/ollama/ollama/blob/main/docs/api.md | Doc oficial Ollama | `main` (lido 2026-11-24) | L1 | **`POST /api/generate`**: `format` = string `"json"` **ou** objeto JSON Schema; exemplos de structured outputs e JSON mode na mesma rota que YBY já usa | MIT (Ollama) | Corrige hipótese da rodada 1: não é só `/api/chat` |
+| SRC-012 | https://github.com/ollama/ollama/releases/tag/v0.5.4 | GitHub releases | v0.5.4 · 2024-12-17 | L1 | Release próximo ao blog structured outputs; menciona correção com `format: null` | — | **Não** inferir versão instalada no PC Hub (`GET /api/version` pendente) |
+| SRC-013 | `src/engine/providers.py` (`build_ollama_generate_payload`, `OllamaProvider.complete`) | Código YBY | `main` @ 7c6ef5b | L2 | Payload atual **sem** `format`; `complete` → texto de `response` | — | Ponto de extensão mínimo |
+| SRC-014 | `src/main.py` (`yby agent --local`) | Código YBY | idem | L2 | Único uso de `OllamaJsonPlanner` + `OllamaProvider`; `HybridEngine`/`ask` não passam por aqui | — | Dá para restringir `format` ao planner |
+| SRC-015 | `tests/test_providers.py` | Testes YBY | idem | L2 | Asserções do corpo `/api/generate`; base para testar `format` opcional offline | — | Aceite offline sem inferência |
+
+### Caminho real YBY (referência cruzada)
+
+`OllamaJsonPlanner.plan` → `TextProvider.complete` → `OllamaProvider` **`POST {base}/api/generate`** (`build_ollama_generate_payload`) → campo `response` (string) → **`parse_planner_step`** → `ToolCallStep` \| `FinishStep` \| `AbortStep` (Pydantic; `action` ∈ `tool|finish|abort`).
+
+**Parser:** cerca markdown opcional; `json.loads` no primeiro `{…}`; validação por modelo Pydantic. Schema Ollama **não substitui** o parser — só reduz JSON malformado.
+
+**`format:"json"` vs JSON Schema (Ollama):**
+
+| `format` | Efeito documentado | Uso planner |
+|----------|-------------------|-------------|
+| `"json"` | Objeto JSON bem formado; ainda exige instrução no prompt | Menor mudança; `parse_planner_step` inalterado |
+| objeto JSON Schema | Saída deve aderir ao schema | Pode espelhar `action` + campos opcionais; `arguments`/`answer` continuam objetos abertos; compatibilidade por modelo **não** documentada para `qwen2.5-coder:3b` |
+
+## Decisão rodada 2 — `format` no `OllamaJsonPlanner`
+
+**Letra: A** — evidência **suficiente** para implementação pequena e **opt-in**, com bloqueio de ativação padrão até smoke no PC Hub.
+
+| Critério | Situação |
+|----------|----------|
+| `/api/generate` + `format` | Confirmado (SRC-011) |
+| Isolar do `ask`/híbrido | Confirmado (SRC-014) |
+| Manter `parse_planner_step` + `planner_error` | Obrigatório; sem segunda chamada HTTP |
+| Modelo Hub `qwen2.5-coder:3b` + versão Ollama | **Não verificado** nesta VM (bloqueio PC Hub) |
+
+### Menor proposta (não implementada nesta rodada)
+
+1. `build_ollama_generate_payload(..., *, ollama_format: str | dict[str, Any] | None = None)` — inclui chave `format` só se não `None`.
+2. `OllamaProvider.complete(..., ollama_format=None)` (kw-only) — repassa ao payload; default `None` preserva `ask` e demais chamadas.
+3. `OllamaJsonPlanner` lê env opcional (ex. `YBY_PLANNER_OLLAMA_FORMAT=json`) e passa `ollama_format="json"` na fase 1; JSON Schema completo fica fase 2.
+4. **Sem** alterar assinatura `TextProvider` global: só `OllamaProvider` + cast no planner, ou método estreito `complete_for_planner` no provider.
+
+**Arquivos prováveis:** `src/engine/providers.py`, `src/agent_loop/planner.py`, `tests/test_providers.py`, opcional `tests/test_agent_loop.py` (mock: corpo POST contém `format`).
+
+**Testes offline:** assert no dict `json` do POST; planner fake inalterado; regressão `build_ollama_generate_payload` sem `format` por default.
+
+**Aceite pós-código (PC Hub, fora desta rodada):** `ollama --version` ou `GET /api/version`; `yby agent --local` com env ativo; taxa de `planner_error` ≤ baseline em N prompts — **não** assumir sucesso só com pytest.
+
+**Bloqueios:** versão Ollama e comportamento de `qwen2.5-coder:3b` com `format` no PC Hub; não declarar 300 fontes concluídas.
+
+---
+
+*Próxima rodada sugerida:* smoke Hub planner+format; OWASP LLM07 (L1); meta acumulada 20/300.
