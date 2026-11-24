@@ -8,10 +8,11 @@ Registro incremental de camadas. Sem `CONTRACT.md` / `config/agent/state.json` n
 
 | Campo | Estado |
 |-------|--------|
-| **Base de implementação** | `bf34076c3e249960f607a6acd4c5c998320a2824` (`origin/main` pós **PR #132**; não confundir com `6a0bd49…` só do #129). |
-| **Tarefa em andamento nesta linha** | Tokens cloud reportados (`complete_detail`, JSONL opcional, testes offline) — branch `cursor/cloud-reported-tokens-v2-6eec`; WIP stash **não** aplicado. |
-| **WIP / stash (preservado)** | `wip cloud-reported tokens` — OID `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` (`stash@{0}`); referência apenas. |
-| **Próxima sugerida** | Integrar PR dos tokens reportados quando CI verde; **ou** smokes no PC Hub ([checklist](#checklist-de-aceite-do-núcleo-consolidado)). |
+| **Tarefa concluída nesta linha** | **PR #133** merged — tokens reportados opcionais no JSONL (`complete_detail`, testes offline). Base de implementação: `bf34076…` (pré-#133). |
+| **`main` remoto** | `e65fa3026d16e047d6f88c0c3d2f2a2947cfc3bd` (merge squash **PR #133**). |
+| **Validação integração #133** | Local `make check` **387 passed**, 15 skipped; `tests/test_route_cli.py` **10 passed**; CI **9/9** no head da branch pré-merge. |
+| **WIP / stash (preservado)** | `wip cloud-reported tokens` — OID `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` (`stash@{0}`); não aplicado (supersedido por #133). |
+| **Próxima sugerida** | Smokes no PC Hub ([checklist](#checklist-de-aceite-do-núcleo-consolidado)). |
 | **Bloqueios (PC Hub)** | Smokes Ollama/OpenRouter reais; não executados nesta VM. |
 
 *Não é fonte de autorização; regras em `AGENTS.md`. Histórico de camadas abaixo permanece.*
