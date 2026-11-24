@@ -1,0 +1,10 @@
+{
+  "ollama_down_seconds": 300,
+  "backup_max_age_hours": 48,
+  "ollama_timeout": 2.0,
+  "check_interval_seconds": 60,
+  "quiet_hours": {
+    "start": "22:00",
+    "end": "07:00"
+  }
+}

@@ -1,0 +1,12 @@
+[Unit]
+Description=YBY SEED Sentinela (uma passagem coletar/avaliar/notificar)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__YBY_ROOT__
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-__YBY_ROOT__/.env
+ExecStart=__YBY_PYTHON__ __YBY_ROOT__/yby.py sentinel once
+# Somente leitura + notify-send. Nunca reinicia Ollama nem toca no vault.

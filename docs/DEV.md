@@ -47,6 +47,9 @@ Depois do setup: `make doctor` (ambiente) e `make test` (pytest).
 | `python yby.py agent "..." --local` | loop P0 com planner Ollama (só local) |
 | `python yby.py evo report --day YYYY-MM-DD` | Evo v0.1: relatório local (offline) |
 | `python -m src.evo report --seed-demo --no-ollama` | mesmo fluxo via módulo |
+| `python yby.py assist` | sessão PT-BR para tools cadastradas do PC ([ASSIST.md](ASSIST.md)) |
+| `python yby.py painel` | painel local de consulta (somente leitura; [PAINEL.md](PAINEL.md)) |
+| `python yby.py sentinel once` | Sentinela: uma passagem coletar/avaliar/notificar ([SENTINEL.md](SENTINEL.md)) |
 
 Agente P0 (fora do `ask`; `--local` exige Ollama). Exit: `0` completed, `2` aborted, `1` erro:
 
@@ -74,6 +77,7 @@ Hub no boot: `bash scripts/install-hub-service.sh --enable`. Detalhe: [PLATFORM.
 | `YBY_VOICE_MAX_SECONDS` | teto da gravação push-to-talk (padrão 120) |
 | `YBY_HUB_*` | intervalo/timeout do keepalive |
 | `GATEWAY_TOKEN`, `FASTAPI_HOST` | gateway HTTP (fora do caminho do `ask`) |
+| `YBY_PAINEL_TOKEN` | painel local de consulta (loopback; separado do gateway) |
 | `YBY_DATABASE_URL` | Postgres opcional (agentes legados) |
 
 Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
