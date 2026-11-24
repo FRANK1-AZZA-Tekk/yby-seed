@@ -345,17 +345,39 @@ class HybridEngine:
             )
         return None
 
-    def _lookup(self, prompt: str, *, model: str) -> str | None:
-        key = self.cache.make_key(prompt, model=model, system=SYSTEM_PROMPT)
+    def _lookup(
+        self,
+        prompt: str,
+        *,
+        model: str,
+        cache_extra: str = "",
+    ) -> str | None:
+        key = self.cache.make_key(
+            prompt,
+            model=model,
+            system=SYSTEM_PROMPT,
+            cache_extra=cache_extra,
+        )
         return self.cache.get(key)
 
     def _lookup_cloud(self, prompt: str) -> str | None:
         outbound, _stats = self._prepare_cloud_prompt(prompt)
-        return self._lookup(outbound, model=self.config.cloud_model)
+        return self._lookup(
+            outbound,
+            model=self.config.cloud_model,
+            cache_extra=self._cloud_cache_tag(),
+        )
 
     def _store(self, prompt: str, text: str, *, model: str) -> None:
-        key = self.cache.make_key(prompt, model=model, system=SYSTEM_PROMPT)
+        key = self.cache.make_key(prompt, model=model, system=SYSTEM_PROMPT, cache_extra="")
         self.cache.set(key, text)
+
+    @staticmethod
+    def _cloud_cache_extra(max_output_tokens: int) -> str:
+        return f"max_tokens={max_output_tokens}"
+
+    def _cloud_cache_tag(self) -> str:
+        return self._cloud_cache_extra(self.config.cloud_max_output_tokens)
 
     def _prepare_cloud_prompt(self, prompt: str) -> tuple[str, SanitizeResult]:
         """Trim + sanitize antes de cache/HTTP (nunca enviar segredos/PII crus)."""
@@ -379,7 +401,12 @@ class HybridEngine:
     def _cloud_call(self, prompt: str, *, purpose: str) -> CloudResult:
         outbound, _stats = self._prepare_cloud_prompt(prompt)
         cache_model = self.config.cloud_model
-        key = self.cache.make_key(outbound, model=cache_model, system=SYSTEM_PROMPT)
+        key = self.cache.make_key(
+            outbound,
+            model=cache_model,
+            system=SYSTEM_PROMPT,
+            cache_extra=self._cloud_cache_tag(),
+        )
         cached = self.cache.get(key)
         input_est = CloudUsageLog.estimate_tokens(outbound)
         provider_label = "openrouter"
@@ -470,11 +497,13 @@ def engine_from_env(
         config.cloud_base_url,
         api_key=config.cloud_api_key,
         timeout=config.cloud_timeout,
+        max_output_tokens=config.cloud_max_output_tokens,
     )
     fallback = CloudProvider(
         config.cloud_fallback_base_url,
         api_key=config.cloud_fallback_api_key,
         timeout=config.cloud_timeout,
+        max_output_tokens=config.cloud_max_output_tokens,
     )
     chain = CascadingCloudProvider(
         primary,

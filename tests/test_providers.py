@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 import requests
 
+from src.engine.config import DEFAULT_CLOUD_MAX_OUTPUT_TOKENS
 from src.engine.providers import (
     CascadingCloudProvider,
     CloudProvider,
@@ -183,6 +184,44 @@ def test_ollama_vazio_informa_done_reason() -> None:
     with pytest.raises(ProviderError, match="done_reason=length"):
         provider.complete("p", model="qwen3", system="s")
     assert session.posts[0]["timeout"] == (5, 12)
+
+
+def test_nuvem_complete_envia_max_tokens_padrao() -> None:
+    session = _Session(_Resp(200, {"choices": [{"message": {"content": "ok"}}]}))
+    provider = CloudProvider(
+        "https://openrouter.ai/api/v1",
+        api_key="k",
+        timeout=1,
+        max_output_tokens=DEFAULT_CLOUD_MAX_OUTPUT_TOKENS,
+        session=session,
+    )
+    provider.complete("oi", model="openrouter/free", system="s")
+    payload = session.posts[0]["json"]
+    assert isinstance(payload, dict)
+    assert payload["max_tokens"] == DEFAULT_CLOUD_MAX_OUTPUT_TOKENS
+
+
+def test_nuvem_complete_max_tokens_custom() -> None:
+    session = _Session(_Resp(200, {"choices": [{"message": {"content": "curto"}}]}))
+    provider = CloudProvider(
+        "https://openrouter.ai/api/v1",
+        api_key="k",
+        timeout=1,
+        max_output_tokens=64,
+        session=session,
+    )
+    provider.complete("oi", model="openrouter/free", system="s")
+    assert session.posts[0]["json"]["max_tokens"] == 64
+
+
+def test_nuvem_rejeita_max_output_tokens_invalido() -> None:
+    with pytest.raises(ValueError, match="max_output_tokens"):
+        CloudProvider(
+            "https://openrouter.ai/api/v1",
+            api_key="k",
+            timeout=1,
+            max_output_tokens=0,
+        )
 
 
 def test_nuvem_aceita_content_em_lista_e_reasoning() -> None:

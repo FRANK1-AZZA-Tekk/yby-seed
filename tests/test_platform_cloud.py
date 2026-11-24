@@ -33,6 +33,7 @@ def _config(**overrides: object) -> EngineConfig:
         cloud_timeout=5.0,
         cache_ttl_seconds=3600.0,
         cloud_max_chars=12000,
+        cloud_max_output_tokens=512,
     )
     base.update(overrides)
     return EngineConfig(**base)  # type: ignore[arg-type]

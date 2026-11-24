@@ -6,6 +6,8 @@ import os
 import re
 import time
 from dataclasses import dataclass
+
+from src.engine.config import DEFAULT_CLOUD_MAX_OUTPUT_TOKENS
 from typing import Any, Protocol
 
 import requests
@@ -217,11 +219,16 @@ class CloudProvider:
         *,
         api_key: str,
         timeout: float,
+        max_output_tokens: int = DEFAULT_CLOUD_MAX_OUTPUT_TOKENS,
         session: HttpSession | None = None,
     ) -> None:
+        if max_output_tokens < 1:
+            msg = "max_output_tokens deve ser >= 1"
+            raise ValueError(msg)
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key.strip()
         self.timeout = timeout
+        self.max_output_tokens = max_output_tokens
         self._session = session or requests.Session()
 
     def close(self) -> None:
@@ -243,6 +250,7 @@ class CloudProvider:
                 {"role": "system", "content": system},
                 {"role": "user", "content": prompt},
             ],
+            "max_tokens": self.max_output_tokens,
         }
         headers = {
             "Authorization": f"Bearer {self.api_key}",

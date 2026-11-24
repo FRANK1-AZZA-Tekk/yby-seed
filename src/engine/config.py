@@ -22,6 +22,7 @@ DEFAULT_HEAVY_MIN_QUESTIONS = 3
 DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_CACHE_TTL_SECONDS = 3600.0
 DEFAULT_CLOUD_MAX_CHARS = 12000
+DEFAULT_CLOUD_MAX_OUTPUT_TOKENS = 512
 
 
 class EngineConfigError(ValueError):
@@ -48,6 +49,7 @@ class EngineConfig:
     cloud_timeout: float
     cache_ttl_seconds: float
     cloud_max_chars: int
+    cloud_max_output_tokens: int
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> EngineConfig:
@@ -89,6 +91,11 @@ class EngineConfig:
             ),
             cloud_max_chars=_parse_non_negative_int(
                 max_chars_raw, "YBY_CLOUD_CONTEXT_MAX_CHARS", DEFAULT_CLOUD_MAX_CHARS
+            ),
+            cloud_max_output_tokens=_positive_int(
+                source,
+                "YBY_CLOUD_MAX_OUTPUT_TOKENS",
+                DEFAULT_CLOUD_MAX_OUTPUT_TOKENS,
             ),
         )
 

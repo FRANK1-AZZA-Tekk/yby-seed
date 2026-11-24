@@ -48,6 +48,14 @@ def test_cache_ttl_zero_desliga() -> None:
     assert cache.get(key) is None
 
 
+def test_cache_extra_diferencia_chaves() -> None:
+    cache = ResponseCache(ttl_seconds=60)
+    key_a = cache.make_key("p", model="m", system="s", cache_extra="max_tokens=512")
+    key_b = cache.make_key("p", model="m", system="s", cache_extra="max_tokens=128")
+    cache.set(key_a, "resposta-longa")
+    assert cache.get(key_b) is None
+
+
 def test_motor_usa_cache_na_nuvem() -> None:
     cache = ResponseCache(ttl_seconds=60)
     ollama = FakeOllama()

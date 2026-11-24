@@ -42,6 +42,7 @@ def _config(
     cloud_timeout: float = 5.0,
     cache_ttl_seconds: float = 0.0,
     cloud_max_chars: int = 12000,
+    cloud_max_output_tokens: int = 512,
 ) -> EngineConfig:
     return EngineConfig(
         ollama_base_url=ollama_base_url,
@@ -60,6 +61,7 @@ def _config(
         cloud_timeout=cloud_timeout,
         cache_ttl_seconds=cache_ttl_seconds,
         cloud_max_chars=cloud_max_chars,
+        cloud_max_output_tokens=cloud_max_output_tokens,
     )
 
 
@@ -196,6 +198,7 @@ def test_modelo_local_padrao_e_o_vencedor_do_benchmark() -> None:
     assert config.cloud_fallback_base_url == "https://api.x.ai/v1"
     assert config.cloud_fallback_model == "grok-4.7"
     assert config.cloud_fallback_api_key == ""
+    assert config.cloud_max_output_tokens == 512
 
 
 def test_from_env_le_chave_e_limiares() -> None:
@@ -226,6 +229,19 @@ def test_from_env_le_chave_e_limiares() -> None:
     assert config.heavy_min_questions == 1
     assert config.cache_ttl_seconds == 90
     assert config.cloud_max_chars == 500
+    assert config.cloud_max_output_tokens == 512
+
+
+def test_from_env_cloud_max_output_tokens() -> None:
+    config = EngineConfig.from_env({"YBY_CLOUD_MAX_OUTPUT_TOKENS": "128"})
+    assert config.cloud_max_output_tokens == 128
+
+
+def test_from_env_rejeita_cloud_max_output_invalido() -> None:
+    with pytest.raises(EngineConfigError):
+        EngineConfig.from_env({"YBY_CLOUD_MAX_OUTPUT_TOKENS": "0"})
+    with pytest.raises(EngineConfigError):
+        EngineConfig.from_env({"YBY_CLOUD_MAX_OUTPUT_TOKENS": "muito"})
 
 
 def test_from_env_aceita_openrouter_e_xai_como_aliases() -> None:
