@@ -113,6 +113,14 @@
 
 **Bloqueios:** versão Ollama e comportamento de `qwen2.5-coder:3b` com `format` no PC Hub; não declarar 300 fontes concluídas.
 
+### Inspeção interna — timeout de tools (não conta como fonte externa)
+
+| ID | Arquivo | Nível | Evidência | Decisão |
+|----|---------|-------|-----------|---------|
+| SRC-016 | `src/agent_loop/loop.py` (`_run_tool`) | L2 | `future.result(timeout=…)` + `ThreadPoolExecutor` com `shutdown(wait=True)` no `with` prendia o retorno de `run()` após timeout | **Corrigido:** `shutdown(wait=False)` no timeout; contrato = limite de espera, não cancelamento |
+
+Scan externo de projetos semelhantes (relato ~40 páginas) **não** foi importado como verificação de código; hipótese cruzada só com inspeção YBY acima.
+
 ---
 
 *Próxima rodada sugerida:* smoke Hub planner+format; OWASP LLM07 (L1); meta acumulada 20/300.

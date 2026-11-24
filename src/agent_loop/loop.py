@@ -138,16 +138,29 @@ class ControlledAgentLoop:
         )
 
     def _run_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """Executa a tool com limite de **espera** pelo resultado (não cancela o handler).
+
+        Em timeout, o loop retorna sem aguardar o fim da thread (`shutdown(wait=False)`).
+        A thread pode continuar até terminar sozinha; não há cancelamento cooperativo
+        nos handlers registrados hoje.
+        """
+
         if self.tool_timeout_seconds is None:
             return self.registry.run(name, arguments)
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(self.registry.run, name, arguments)
-            try:
-                return future.result(timeout=self.tool_timeout_seconds)
-            except FuturesTimeoutError as exc:
-                raise TimeoutError(
-                    f"tool {name!r} excedeu {self.tool_timeout_seconds:.0f}s"
-                ) from exc
+        pool = ThreadPoolExecutor(max_workers=1)
+        future = pool.submit(self.registry.run, name, arguments)
+        timed_out = False
+        try:
+            return future.result(timeout=self.tool_timeout_seconds)
+        except FuturesTimeoutError as exc:
+            timed_out = True
+            pool.shutdown(wait=False, cancel_futures=True)
+            raise TimeoutError(
+                f"tool {name!r} excedeu {self.tool_timeout_seconds:.0f}s"
+            ) from exc
+        finally:
+            if not timed_out:
+                pool.shutdown(wait=True)
 
 
 def _history_to_records(history: Sequence[dict[str, object]]) -> list[StepRecord]:

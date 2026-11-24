@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
+from collections.abc import Callable
 
 import pytest
 from pydantic import BaseModel, Field
 
-from src.agent_loop.loop import ControlledAgentLoop
+from src.agent_loop.loop import AgentRunResult, ControlledAgentLoop
 from src.agent_loop.planner import OllamaJsonPlanner, ScriptedPlanner
 from src.agent_loop.planner_env import planner_ollama_format_from_env
-from src.agent_loop.schemas import parse_planner_step
+from src.agent_loop.schemas import EchoArgs, parse_planner_step
 from src.agent_loop.tools import ToolRegistry, ToolSpec, default_tool_registry
 from src.engine.config import EngineConfigError
 from src.engine.providers import OllamaProvider, ProviderError
@@ -267,6 +269,213 @@ def _slow_handler(args: BaseModel) -> dict[str, object]:
     assert isinstance(args, _SlowArgs)
     time.sleep(args.seconds)
     return {"ok": True}
+
+
+class _GateArgs(BaseModel):
+    pass
+
+
+def _make_gated_tool(
+    *,
+    started: threading.Event,
+    gate: threading.Event,
+    done: threading.Event,
+    calls: list[int],
+    effects_after_wait: list[int],
+) -> Callable[[BaseModel], dict[str, object]]:
+    def handler(_args: BaseModel) -> dict[str, object]:
+        calls.append(1)
+        started.set()
+        gate.wait(120.0)
+        effects_after_wait.append(1)
+        done.set()
+        return {"ok": True}
+
+    return handler
+
+
+def test_tool_timeout_loop_retorna_sem_aguardar_handler_bloqueado() -> None:
+    started = threading.Event()
+    gate = threading.Event()
+    done = threading.Event()
+    calls: list[int] = []
+    effects_after_wait: list[int] = []
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpec(
+            name="gate_tool",
+            description="bloqueia até o teste liberar",
+            args_model=_GateArgs,
+            handler=_make_gated_tool(
+                started=started,
+                gate=gate,
+                done=done,
+                calls=calls,
+                effects_after_wait=effects_after_wait,
+            ),
+        )
+    )
+    script = [
+        {"action": "tool", "name": "gate_tool", "arguments": {}},
+        {"action": "tool", "name": "echo_json", "arguments": {"message": "nunca"}},
+    ]
+    timeout_s = 0.12
+    loop = ControlledAgentLoop(
+        registry=registry,
+        planner=ScriptedPlanner(script),
+        max_iterations=5,
+        tool_timeout_seconds=timeout_s,
+    )
+    result_holder: list[AgentRunResult] = []
+    try:
+
+        def _run() -> None:
+            result_holder.append(loop.run("bloqueio"))
+
+        runner = threading.Thread(target=_run, name="agent-loop-timeout-test")
+        t0 = time.monotonic()
+        runner.start()
+        assert started.wait(5.0)
+        runner.join(timeout=2.0)
+        elapsed = time.monotonic() - t0
+        assert not runner.is_alive(), (
+            "run() ficou preso no shutdown do executor após o timeout (hipótese confirmada)"
+        )
+        assert elapsed < 1.0
+        assert result_holder
+        result = result_holder[0]
+        assert result.status == "error"
+        assert "excedeu" in (result.steps[-1].error or "")
+        assert len(calls) == 1
+        assert not effects_after_wait
+        assert result.iterations == 1
+        assert all(step.kind != "finish" for step in result.steps)
+    finally:
+        gate.set()
+        assert done.wait(5.0)
+
+
+def test_tool_timeout_handler_pode_efetuar_apos_retorno_do_loop() -> None:
+    started = threading.Event()
+    gate = threading.Event()
+    done = threading.Event()
+    calls: list[int] = []
+    effects_after_wait: list[int] = []
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpec(
+            name="gate_tool",
+            description="bloqueia até o teste liberar",
+            args_model=_GateArgs,
+            handler=_make_gated_tool(
+                started=started,
+                gate=gate,
+                done=done,
+                calls=calls,
+                effects_after_wait=effects_after_wait,
+            ),
+        )
+    )
+    loop = ControlledAgentLoop(
+        registry=registry,
+        planner=ScriptedPlanner(
+            [{"action": "tool", "name": "gate_tool", "arguments": {}}]
+        ),
+        max_iterations=2,
+        tool_timeout_seconds=0.1,
+    )
+    try:
+        loop.run("efeito tardio")
+        assert len(calls) == 1
+        assert not effects_after_wait
+        gate.set()
+        assert done.wait(5.0)
+        assert effects_after_wait == [1]
+    finally:
+        gate.set()
+        done.wait(1.0)
+
+
+def test_tool_fast_success_single_call() -> None:
+    calls: list[str] = []
+
+    def _echo_track(args: BaseModel) -> dict[str, object]:
+        assert isinstance(args, EchoArgs)
+        calls.append(args.message)
+        return {"ok": True, "message": args.message}
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpec(
+            name="echo_json",
+            description="eco rastreado",
+            args_model=EchoArgs,
+            handler=_echo_track,
+        )
+    )
+    loop = ControlledAgentLoop(
+        registry=registry,
+        planner=ScriptedPlanner(
+            [
+                {"action": "tool", "name": "echo_json", "arguments": {"message": "a"}},
+                {"action": "finish", "answer": {"done": True}},
+            ]
+        ),
+        max_iterations=3,
+        tool_timeout_seconds=5.0,
+    )
+    result = loop.run("rápido")
+    assert result.status == "completed"
+    assert calls == ["a"]
+
+
+def test_tool_timeout_none_executa_na_thread_principal() -> None:
+    gate = threading.Event()
+    entered = threading.Event()
+
+    class _SyncBlockArgs(BaseModel):
+        pass
+
+    def _handler(_args: BaseModel) -> dict[str, object]:
+        entered.set()
+        gate.wait(5.0)
+        return {"ok": True}
+
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpec(
+            name="sync_block",
+            description="bloqueio síncrono",
+            args_model=_SyncBlockArgs,
+            handler=_handler,
+        )
+    )
+    loop = ControlledAgentLoop(
+        registry=registry,
+        planner=ScriptedPlanner(
+            [
+                {"action": "tool", "name": "sync_block", "arguments": {}},
+                {"action": "finish", "answer": {"ok": True}},
+            ]
+        ),
+        max_iterations=2,
+        tool_timeout_seconds=None,
+    )
+    holder: list[AgentRunResult] = []
+
+    def _run() -> None:
+        holder.append(loop.run("sem timeout"))
+
+    try:
+        runner = threading.Thread(target=_run)
+        runner.start()
+        assert entered.wait(2.0)
+        assert runner.is_alive()
+        gate.set()
+        runner.join(3.0)
+        assert holder[0].status == "completed"
+    finally:
+        gate.set()
 
 
 def test_tool_timeout_interrupts_hung_tool() -> None:
