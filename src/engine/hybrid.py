@@ -433,10 +433,25 @@ class HybridEngine:
             if self.cloud_chain is not None:
                 result = self.cloud_chain.complete_with_meta(outbound, system=SYSTEM_PROMPT)
             else:
-                text = self.cloud.complete(
-                    outbound, model=self.config.cloud_model, system=SYSTEM_PROMPT
-                )
-                result = CloudResult(text, self.config.cloud_model, "cloud")
+                detail_fn = getattr(self.cloud, "complete_detail", None)
+                if callable(detail_fn):
+                    detail = detail_fn(
+                        outbound,
+                        model=self.config.cloud_model,
+                        system=SYSTEM_PROMPT,
+                    )
+                    result = CloudResult(
+                        detail.text,
+                        self.config.cloud_model,
+                        "cloud",
+                        input_tokens_reported=detail.input_tokens_reported,
+                        output_tokens_reported=detail.output_tokens_reported,
+                    )
+                else:
+                    text = self.cloud.complete(
+                        outbound, model=self.config.cloud_model, system=SYSTEM_PROMPT
+                    )
+                    result = CloudResult(text, self.config.cloud_model, "cloud")
         except ProviderError as exc:
             self.cloud_log.append(
                 {

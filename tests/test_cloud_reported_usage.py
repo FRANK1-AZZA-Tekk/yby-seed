@@ -275,3 +275,136 @@ def test_orcamento_ignora_tokens_reportados(tmp_path) -> None:
     assert reply.provider == "cloud"
     second = engine.reply("outro", explicit_heavy=True)
     assert second.provider == "cloud"
+
+
+class _LegacyCloudClient:
+    """Só `complete()` — sem `complete_detail` (contrato CloudClient mínimo)."""
+
+    def __init__(self, text: str = "legado") -> None:
+        self.text = text
+        self.calls = 0
+
+    def has_credentials(self) -> bool:
+        return True
+
+    def complete(self, prompt: str, *, model: str, system: str) -> str:
+        self.calls += 1
+        return self.text
+
+
+def _engine_sem_cascata(
+    tmp_path,
+    cloud,
+    *,
+    cache_ttl: float = 0,
+    confirm: bool = True,
+) -> tuple[HybridEngine, CloudUsageLog]:
+    log = CloudUsageLog(tmp_path / "cloud_usage.jsonl")
+    budget = CloudBudget.from_env(
+        {
+            "YBY_CLOUD_MODE": "ask",
+            "YBY_CLOUD_LOG_PATH": str(log.path),
+            "YBY_CLOUD_REQUIRE_CONFIRM": "0",
+            "YBY_CLOUD_MONTHLY_TOKEN_LIMIT": "200000",
+        }
+    )
+    engine = HybridEngine(
+        _config(cache_ttl_seconds=cache_ttl),
+        FakeOllama(),
+        cloud,  # type: ignore[arg-type]
+        cloud_chain=None,
+        cache=ResponseCache(ttl_seconds=cache_ttl),
+        cloud_log=log,
+        budget=budget,
+        confirm_fn=lambda _: confirm,
+        has_tty_fn=lambda: True,
+    )
+    return engine, log
+
+
+def test_sem_cascata_provider_grava_reported(tmp_path) -> None:
+    session = _Session(
+        _Resp(
+            200,
+            {
+                "choices": [{"message": {"content": "direto"}}],
+                "usage": {"prompt_tokens": 31, "completion_tokens": 6},
+            },
+        )
+    )
+    provider = CloudProvider(
+        "https://openrouter.ai/api/v1",
+        api_key="k",
+        timeout=1,
+        session=session,
+    )
+    engine, log = _engine_sem_cascata(tmp_path, provider)
+    reply = engine.reply("oi", explicit_heavy=True)
+    assert reply.provider == "cloud"
+    assert reply.text == "direto"
+    assert len(session.posts) == 1  # type: ignore[attr-defined]
+
+    completed = [
+        json.loads(line)
+        for line in log.path.read_text(encoding="utf-8").strip().splitlines()
+        if json.loads(line)["result"] == EVENT_COMPLETED
+    ]
+    assert completed[0]["input_tokens_reported"] == 31
+    assert completed[0]["output_tokens_reported"] == 6
+
+
+def test_sem_cascata_legado_sem_metadados(tmp_path) -> None:
+    legacy = _LegacyCloudClient()
+    engine, log = _engine_sem_cascata(tmp_path, legacy)
+    reply = engine.reply("oi", explicit_heavy=True)
+    assert reply.provider == "cloud"
+    assert legacy.calls == 1
+    body = log.path.read_text(encoding="utf-8")
+    assert "input_tokens_reported" not in body
+
+
+def test_sem_cascata_erro_http_unica_tentativa_local(tmp_path) -> None:
+    session = _Session(_Resp(400, {"error": {"message": "rejeitado"}}))
+    provider = CloudProvider(
+        "https://openrouter.ai/api/v1",
+        api_key="k",
+        timeout=1,
+        session=session,
+    )
+    engine, _log = _engine_sem_cascata(tmp_path, provider)
+    reply = engine.reply("oi", explicit_heavy=True)
+    # D12: falha de nuvem degrada para local; não dispara segunda chamada HTTP no motor.
+    assert reply.provider == "local"
+    assert len(session.posts) == 1  # type: ignore[attr-defined]
+
+
+def test_sem_cascata_cache_sem_novo_completed(tmp_path) -> None:
+    session = _Session(
+        _Resp(
+            200,
+            {
+                "choices": [{"message": {"content": "hit"}}],
+                "usage": {"prompt_tokens": 12, "completion_tokens": 2},
+            },
+        )
+    )
+    provider = CloudProvider(
+        "https://openrouter.ai/api/v1",
+        api_key="k",
+        timeout=2,
+        session=session,
+    )
+    engine, log = _engine_sem_cascata(tmp_path, provider, cache_ttl=90)
+    first = engine.reply("oi", explicit_heavy=True)
+    assert first.text == "hit"
+    posts_after = len(session.posts)  # type: ignore[attr-defined]
+    second = engine.reply("oi", explicit_heavy=True)
+    assert second.text == "hit"
+    assert len(session.posts) == posts_after  # type: ignore[attr-defined]
+
+    completed = [
+        json.loads(line)
+        for line in log.path.read_text(encoding="utf-8").strip().splitlines()
+        if json.loads(line)["result"] == EVENT_COMPLETED
+    ]
+    assert len(completed) == 1
