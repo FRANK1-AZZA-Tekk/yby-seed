@@ -42,6 +42,10 @@ Reaproveita o padrão systemd de usuário do PC Hub; **não** habilita serviços
 - Sem desktop (`notify-send` / DISPLAY): **não** marca como entregue.
 - Via `assist`: `sentinel.rules.list` | `pause` | `resume` (pause/resume pedem confirmação).
 
+### Queda durante a própria entrega
+
+Se o processo cair **depois** do `notify-send` com sucesso e **antes** de `save_incidents`, `notified_at` não foi persistido. No reinício a condição é reavaliada: falha ainda ativa pode gerar outro aviso do mesmo incidente; condição já ok não envia o alerta antigo. Reinício depois do save (com `notified_at` no disco) não duplica. Desktop ausente ou horário silencioso também não gravam `notified_at`; a passagem seguinte reavalia antes de enviar.
+
 ## Fora de escopo
 
 Habilitar serviços por padrão, reiniciar host/Ollama, simular sucesso sem desktop, Grafana.

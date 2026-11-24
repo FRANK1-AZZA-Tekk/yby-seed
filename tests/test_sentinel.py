@@ -349,3 +349,81 @@ def test_cli_sentinel_once(tmp_path: Path, monkeypatch) -> None:
     result = runner.invoke(cli, ["sentinel", "once"])
     assert result.exit_code == 0
     assert "ollama=ok" in result.output
+
+
+def test_queda_apos_notify_antes_do_save_pode_reavisar(tmp_path: Path, monkeypatch) -> None:
+    """Notify ok + falha em save_incidents ⇒ notified_at não persiste; nova passagem reavalia."""
+
+    clock = FakeClock(datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc))
+    cfg = _config(tmp_path, clock=clock, ollama_down_seconds=5)
+    notifier = RecordingNotifier()
+    status = {"v": "down"}
+
+    def probe(_u: str, _t: float) -> str:
+        return "ok" if status["v"] == "ok" else "down"
+
+    run_once(cfg, clock=clock, notifier=notifier, ollama_probe=probe)
+    clock.advance(seconds=6)
+
+    real_save = __import__("src.sentinel.store", fromlist=["save_incidents"]).save_incidents
+    calls = {"n": 0}
+
+    def boom(path, incidents):  # noqa: ANN001
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise OSError("queda simulada após notify")
+        return real_save(path, incidents)
+
+    monkeypatch.setattr("src.sentinel.engine.save_incidents", boom)
+
+    try:
+        run_once(cfg, clock=clock, notifier=notifier, ollama_probe=probe)
+    except OSError:
+        pass
+    assert len(notifier.calls) == 1
+    # disco sem notified_at (save falhou)
+    assert load_incidents(cfg.incidents_path) == [] or all(
+        i.notified_at is None for i in load_incidents(cfg.incidents_path)
+    )
+
+    # reinício com falha ainda ativa → segundo aviso
+    run_once(cfg, clock=clock, notifier=notifier, ollama_probe=probe)
+    assert len(notifier.calls) == 2
+    assert load_incidents(cfg.incidents_path)[0].notified_at is not None
+
+
+def test_queda_apos_notify_nao_envia_alerta_velho_se_recuperou(
+    tmp_path: Path, monkeypatch
+) -> None:
+    clock = FakeClock(datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc))
+    cfg = _config(tmp_path, clock=clock, ollama_down_seconds=5)
+    notifier = RecordingNotifier()
+    status = {"v": "down"}
+
+    def probe(_u: str, _t: float) -> str:
+        return "ok" if status["v"] == "ok" else "down"
+
+    run_once(cfg, clock=clock, notifier=notifier, ollama_probe=probe)
+    clock.advance(seconds=6)
+
+    def boom(_path, _incidents):  # noqa: ANN001
+        raise OSError("queda simulada")
+
+    monkeypatch.setattr("src.sentinel.engine.save_incidents", boom)
+    try:
+        run_once(cfg, clock=clock, notifier=notifier, ollama_probe=probe)
+    except OSError:
+        pass
+    assert len(notifier.calls) == 1
+
+    status["v"] = "ok"
+    monkeypatch.setattr(
+        "src.sentinel.engine.save_incidents",
+        __import__("src.sentinel.store", fromlist=["save_incidents"]).save_incidents,
+    )
+    # runtime ainda tem fail_since do tick anterior; coleta mostra ok → resolve / não reenvia
+    clock.advance(seconds=1)
+    # recria runtime limpo após crash: simula processo novo com disco vazio de incidents
+    # e runtime que ainda pode existir — se incidents vazios e ollama ok, zero avisos
+    run_once(cfg, clock=clock, notifier=notifier, ollama_probe=probe)
+    assert len(notifier.calls) == 1
