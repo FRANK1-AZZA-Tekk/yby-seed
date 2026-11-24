@@ -264,12 +264,7 @@ make check
 - `AGENTS.md`, `.cursor/rules/yby.mdc`, `.cursor/rules/yby-economy.mdc` (modificados)
 - `docs/diagrams/yby-request-flow.{md,html}` (untracked)
 
-**P2 / próximos (não iniciados):**
-
-1. Smoke local: `ollama pull qwen2.5-coder:3b` + `python yby.py ask "..."` na máquina do dono.
-2. Ciclo de vida HTTP no CLI: `yby ask` → `HybridEngine.close()` (#125); `yby agent --local` → `OllamaProvider.close()` (#126).
-3. Nuvem: `YBY_CLOUD_MAX_OUTPUT_TOKENS` → `max_tokens` no POST (#127 pendente merge).
-3. Warnings FastAPI `on_event` / `datetime.utcnow` no gateway (fora do núcleo `ask`).
+**P2 / próximos:** ver [Checklist de aceite do núcleo (consolidado)](#checklist-de-aceite-do-núcleo-consolidado). Gateway: warnings FastAPI `on_event` / `datetime.utcnow` (fora do núcleo `ask`).
 
 ## Camada: versionar regras + diagramas + smoke sem Ollama
 
@@ -336,11 +331,45 @@ ask "ping" → exit 1; notice: Ollama falhou… Nuvem não é acionada automatic
 2. `2ed9246` — `docs(diagrams): POC visual do fluxo yby ask`
 3. `82f171a` — `docs(progress): estabilização, smoke e handoff VM cursor`
 
-**No PC do dono ainda falta:**
+**No PC do dono ainda falta:** os dois smokes do [checklist consolidado](#checklist-de-aceite-do-núcleo-consolidado) (pull `main` @ `403bf2f`+ antes de rodar).
 
-1. Clone/pull da branch ou main após merge
-2. `make setup` + Ollama + `ollama pull qwen2.5-coder:3b` (~1.9 GB típico)
-3. Smoke `yby ask "..."` com modelo local
-4. Vault real via `YBY_VAULT_PATH` (não usar o `/tmp` do VM)
+**Não iniciado:** systemd hub, Docker, deploy remoto. Instalar Ollama neste VM: **não** (smokes reais = PC do dono).
 
-**Não iniciado:** systemd hub, Docker, deploy remoto, PR #122 (`close()`). Instalar Ollama neste VM: **não** (pedido: só com aprovação).
+## Checklist de aceite do núcleo (consolidado)
+
+**Base documentada:** `main` @ `403bf2f` (merge #127 `YBY_CLOUD_MAX_OUTPUT_TOKENS` + PRs #123–#126 integrados).
+
+### Verificado (sem provedor real)
+
+| Item | Evidência |
+|------|-----------|
+| Gates | `make check`: doctor + ruff + pytest (última referência VM: **362 passed**, 15 skipped após #127) |
+| CLI offline | `note`/`recall`/`gate`/`run`; `ask` sem Ollama → exit 1 + aviso D12 (não é aceite Ollama) |
+| Motor / HTTP lifecycle | `yby ask` → `HybridEngine.close()` (#125); `yby agent --local` → `OllamaProvider.close()` (#126) |
+| Nuvem (código) | `max_tokens` no POST + env `YBY_CLOUD_MAX_OUTPUT_TOKENS` (padrão 512, #127); cache cloud inclui o limite na chave |
+| OpenRouter (config) | Template `.env.example` + secção em `docs/DEV.md` — **sem** chamada real neste repositório/VM |
+| Núcleo **não** fechado | Dois smokes no PC abaixo |
+
+### Pendente — smoke 1: Ollama (PC)
+
+| | |
+|---|---|
+| Onde | PC Hub (não VM Cursor) |
+| Pré-requisitos | `make setup`; `make check`; Ollama ativo; `ollama pull qwen2.5-coder:3b` |
+| Comando | `python yby.py ask "Em uma frase: o que é uma lista ligada?"` |
+| Aceite | `exit 0`; stderr `modelo: local qwen2.5-coder:3b` (ou `YBY_LOCAL_MODEL`); resposta em stdout |
+| Rejeitar como aceite | Falha D12 / `provider none` — comportamento esperado **sem** Ollama, já validado na VM |
+
+### Pendente — smoke 2: OpenRouter (PC; aprovação humana)
+
+| | |
+|---|---|
+| Onde | PC Hub; chave só no `.env` local |
+| Pré-requisitos | Chave configurada; TTY; `YBY_CLOUD_REQUIRE_CONFIRM=1`; aprovação explícita de gasto |
+| Comando | `YBY_CACHE_PATH=memory python yby.py ask --heavy "Responda apenas com a palavra OK."` → confirmar `s` |
+| Aceite (CLI) | `exit 0`; `modelo: cloud …` + `heavy_flag`; sem degradação local mascarando o provedor |
+| Aceite (log) | JSONL: `cloud_requested` → `cloud_confirmed` → `cloud_completed`; `provider` **openrouter** ou **cloud**, não só `cache` |
+| Não confundir | `YBY_CLOUD_MAX_OUTPUT_TOKENS` = teto HTTP; campos `*_tokens_estimate` no JSONL = heurística `len/4`; fatura = painel OpenRouter |
+| Corroboração | Atividade no dashboard OpenRouter (sem expor chave ou conteúdo de prompt) |
+
+Roteiro detalhado: `docs/DEV.md` (Smokes de aceite).

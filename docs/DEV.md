@@ -31,6 +31,30 @@ Nuvem continua **somente** com roteamento pesado / `--heavy` (D12); falha local 
 
 Depois do setup: `make doctor` (ambiente) e `make test` (pytest).
 
+### Smokes de aceite (somente no PC Hub)
+
+Executar **depois** de `make check` verde local. Não colar chaves no terminal compartilhado nem no chat.
+
+**Ollama (local real)**
+
+| Item | Detalhe |
+|------|---------|
+| Pré-requisitos | Ollama no ar; `ollama pull qwen2.5-coder:3b` (ou `YBY_LOCAL_MODEL`); `.env` opcional para URLs/modelo |
+| Comando | `python yby.py ask "Em uma frase: o que é uma lista ligada?"` |
+| Sucesso | `exit 0`; stderr `modelo: local <modelo>`; stdout com texto gerado |
+| **Não** é sucesso | `exit 1` com aviso D12 (“Nuvem não é acionada automaticamente…”) — só prova falha controlada sem Ollama |
+
+**OpenRouter (nuvem real; exige sua aprovação e TTY)**
+
+| Item | Detalhe |
+|------|---------|
+| Pré-requisitos | Chave só no `.env` (`YBY_CLOUD_API_KEY` ou `OPENROUTER_API_KEY`); `YBY_CLOUD_MODE` ≠ `local_only`; terminal interativo; confirmar `s` no gate |
+| Comando | `YBY_CACHE_PATH=memory python yby.py ask --heavy "Responda apenas com a palavra OK."` |
+| Sucesso (CLI) | `exit 0`; stderr `modelo: cloud <modelo>` com motivo contendo `heavy_flag`; stdout coerente; **sem** “Respondi com o modelo local …” |
+| Sucesso (log) | Última sequência em `logs/cloud_usage.jsonl`: `cloud_requested` → `cloud_confirmed` → `cloud_completed` com `provider` `openrouter` ou `cloud` — **não** `cache` sozinho |
+| Corroborar custo | Painel OpenRouter (atividade da chave); **não** use `input_tokens_estimate`/`output_tokens_estimate` do JSONL como fatura (heurística `len/4`) |
+| Limites | `YBY_CLOUD_MAX_OUTPUT_TOKENS` → campo `max_tokens` no POST (teto de saída). Distinto de `YBY_CLOUD_CONTEXT_MAX_CHARS` (entrada) e de `YBY_CLOUD_*_TOKEN_LIMIT` (orçamento local) |
+
 ## Comandos CLI
 
 | Comando | O que faz |
