@@ -57,6 +57,24 @@ class EngineReply:
     notice: str | None
 
 
+def route_decision_from_config(
+    config: EngineConfig,
+    prompt: str,
+    *,
+    explicit_heavy: bool = False,
+) -> RouteDecision:
+    """Mesma decisão de rota que `HybridEngine.reply` usa antes de chamar provedores."""
+
+    return decide_route(
+        prompt,
+        explicit_heavy=explicit_heavy,
+        heavy_min_chars=config.heavy_min_chars,
+        heavy_min_lines=config.heavy_min_lines,
+        heavy_min_questions=config.heavy_min_questions,
+        heavy_phrases=config.heavy_phrases,
+    )
+
+
 class HybridEngine:
     """Decide o destino e chama um provedor, com degradação explícita."""
 
@@ -103,13 +121,10 @@ class HybridEngine:
                 closer()
 
     def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
-        decision = decide_route(
+        decision = route_decision_from_config(
+            self.config,
             prompt,
             explicit_heavy=explicit_heavy,
-            heavy_min_chars=self.config.heavy_min_chars,
-            heavy_min_lines=self.config.heavy_min_lines,
-            heavy_min_questions=self.config.heavy_min_questions,
-            heavy_phrases=self.config.heavy_phrases,
         )
         if decision.target == "cloud":
             return self._cloud_first(prompt, decision)
