@@ -15,7 +15,19 @@ ollama pull qwen2.5-coder:3b
 cp .env.example .env                  # preencha chaves só no .env local
 ```
 
-Nunca commite `.env` nem chaves. O template é `.env.example`.
+Nunca commite `.env` nem chaves. O template é `.env.example` (`.env` já está no `.gitignore`).
+
+### OpenRouter (somente no seu `.env`)
+
+1. `cp .env.example .env` na raiz do repositório.
+2. Defina **uma** das chaves lidas por `EngineConfig.from_env()` (`src/engine/config.py`):
+   - `YBY_CLOUD_API_KEY=…`, ou
+   - `OPENROUTER_API_KEY=…` (usada se `YBY_CLOUD_API_KEY` estiver vazia).
+3. Opcional: `YBY_CLOUD_MODEL` (padrão `openrouter/free`) e `YBY_CLOUD_BASE_URL` (padrão `https://openrouter.ai/api/v1`).
+4. Gate de nuvem: `YBY_CLOUD_REQUIRE_CONFIRM=1` (padrão), `YBY_CLOUD_MODE` diferente de `local_only`, TTY ou `YBY_CLOUD_ALLOW_NO_TTY=1` conforme política em `docs/CLOUD_USAGE_SPEC.md`.
+5. O `ask` carrega o `.env` via `load_dotenv(override=False)` dentro de `EngineConfig.from_env()` — variáveis já exportadas no shell têm precedência.
+
+Nuvem continua **somente** com roteamento pesado / `--heavy` (D12); falha local do Ollama não sobe para OpenRouter automaticamente.
 
 Depois do setup: `make doctor` (ambiente) e `make test` (pytest).
 
