@@ -32,10 +32,14 @@ class _ScriptedEngine:
     def __init__(self, reply: EngineReply) -> None:
         self.reply_value = reply
         self.calls: list[dict[str, object]] = []
+        self.closed = False
 
     def reply(self, prompt: str, *, explicit_heavy: bool = False) -> EngineReply:
         self.calls.append({"prompt": prompt, "explicit_heavy": explicit_heavy})
         return self.reply_value
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def test_wav_temporario_fecha_o_descritor() -> None:
