@@ -12,16 +12,23 @@ Python CLI (`yby`). Mapa de módulos: [src/README.md](src/README.md) (caminho do
 
 ## Autorização
 
-- Editar não implica, por si só, commit, push, PR, merge, publicação nem deploy.
-- **Baixo risco (com autorização do usuário para publicação/merge automáticos):** documentação, testes e correções pequenas **sem** mudança de contrato, política, arquitetura, permissões, privacidade ou orçamento. O agente pode commit, push, atualizar PR e **fazer merge** quando **todas** forem verdadeiras: diff no escopo; gates obrigatórios verdes no **SHA atual** do head; revisões exigidas pelo repositório atendidas; sem conflitos. Não contornar proteções de branch nem usar a própria revisão como substituto de revisão independente.
-- **Parar e pedir aprovação explícita para:** gasto/API real, segredos, deploy, ações destrutivas, novas dependências, mudança de contrato, arquitetura, permissões, privacidade ou política de orçamento; e quando a plataforma exigir confirmação.
-- Operações destrutivas (force push, bypass de checks, aplicar/remover stash alheio, etc.) exigem aprovação específica mesmo com merge automático habilitado.
+Autorização permanente concedida pelo usuário:
+
+Para tarefas previamente definidas de baixo risco — documentação, testes e correções pequenas sem mudança de contrato ou política — o agente está autorizado a implementar, validar, fazer commit, push, abrir PR e integrar sem nova aprovação por etapa.
+
+O merge exige escopo respeitado, gates e checks obrigatórios aprovados no SHA atual, revisões exigidas atendidas e ausência de conflitos. É proibido contornar proteções ou apresentar autorrevisão como revisão independente.
+
+Essa autorização não permite escolher funções ilimitadamente. Execute uma tarefa por rodada e pare ao concluir.
+
+Exigem aprovação específica: gastos e chamadas reais de IA cloud; uso ou exposição de segredos; deploy; operações destrutivas; novas dependências; mudanças relevantes de contrato, arquitetura, permissões, privacidade ou política de orçamento.
+
+Confirmações obrigatórias das ferramentas e da plataforma continuam valendo. Se houver bloqueio, apresente evidência e pare, sem monitoramento contínuo.
 
 ## Fluxo Cursor
 
 Leitura mínima, diff mínimo, dependências, gates locais e publicação: **Como trabalhar**, **Autorização** e `.cursor/rules/yby.mdc`. Planejamento com aceite e testes: **yby.mdc** (*Antes de editar*).
 
-- **Rodada:** uma tarefa completa por vez, com escopo e aceite explícitos; não encadear a próxima tarefa sem pedido.
+- **Rodada:** conforme **Autorização**; escopo e aceite explícitos na tarefa.
 - **Testes:** cobrir comportamento e falhas relevantes; não enfraquecer testes nem relaxar asserts só para passar. Gates: testes direcionados à mudança e `make doctor` / `make lint` / `make test` (ou `make check`) conforme **Como trabalhar**.
 - **Preservação:** manter stash, branches e WIP de outras tarefas intactos; não aplicar nem remover stash sem instrução; não expor segredos (ver **yby.mdc** — Segurança).
 - **Git e CI:** commit, push, PR e merge conforme **Autorização**; verificar checks no **SHA atual** do head — não reutilizar veredito de commit anterior. Consulta pontual ao CI; não vigiar continuamente.
