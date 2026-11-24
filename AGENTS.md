@@ -34,6 +34,7 @@ Leitura mínima, diff mínimo, dependências, gates locais e publicação: **Com
 - **Git e CI:** commit, push, PR e merge conforme **Autorização**; verificar checks no **SHA atual** do head — não reutilizar veredito de commit anterior. Consulta pontual ao CI; não vigiar continuamente.
 - **Bloqueio:** relatar fatos concretos (comando, saída, SHA, check, conflito); não repetir intenção sem evidência nova.
 - **Encerramento:** resumo curto com `RESULTADO`, `ALTERAÇÕES`, `VALIDAÇÃO`, `GIT`, `PENDÊNCIA` (somente o que impede concluir).
+- **Retomada entre rodadas:** estado operacional factual em `PROGRESS.md` (**Retomada atual**); substitui o ponto de retomada anterior, sem duplicar autorização.
 
 ## Runtime YBY vs desenvolvimento no Cursor
 
