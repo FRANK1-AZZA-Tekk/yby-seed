@@ -53,6 +53,7 @@ Executar **depois** de `make check` verde local. Não colar chaves no terminal c
 | Sucesso (CLI) | `exit 0`; stderr `modelo: cloud <modelo>` com motivo contendo `heavy_flag`; stdout coerente; **sem** “Respondi com o modelo local …” |
 | Sucesso (log) | Última sequência em `logs/cloud_usage.jsonl`: `cloud_requested` → `cloud_confirmed` → `cloud_completed` com `provider` `openrouter` ou `cloud` — **não** `cache` sozinho |
 | Corroborar custo | Painel OpenRouter (atividade da chave); **não** use `input_tokens_estimate`/`output_tokens_estimate` do JSONL como fatura (heurística `len/4`) |
+| Tokens reportados | Em `cloud_completed` de chamada HTTP fresca, campos opcionais `input_tokens_reported` / `output_tokens_reported` vêm do `usage` da API quando presente; ausência ou valor inválido **não** vira zero. Orçamento local (`CloudBudget`) continua somando só `*_estimate`. |
 | Limites | `YBY_CLOUD_MAX_OUTPUT_TOKENS` → campo `max_tokens` no POST (teto de saída). Distinto de `YBY_CLOUD_CONTEXT_MAX_CHARS` (entrada) e de `YBY_CLOUD_*_TOKEN_LIMIT` (orçamento local) |
 
 ### Previsão de rota (offline, antes dos smokes)

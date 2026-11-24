@@ -16,6 +16,7 @@ from src.engine.config import (
 from src.engine.hybrid import HybridEngine
 from src.engine.providers import (
     CascadingCloudProvider,
+    CloudCompletion,
     CloudProvider,
     OllamaProvider,
     ProviderError,
@@ -95,10 +96,13 @@ class FakeCloud:
         return bool(self.api_key)
 
     def complete(self, prompt: str, *, model: str, system: str) -> str:
+        return self.complete_detail(prompt, model=model, system=system).text
+
+    def complete_detail(self, prompt: str, *, model: str, system: str) -> CloudCompletion:
         self.calls.append({"prompt": prompt, "model": model, "system": system})
         if self.error:
             raise self.error
-        return self.text
+        return CloudCompletion(text=self.text)
 
 
 def _route(
