@@ -15,7 +15,9 @@
 | 2 | 0 | 2 | 3 | **5** |
 | **Total novas** | **1** | **6** | **8** | **15** |
 
-**Acumulado útil:** **15/300** entradas novas + 3 referências prévias reutilizadas (não recontadas). Reutilizadas nesta rodada: **SRC-001**, **SRC-006**, **SRC-007** (sem recontagem).
+**Acumulado útil:** **15/300** entradas novas (incluem inspeções internas YBY) + 3 referências prévias reutilizadas (não recontadas). Reutilizadas nesta rodada: **SRC-001**, **SRC-006**, **SRC-007** (sem recontagem).
+
+**Rodada 2 — externas vs internas:** fontes **externas** novas = **2** (SRC-011, SRC-012); **inspeções código/teste YBY** = **3** (SRC-013–015). O total **5** da rodada 2 soma ambos — não confundir com “5 fontes externas”.
 
 ## Referências prévias (reutilizadas, sessão anterior)
 
@@ -68,7 +70,7 @@
 |----|---------------|--------|---------------|-------|----------------|---------|-------------|
 | SRC-011 | https://github.com/ollama/ollama/blob/main/docs/api.md | Doc oficial Ollama | `main` (lido 2026-11-24) | L1 | **`POST /api/generate`**: `format` = string `"json"` **ou** objeto JSON Schema; exemplos de structured outputs e JSON mode na mesma rota que YBY já usa | MIT (Ollama) | Corrige hipótese da rodada 1: não é só `/api/chat` |
 | SRC-012 | https://github.com/ollama/ollama/releases/tag/v0.5.4 | GitHub releases | v0.5.4 · 2024-12-17 | L1 | Release próximo ao blog structured outputs; menciona correção com `format: null` | — | **Não** inferir versão instalada no PC Hub (`GET /api/version` pendente) |
-| SRC-013 | `src/engine/providers.py` (`build_ollama_generate_payload`, `OllamaProvider.complete`) | Código YBY | `main` @ 7c6ef5b | L2 | Payload atual **sem** `format`; `complete` → texto de `response` | — | Ponto de extensão mínimo |
+| SRC-013 | `src/engine/providers.py` (`build_ollama_generate_payload`, `OllamaProvider.complete`) | Código YBY | `main` @ a6f6aa0+ | L2 | `ollama_format` kw-only opcional; chave `format` só quando não `None` | — | **Implementado** (opt-in planner) |
 | SRC-014 | `src/main.py` (`yby agent --local`) | Código YBY | idem | L2 | Único uso de `OllamaJsonPlanner` + `OllamaProvider`; `HybridEngine`/`ask` não passam por aqui | — | Dá para restringir `format` ao planner |
 | SRC-015 | `tests/test_providers.py` | Testes YBY | idem | L2 | Asserções do corpo `/api/generate`; base para testar `format` opcional offline | — | Aceite offline sem inferência |
 
@@ -96,16 +98,16 @@
 | Manter `parse_planner_step` + `planner_error` | Obrigatório; sem segunda chamada HTTP |
 | Modelo Hub `qwen2.5-coder:3b` + versão Ollama | **Não verificado** nesta VM (bloqueio PC Hub) |
 
-### Menor proposta (não implementada nesta rodada)
+### Implementação (decisão A — concluída no código, smoke Hub pendente)
 
-1. `build_ollama_generate_payload(..., *, ollama_format: str | dict[str, Any] | None = None)` — inclui chave `format` só se não `None`.
-2. `OllamaProvider.complete(..., ollama_format=None)` (kw-only) — repassa ao payload; default `None` preserva `ask` e demais chamadas.
-3. `OllamaJsonPlanner` lê env opcional (ex. `YBY_PLANNER_OLLAMA_FORMAT=json`) e passa `ollama_format="json"` na fase 1; JSON Schema completo fica fase 2.
-4. **Sem** alterar assinatura `TextProvider` global: só `OllamaProvider` + cast no planner, ou método estreito `complete_for_planner` no provider.
+1. `build_ollama_generate_payload(..., *, ollama_format: str | None = None)` — inclui `format` só se não `None` (fase 1: só string `"json"`).
+2. `OllamaProvider.complete(..., *, ollama_format=None)` — repassa ao payload; default preserva `ask`/híbrido.
+3. `YBY_PLANNER_OLLAMA_FORMAT=json` → `OllamaJsonPlanner` passa `ollama_format="json"` só em `isinstance(..., OllamaProvider)`; instrução JSON no prompt mantida; JSON Schema **fora** desta rodada.
+4. Assinatura `TextProvider` inalterada; fakes legados sem kw extra.
 
-**Arquivos prováveis:** `src/engine/providers.py`, `src/agent_loop/planner.py`, `tests/test_providers.py`, opcional `tests/test_agent_loop.py` (mock: corpo POST contém `format`).
+**Arquivos:** `src/engine/providers.py`, `src/agent_loop/planner.py`, `src/agent_loop/planner_env.py`, `tests/test_providers.py`, `tests/test_agent_loop.py`, `docs/DEV.md`.
 
-**Testes offline:** assert no dict `json` do POST; planner fake inalterado; regressão `build_ollama_generate_payload` sem `format` por default.
+**Testes offline:** payload sem `format` por default; POST com `format` opt-in; fake legado; env inválido antes de HTTP; uma iteração do planner sem tool em falha HTTP/parse.
 
 **Aceite pós-código (PC Hub, fora desta rodada):** `ollama --version` ou `GET /api/version`; `yby agent --local` com env ativo; taxa de `planner_error` ≤ baseline em N prompts — **não** assumir sucesso só com pytest.
 

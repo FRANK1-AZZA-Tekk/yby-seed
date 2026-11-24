@@ -6,8 +6,9 @@ import json
 from collections.abc import Callable, Sequence
 from typing import Protocol
 
+from src.agent_loop.planner_env import planner_ollama_format_from_env
 from src.agent_loop.schemas import PlannerStep, parse_planner_step
-from src.engine.providers import TextProvider
+from src.engine.providers import OllamaProvider, TextProvider
 
 
 class Planner(Protocol):
@@ -60,9 +61,14 @@ class OllamaJsonPlanner:
         provider: TextProvider,
         *,
         model: str,
+        planner_json_format: bool | None = None,
     ) -> None:
         self._provider = provider
         self._model = model
+        if planner_json_format is None:
+            self._planner_json_format = planner_ollama_format_from_env() == "json"
+        else:
+            self._planner_json_format = planner_json_format
 
     def plan(
         self,
@@ -78,7 +84,19 @@ class OllamaJsonPlanner:
             f"Histórico de passos (JSON):\n{history_text}\n\n"
             "Próximo passo (um JSON):"
         )
-        raw = self._provider.complete(prompt, model=self._model, system=self.SYSTEM)
+        if self._planner_json_format and isinstance(self._provider, OllamaProvider):
+            raw = self._provider.complete(
+                prompt,
+                model=self._model,
+                system=self.SYSTEM,
+                ollama_format="json",
+            )
+        else:
+            raw = self._provider.complete(
+                prompt,
+                model=self._model,
+                system=self.SYSTEM,
+            )
         return parse_planner_step(raw)
 
 

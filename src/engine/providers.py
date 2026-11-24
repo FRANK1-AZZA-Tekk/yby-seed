@@ -138,6 +138,7 @@ def build_ollama_generate_payload(
     *,
     model: str,
     system: str,
+    ollama_format: str | None = None,
 ) -> dict[str, Any]:
     """Corpo JSON de `POST /api/generate`.
 
@@ -161,6 +162,8 @@ def build_ollama_generate_payload(
     }
     if think:
         payload["think"] = True
+    if ollama_format is not None:
+        payload["format"] = ollama_format
     return payload
 
 
@@ -191,9 +194,21 @@ class OllamaProvider:
         if callable(closer):
             closer()
 
-    def complete(self, prompt: str, *, model: str, system: str) -> str:
+    def complete(
+        self,
+        prompt: str,
+        *,
+        model: str,
+        system: str,
+        ollama_format: str | None = None,
+    ) -> str:
         url = f"{self.base_url}/api/generate"
-        body = build_ollama_generate_payload(prompt, model=model, system=system)
+        body = build_ollama_generate_payload(
+            prompt,
+            model=model,
+            system=system,
+            ollama_format=ollama_format,
+        )
         timeout = _request_timeout(self.timeout)
         response = _post_with_retry(
             self._session,

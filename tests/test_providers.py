@@ -50,6 +50,50 @@ def test_ollama_payload_defaults_keep_alive_e_num_ctx() -> None:
     # think:false no generate vaza markup; omitir o campo (ollama#18044).
     assert "think" not in body
     assert body["stream"] is False
+    assert "format" not in body
+
+
+def test_ollama_payload_opt_in_json_preserva_demais_campos() -> None:
+    body = build_ollama_generate_payload(
+        "p",
+        model="qwen2.5-coder:3b",
+        system="sys",
+        ollama_format="json",
+    )
+    assert body["format"] == "json"
+    assert body["model"] == "qwen2.5-coder:3b"
+    assert body["prompt"] == "p"
+    assert body["system"] == "sys"
+    assert body["stream"] is False
+    assert "options" in body
+
+
+def test_ollama_complete_opt_in_envia_format_no_post() -> None:
+    session = _Session(_Resp(200, {"response": '{"action":"finish","answer":{}}'}))
+    OllamaProvider("http://127.0.0.1:11434", timeout=1, session=session).complete(
+        "p",
+        model="m",
+        system="s",
+        ollama_format="json",
+    )
+    payload = session.posts[0]["json"]
+    assert isinstance(payload, dict)
+    assert payload.get("format") == "json"
+
+
+def test_ask_ollama_sem_format_mesmo_com_env_do_planner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("YBY_PLANNER_OLLAMA_FORMAT", "json")
+    session = _Session()
+    OllamaProvider("http://127.0.0.1:11434", timeout=1, session=session).complete(
+        "p",
+        model="m",
+        system="s",
+    )
+    payload = session.posts[0]["json"]
+    assert isinstance(payload, dict)
+    assert "format" not in payload
 
 
 def test_ollama_payload_lê_env(monkeypatch: pytest.MonkeyPatch) -> None:
