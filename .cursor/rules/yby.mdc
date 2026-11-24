@@ -4,39 +4,43 @@ globs:
 alwaysApply: true
 ---
 
-# YBY SEED — regras do agente
+# YBY SEED — complementos no Cursor
+
+Contrato geral e mapa de módulos: `AGENTS.md` e `src/README.md`.
 
 ## Antes de editar
 
-- Planeje o diff mínimo: arquivos-alvo, critério de aceite, testes.
-- Leia só os arquivos citados na tarefa (e `docs/DEV.md` se o caminho estiver ambíguo).
-- Não explore o legado (`src/agents`, `src/rag`, `src/gateway`, `src/core`) sem pedido explícito.
+- Planeje diff mínimo: arquivos-alvo, critério de aceite, testes.
+- Leitura: comece pelos arquivos citados (e `docs/DEV.md` se ambíguo); abra o mínimo relacionado (testes, interfaces, chamadores) para implementar ou validar. Não explore legado listado em `src/README.md` sem pedido explícito.
 
-## Escopo
+## Escopo e módulos
 
 - Não edite arquivos fora do escopo da tarefa.
-- Não reescreva, apague nem expanda o legado sem pedido explícito.
-- Diff mínimo: sem refatoração cosmética, sem dependências novas sem necessidade.
+- Não reescreva, apague nem expanda módulos fora do escopo sem pedido explícito (ver mapa em `src/README.md`: fora do `ask` ≠ obsoleto por inferência).
+- Diff mínimo; sem refatoração cosmética.
+- Dependências novas só com aprovação explícita; explique por que stdlib e dependências existentes não bastam.
 
 ## Honestidade
 
 - Não invente recursos, endpoints, serviços ou “já pronto” que não existam no código.
-- README e docs descrevem só o que funciona hoje; futuro fica marcado como futuro.
-- Sem cloud APIs novas sem autenticação configurável **e** log local (motivo, modelo, resultado).
+- Docs descrevem o que funciona hoje; futuro marcado como futuro.
+- Sem APIs de nuvem novas sem autenticação configurável **e** log local (motivo, modelo, resultado).
 
 ## Segurança e execução
 
-- Não execute código gerado sem sandbox **e** aprovação humana.
-- Comandos de shell passam por `src/safety` / allowlist; destrutivos pedem confirmação.
+- **YBY em runtime:** `yby run` / gate usam `src/safety` e allowlist; destrutivos pedem confirmação.
+- **Neste ambiente (Cursor):** o shell do agente não passa automaticamente por `src/safety`. Não execute código arbitrário gerado pelo YBY sem sandbox **e** aprovação humana.
 - Nunca publique secrets; use `.env` local (template em `.env.example`).
 
 ## Qualidade
 
-- Toda mudança de comportamento precisa de teste **e** ajuste de docs (ou nota explícita de por que docs não mudam).
-- Compatível com a estrutura atual em Python (`yby.py`, `src/engine|safety|actions|memory|voice|platform`).
+- Mudança de comportamento: teste e atualização da documentação diretamente afetada (ou nota breve de por que não mudou). Ver `AGENTS.md` para limites de documentação.
 - Gate local/CI: `make doctor`, `make lint`, `make test` (ver `docs/CI.md`).
 
-## Economia (ver também yby-economy.mdc)
+## Publicação e ações externas
 
-- Local-first: Ollama `qwen2.5-coder:3b` primeiro; nuvem só com autorização ou roteamento explícito.
-- Entregue resumo, lista de arquivos e próximo passo — sem despejar arquivos inteiros.
+- Autorização para editar não implica commit, push, PR, merge ou deploy; cada ação precisa de aprovação explícita.
+
+## Economia
+
+- Ver `yby-economy.mdc` (recursos e nuvem). Não repetir aqui.

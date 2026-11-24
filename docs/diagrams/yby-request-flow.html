@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YBY SEED — fluxo do ask (texto)</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --text: #0f172a;
+      --muted: #475569;
+      --border: #cbd5e1;
+      --local: #1d4ed8;
+      --cloud: #6d28d9;
+      --cache: #047857;
+      --fail: #b91c1c;
+      --box: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 1.25rem 1.5rem 2rem;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      max-width: 58rem;
+    }
+    h1 { font-size: 1.35rem; font-weight: 650; margin: 0 0 0.35rem; }
+    .lead { color: var(--muted); font-size: 0.95rem; margin: 0 0 1rem; max-width: 42rem; }
+    .ref {
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+      padding: 0.65rem 0.85rem;
+      background: var(--box);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    .ref a { color: var(--local); }
+    figure { margin: 0; }
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-width: 960px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--box);
+    }
+    .legend {
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+    }
+    .swatch { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 2px; vertical-align: middle; margin-right: 0.25rem; }
+  </style>
+</head>
+<body>
+  <h1>Fluxo inspecionado: <code>yby ask</code> (texto)</h1>
+  <p class="lead">
+    Visão parcial do repositório YBY SEED — somente entrada CLI de texto, roteamento, Ollama local e nuvem quando implementada no código.
+    Não representa voz, segurança de shell, RAG nem o sistema inteiro.
+  </p>
+  <p class="ref">
+    Rastreabilidade: símbolos, limites e commit-base estão em
+    <a href="yby-request-flow.md">yby-request-flow.md</a>.
+  </p>
+  <figure>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1320" role="img" aria-labelledby="svg-title svg-desc">
+      <title id="svg-title">Diagrama do fluxo yby ask com ramificações de cache, sucesso e falha</title>
+      <desc id="svg-desc">
+        Fluxo com decisões: cache hit evita provedor; sucesso local ou cloud vai à saída CLI;
+        falha local não escala para nuvem; caminho cloud pode degradar para _reply_from_local sem nova tentativa na nuvem.
+      </desc>
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L7,3 L0,6 Z" fill="#64748b"/>
+        </marker>
+        <marker id="arr-ok" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L7,3 L0,6 Z" fill="#047857"/>
+        </marker>
+        <marker id="arr-bad" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L7,3 L0,6 Z" fill="#b91c1c"/>
+        </marker>
+      </defs>
+      <style type="text/css"><![CDATA[
+        .n { fill: #fff; stroke: #94a3b8; stroke-width: 1.5; }
+        .n-local { stroke: #1d4ed8; }
+        .n-cloud { stroke: #6d28d9; }
+        .n-cache { stroke: #047857; }
+        .n-fail { stroke: #b91c1c; stroke-dasharray: 4 3; }
+        .n-ok { stroke: #047857; }
+        .t { font-family: system-ui, sans-serif; font-size: 12px; fill: #0f172a; }
+        .t-sm { font-size: 10px; fill: #475569; }
+        .t-h { font-size: 13px; font-weight: 700; }
+        .d { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+        .e { fill: none; stroke: #64748b; stroke-width: 1.5; marker-end: url(#arr); }
+        .e-ok { stroke: #047857; marker-end: url(#arr-ok); }
+        .e-bad { stroke: #b91c1c; marker-end: url(#arr-bad); }
+        .e-dim { stroke: #475569; stroke-width: 2.2; stroke-dasharray: 8 5; }
+        .e-deg { stroke: #7c3aed; stroke-width: 2; marker-end: url(#arr); }
+        .e-err { stroke: #b91c1c; stroke-width: 2.5; marker-end: url(#arr-bad); }
+        .ann { fill: #f1f5f9; stroke: none; }
+        .ann-t { font-size: 10px; fill: #475569; font-style: italic; }
+        .bus-lbl { font-size: 10px; fill: #334155; font-weight: 600; }
+        .grp { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1; }
+        .lbl { font-size: 11px; fill: #334155; font-weight: 600; }
+        .hub { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+        .hub-fail { fill: #fef2f2; stroke: #dc2626; stroke-width: 1.5; }
+      ]]></style>
+
+      <!-- Tronco comum -->
+      <rect class="n" x="330" y="16" width="300" height="44" rx="6"/>
+      <text class="t t-h" x="480" y="36" text-anchor="middle">Entrada CLI</text>
+      <text class="t t-sm" x="480" y="52" text-anchor="middle">yby.py → main.ask() → build_engine().reply()</text>
+
+      <line class="e" x1="480" y1="60" x2="480" y2="78"/>
+
+      <polygon class="d" points="480,78 555,118 480,158 405,118"/>
+      <text class="t t-h" x="480" y="114" text-anchor="middle">decide_route</text>
+      <text class="t t-sm" x="480" y="128" text-anchor="middle">local | cloud</text>
+
+      <!-- Saída: ordem do código (main.py ask) -->
+      <rect class="n" x="250" y="1048" width="460" height="44" rx="6" style="stroke:#059669;stroke-width:2"/>
+      <text class="t t-h" x="480" y="1068" text-anchor="middle">EngineReply</text>
+      <text class="t t-sm" x="480" y="1084" text-anchor="middle">retorno de HybridEngine.reply()</text>
+
+      <line class="e" x1="480" y1="1092" x2="480" y2="1108"/>
+
+      <polygon class="d" points="480,1108 555,1148 480,1188 405,1148"/>
+      <text class="t" x="480" y="1144" text-anchor="middle">provider</text>
+      <text class="t t-sm" x="480" y="1158" text-anchor="middle">== none?</text>
+
+      <rect class="n n-ok" x="88" y="1210" width="320" height="56" rx="6"/>
+      <text class="t t-h" x="248" y="1232" text-anchor="middle">main.ask — sucesso</text>
+      <text class="t t-sm" x="248" y="1248" text-anchor="middle">stderr: notice? + modelo</text>
+      <text class="t t-sm" x="248" y="1260" text-anchor="middle">stdout: texto · exit 0</text>
+
+      <rect class="n n-fail" x="552" y="1210" width="320" height="48" rx="6"/>
+      <text class="t t-h" x="712" y="1232" text-anchor="middle">main.ask — falha</text>
+      <text class="t t-sm" x="712" y="1248" text-anchor="middle">stderr: notice · exit 1</text>
+      <text class="t t-sm" x="712" y="1260" text-anchor="middle">(sem linha modelo)</text>
+
+      <line class="e-ok" x1="405" y1="1148" x2="248" y2="1210"/>
+      <text class="t t-sm" x="300" y="1195">não</text>
+      <line class="e-bad" x1="555" y1="1148" x2="712" y2="1210"/>
+      <text class="t t-sm" x="640" y="1195">sim</text>
+
+      <line class="e-dim" x1="120" y1="1040" x2="120" y2="1048"/>
+      <line class="e-dim" x1="680" y1="1040" x2="680" y2="1048"/>
+      <line class="e-dim" x1="120" y1="1040" x2="680" y2="1040"/>
+      <text class="bus-lbl" x="480" y="1034" text-anchor="middle">junção dos caminhos → EngineReply</text>
+
+      <!-- ========== LOCAL ========== -->
+      <rect class="grp" x="16" y="190" width="420" height="520" rx="8"/>
+      <text class="lbl" x="32" y="212">_local_first</text>
+
+      <polygon class="d" points="120,240 170,268 120,296 70,268"/>
+      <text class="t" x="120" y="264" text-anchor="middle">cache</text>
+      <text class="t t-sm" x="120" y="276" text-anchor="middle">hit?</text>
+
+      <rect class="n n-cache" x="200" y="244" width="200" height="36" rx="4"/>
+      <text class="t" x="300" y="266" text-anchor="middle">_lookup → retorno local</text>
+
+      <rect class="n n-local" x="60" y="320" width="200" height="52" rx="5"/>
+      <text class="t" x="160" y="342" text-anchor="middle">OllamaProvider.complete</text>
+      <text class="t t-sm" x="160" y="358" text-anchor="middle">POST /api/generate</text>
+
+      <rect class="n n-ok" x="60" y="388" width="200" height="40" rx="5"/>
+      <text class="t" x="160" y="414" text-anchor="middle">sucesso → _store → local</text>
+
+      <rect class="n n-fail" x="60" y="448" width="300" height="56" rx="5"/>
+      <text class="t" x="210" y="470" text-anchor="middle">_after_local_failure</text>
+      <text class="t t-sm" x="210" y="486" text-anchor="middle">provider none — sem nuvem (D12)</text>
+
+      <line class="e" x1="405" y1="118" x2="120" y2="238"/>
+      <text class="t t-sm" x="250" y="175">local</text>
+
+      <line class="e-ok" x1="170" y1="268" x2="200" y2="262"/>
+      <text class="t-sm t" x="176" y="258">sim</text>
+      <line class="e" x1="120" y1="296" x2="160" y2="318"/>
+      <text class="t t-sm" x="128" y="312">não</text>
+
+      <line class="e-ok" x1="160" y1="372" x2="160" y2="388"/>
+      <text class="t t-sm" x="168" y="382">ok</text>
+      <line class="e-bad" x1="160" y1="372" x2="210" y2="448"/>
+      <text class="t t-sm" x="175" y="410">erro</text>
+
+      <line class="e-ok" x1="300" y1="280" x2="300" y2="1040"/>
+      <line class="e-dim" x1="300" y1="1040" x2="480" y2="1040"/>
+      <text class="bus-lbl" x="360" y="1032">cache hit</text>
+      <line class="e-ok" x1="160" y1="428" x2="160" y2="1040"/>
+      <line class="e-dim" x1="160" y1="1040" x2="480" y2="1040"/>
+      <text class="bus-lbl" x="200" y="1032">Ollama ok</text>
+      <line class="e-bad" x1="210" y1="504" x2="210" y2="1040"/>
+      <line class="e-dim" x1="210" y1="1040" x2="480" y2="1040"/>
+      <text class="bus-lbl" x="250" y="1024" fill="#b91c1c">falha local</text>
+
+      <!-- ========== CLOUD ========== -->
+      <rect class="grp" x="524" y="190" width="420" height="900" rx="8"/>
+      <text class="lbl" x="540" y="212">_cloud_first</text>
+
+      <polygon class="d" points="680,240 730,268 680,296 630,268"/>
+      <text class="t" x="680" y="264" text-anchor="middle">cache</text>
+      <text class="t t-sm" x="680" y="276" text-anchor="middle">hit?</text>
+
+      <rect class="n n-cache" x="740" y="244" width="188" height="36" rx="4"/>
+      <text class="t" x="834" y="266" text-anchor="middle">_lookup_cloud → cloud</text>
+
+      <polygon class="d" points="680,328 730,356 680,384 630,356"/>
+      <text class="t" x="680" y="352" text-anchor="middle">chave?</text>
+      <text class="t t-sm" x="680" y="364" text-anchor="middle">has_credentials</text>
+
+      <polygon class="d" points="680,416 730,444 680,472 630,444"/>
+      <text class="t" x="680" y="436" text-anchor="middle">_cloud_gate_reply</text>
+      <text class="t t-sm" x="680" y="450" text-anchor="middle">bloqueio ou cancel.?</text>
+
+      <rect class="n n-cloud" x="560" y="498" width="240" height="48" rx="5"/>
+      <text class="t" x="680" y="518" text-anchor="middle">_cloud_call</text>
+      <text class="t t-sm" x="680" y="534" text-anchor="middle">OpenRouter (sem Grok auto)</text>
+
+      <rect class="n n-ok" x="560" y="562" width="240" height="40" rx="5"/>
+      <text class="t" x="680" y="588" text-anchor="middle">HTTP ok → provider cloud</text>
+
+      <rect class="n n-fail" x="548" y="632" width="264" height="40" rx="5"/>
+      <text class="t" x="680" y="648" text-anchor="middle">_local_after_cloud_failure</text>
+      <text class="t t-sm" x="680" y="662" text-anchor="middle">após ProviderError em _cloud_call</text>
+
+      <rect class="n n-cloud" x="548" y="368" width="220" height="40" rx="5"/>
+      <text class="t" x="658" y="392" text-anchor="middle">_local_without_cloud_key</text>
+
+      <rect class="n n-cloud" x="548" y="452" width="220" height="40" rx="5"/>
+      <text class="t" x="658" y="476" text-anchor="middle">_local_after_cloud_block</text>
+
+      <rect class="grp" x="544" y="700" width="380" height="200" rx="6"/>
+      <text class="lbl" x="560" y="722">_reply_from_local</text>
+      <text class="t t-sm" x="560" y="738">única etapa de execução local após degradação</text>
+
+      <polygon class="d" points="680,764 720,786 680,808 640,786"/>
+      <text class="t" x="680" y="790" text-anchor="middle">cache?</text>
+
+      <rect class="n n-cache" x="720" y="768" width="160" height="32" rx="4"/>
+      <text class="t t-sm" x="800" y="788" text-anchor="middle">hit → local + aviso</text>
+
+      <rect class="n n-local" x="568" y="830" width="200" height="44" rx="5"/>
+      <text class="t" x="668" y="852" text-anchor="middle">Ollama local</text>
+      <text class="t t-sm" x="668" y="866" text-anchor="middle">com prefixo de aviso</text>
+
+      <rect class="n n-ok" x="568" y="886" width="160" height="28" rx="4"/>
+      <text class="t t-sm" x="648" y="905" text-anchor="middle">sucesso → local</text>
+
+      <rect class="n n-fail" x="752" y="886" width="160" height="28" rx="4"/>
+      <text class="t t-sm" x="832" y="905" text-anchor="middle">erro → none</text>
+
+      <line class="e" x1="555" y1="118" x2="680" y2="238"/>
+      <text class="t t-sm" x="600" y="175">cloud</text>
+
+      <line class="e-ok" x1="730" y1="268" x2="740" y2="262"/>
+      <text class="t t-sm" x="736" y="256">sim</text>
+      <line class="e" x1="680" y1="296" x2="680" y2="326"/>
+      <text class="t t-sm" x="688" y="316">não</text>
+
+      <line class="e-deg" x1="630" y1="356" x2="658" y2="368"/>
+      <text class="t t-sm" x="588" y="400">não</text>
+      <line class="e-deg" x1="658" y1="408" x2="680" y2="700"/>
+      <text class="ann-t" x="670" y="520" text-anchor="middle">sem chave</text>
+
+      <line class="e" x1="680" y1="384" x2="680" y2="414"/>
+      <text class="t t-sm" x="688" y="402">sim</text>
+
+      <line class="e-deg" x1="630" y1="444" x2="658" y2="452"/>
+      <text class="t t-sm" x="602" y="430">sim</text>
+      <line class="e-deg" x1="658" y1="492" x2="680" y2="700"/>
+      <text class="ann-t" x="710" y="600" text-anchor="middle">bloqueio / cancel.</text>
+
+      <line class="e" x1="680" y1="472" x2="680" y2="496"/>
+      <text class="t t-sm" x="688" y="488">não</text>
+
+      <line class="e-ok" x1="680" y1="546" x2="680" y2="562"/>
+      <line class="e-err" x1="680" y1="546" x2="680" y2="632"/>
+      <text class="t t-sm" x="692" y="592" font-weight="bold">erro HTTP</text>
+
+      <line class="e-deg" x1="680" y1="672" x2="680" y2="700"/>
+      <text class="ann-t" x="700" y="688">degradação</text>
+
+      <line class="e-ok" x1="720" y1="786" x2="720" y2="768"/>
+      <line class="e" x1="680" y1="808" x2="668" y2="828"/>
+      <line class="e-ok" x1="668" y1="874" x2="648" y2="886"/>
+      <line class="e-bad" x1="700" y1="874" x2="832" y2="886"/>
+
+      <line class="e-ok" x1="834" y1="280" x2="840" y2="1040"/>
+      <line class="e-dim" x1="840" y1="1040" x2="480" y2="1040"/>
+      <text class="bus-lbl" x="720" y="1032">cache cloud</text>
+
+      <line class="e-ok" x1="680" y1="602" x2="680" y2="1040"/>
+      <text class="bus-lbl" x="700" y="1032">HTTP ok</text>
+
+      <line class="e-ok" x1="648" y1="914" x2="380" y2="1040"/>
+      <line class="e-dim" x1="380" y1="1040" x2="480" y2="1040"/>
+      <text class="bus-lbl" x="340" y="1024">degradação ok</text>
+      <line class="e-bad" x1="832" y1="914" x2="400" y2="1040"/>
+      <line class="e-dim" x1="400" y1="1040" x2="480" y2="1040"/>
+      <text class="bus-lbl" x="420" y="1024" fill="#b91c1c">degradação none</text>
+
+      <line class="e-dim" x1="480" y1="1040" x2="480" y2="1048"/>
+
+      <text class="t t-sm" x="480" y="1295" text-anchor="middle">
+        Gate de nuvem = orçamento/custo (não é run/gate nem sandbox de shell)
+      </text>
+    </svg>
+  </figure>
+  <div class="legend" aria-hidden="true">
+    <span><span class="swatch" style="background:#047857"></span>Verde — sucesso / cache hit</span>
+    <span><span class="swatch" style="background:#b91c1c"></span>Vermelho — erro ou provider none</span>
+    <span><span class="swatch" style="background:#475569"></span>Tracejado grosso — junção → EngineReply</span>
+    <span><span class="swatch" style="background:#7c3aed"></span>Roxo — wrappers antes de _reply_from_local</span>
+    <span><span class="swatch" style="background:#1d4ed8"></span>Ollama</span>
+    <span><span class="swatch" style="background:#6d28d9"></span>Nuvem</span>
+  </div>
+</body>
+</html>

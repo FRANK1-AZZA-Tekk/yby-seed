@@ -6,13 +6,15 @@ alwaysApply: true
 
 # Economia de execução
 
-- Priorize execução local e o menor escopo funcional.
-- Use Ollama e `qwen2.5-coder:3b` como padrão.
-- Não explore o repositório além dos arquivos da tarefa.
-- Não refatore, documente ou crie dependências sem aprovação.
-- Use nuvem apenas se a tarefa exigir ou se o usuário autorizar.
-- Antes de nuvem, informe o motivo e o custo estimado.
-- Respeite D12: local primeiro; nuvem sob demanda.
-- Respeite D13: voz em nuvem via Grok/xAI é opcional e futura.
-- Entregue diff mínimo, testes e próximo passo.
-- Não use modelos 7B ou maiores no v1, salvo decisão explícita.
+Escopo de leitura, diff mínimo, documentação e dependências: `AGENTS.md` / `yby.mdc`.
+
+## Recursos e provedores (produto YBY)
+
+- Priorize escopo funcional mínimo e local-first (D12: nuvem sob demanda, sem fallback automático quando o local falha).
+- No **runtime YBY** (`ask`, hub, roteamento), o padrão documentado é Ollama com `qwen2.5-coder:3b`; não use modelos 7B+ no v1 salvo decisão explícita. Isso **não** define o modelo da sessão do agente no Cursor.
+- Nuvem no produto: só com roteamento explícito, tarefa que exija ou autorização do usuário; antes, informe motivo e custo estimado.
+- D13: voz em nuvem via Grok/xAI é opcional e futura — não tratar como padrão atual.
+
+## Entrega
+
+- Diff mínimo, testes quando houver mudança de comportamento, resumo e próximo passo (sem despejar arquivos inteiros).
