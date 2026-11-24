@@ -118,6 +118,7 @@
 | ID | Arquivo | Nível | Evidência | Decisão |
 |----|---------|-------|-----------|---------|
 | SRC-016 | `src/agent_loop/loop.py` (`_run_tool`) | L2 | `future.result(timeout=…)` + `ThreadPoolExecutor` com `shutdown(wait=True)` no `with` prendia o retorno de `run()` após timeout | **Corrigido:** `shutdown(wait=False)` no timeout; contrato = limite de espera, não cancelamento |
+| SRC-017 | `src/agent_loop/planner.py` + `planner_prompt.py` | L2 | Histórico serializado integral no prompt antes da projeção | **Corrigido:** `YBY_PLANNER_PROMPT_MAX_CHARS`; histórico original intacto em `AgentRunResult` |
 
 Scan externo de projetos semelhantes (relato ~40 páginas) **não** foi importado como verificação de código; hipótese cruzada só com inspeção YBY acima.
 
