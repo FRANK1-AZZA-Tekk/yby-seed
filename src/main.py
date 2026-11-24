@@ -290,59 +290,68 @@ def agent_cmd(
         raise SystemExit(1)
 
     registry = vault_registry_or_skip()
-    if script:
-        raw = json.loads(script.read_text(encoding="utf-8"))
-        if not isinstance(raw, list):
-            click.echo("O script deve ser um JSON array de passos.", err=True)
-            raise SystemExit(1)
-        planner = ScriptedPlanner(raw)
-    else:
-        cfg = EngineConfig.from_env()
-        planner = OllamaJsonPlanner(
-            OllamaProvider(cfg.ollama_base_url, timeout=cfg.ollama_timeout),
-            model=cfg.local_model,
+    ollama: OllamaProvider | None = None
+    try:
+        if script:
+            raw = json.loads(script.read_text(encoding="utf-8"))
+            if not isinstance(raw, list):
+                click.echo("O script deve ser um JSON array de passos.", err=True)
+                raise SystemExit(1)
+            planner: ScriptedPlanner | OllamaJsonPlanner = ScriptedPlanner(raw)
+        else:
+            cfg = EngineConfig.from_env()
+            ollama = OllamaProvider(cfg.ollama_base_url, timeout=cfg.ollama_timeout)
+            planner = OllamaJsonPlanner(ollama, model=cfg.local_model)
+
+        loop = ControlledAgentLoop(
+            registry=registry,
+            planner=planner,
+            max_iterations=max_steps,
         )
+        result = loop.run(texto)
 
-    loop = ControlledAgentLoop(
-        registry=registry,
-        planner=planner,
-        max_iterations=max_steps,
-    )
-    result = loop.run(texto)
+        if as_json:
+            payload = {
+                "status": result.status,
+                "task": result.task,
+                "iterations": result.iterations,
+                "final_answer": result.final_answer,
+                "abort_reason": result.abort_reason,
+                "steps": [
+                    {
+                        "iteration": s.iteration,
+                        "kind": s.kind,
+                        "detail": s.detail,
+                        "error": s.error,
+                    }
+                    for s in result.steps
+                ],
+            }
+            click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        else:
+            click.echo(f"status: {result.status} ({result.iterations} passos)")
+            if result.abort_reason:
+                click.echo(f"abort: {result.abort_reason}", err=True)
+            if result.final_answer is not None:
+                click.echo(json.dumps(result.final_answer, ensure_ascii=False, indent=2))
+            for step in result.steps:
+                if step.error:
+                    click.echo(f"  [{step.kind}] erro: {step.error}", err=True)
 
-    if as_json:
-        payload = {
-            "status": result.status,
-            "task": result.task,
-            "iterations": result.iterations,
-            "final_answer": result.final_answer,
-            "abort_reason": result.abort_reason,
-            "steps": [
-                {
-                    "iteration": s.iteration,
-                    "kind": s.kind,
-                    "detail": s.detail,
-                    "error": s.error,
-                }
-                for s in result.steps
-            ],
-        }
-        click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
-    else:
-        click.echo(f"status: {result.status} ({result.iterations} passos)")
-        if result.abort_reason:
-            click.echo(f"abort: {result.abort_reason}", err=True)
-        if result.final_answer is not None:
-            click.echo(json.dumps(result.final_answer, ensure_ascii=False, indent=2))
-        for step in result.steps:
-            if step.error:
-                click.echo(f"  [{step.kind}] erro: {step.error}", err=True)
-
-    if result.status == "completed":
-        raise SystemExit(0)
-    if result.status == "aborted":
-        raise SystemExit(2)
-    raise SystemExit(1)
+        if result.status == "completed":
+            raise SystemExit(0)
+        if result.status == "aborted":
+            raise SystemExit(2)
+        raise SystemExit(1)
+    finally:
+        if ollama is not None:
+            try:
+                ollama.close()
+            except Exception as close_exc:
+                primary = sys.exc_info()[1]
+                if primary is not None:
+                    raise primary from close_exc
+                raise
 
 
 @cli.command()

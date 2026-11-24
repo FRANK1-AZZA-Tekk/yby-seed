@@ -201,7 +201,7 @@ git diff origin/main --stat → DECISIONS.md, MODEL_CARD.md, PROGRESS.md apenas
 
 - Retry/backoff, timeouts de provedor, `HybridEngine.close()`, tool timeout: conforme #113 (coberto por testes existentes).
 - Lacuna: exceção genérica em handler de tool propagava e derrubava o CLI — tratada como `status=error`.
-- Follow-up documentado: `yby ask` / `yby agent --local` não chamam `close()` no engine/provider (escopo `src/main.py`).
+- `yby agent --local` usa `OllamaProvider` (não `HybridEngine`); `close()` no `finally` do comando.
 
 **Correções PR-A:**
 
@@ -267,7 +267,7 @@ make check
 **P2 / próximos (não iniciados):**
 
 1. Smoke local: `ollama pull qwen2.5-coder:3b` + `python yby.py ask "..."` na máquina do dono.
-2. `yby ask` (texto e `--voice`/`listen`): `HybridEngine.close()` no `finally` (branch `cursor/ask-engine-close-6eec`). Pendente: `yby agent --local`.
+2. Ciclo de vida HTTP no CLI: `yby ask` → `HybridEngine.close()` (PR #125); `yby agent --local` → `OllamaProvider.close()` (PR a abrir).
 3. Warnings FastAPI `on_event` / `datetime.utcnow` no gateway (fora do núcleo `ask`).
 
 ## Camada: versionar regras + diagramas + smoke sem Ollama
