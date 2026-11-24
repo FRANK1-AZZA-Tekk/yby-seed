@@ -67,7 +67,8 @@ Hub no boot: `bash scripts/install-hub-service.sh --enable`. Detalhe: [PLATFORM.
 | `YBY_CLOUD_*` / `OPENROUTER_API_KEY` | nuvem primária (OpenRouter free por padrão); só com roteamento pesado/`--heavy` + gate |
 | `YBY_GROK_*` / `XAI_API_KEY` | Grok configurável; **não** é chamado automaticamente se OpenRouter falhar (D12, #42) |
 | Falha Ollama (caminho local) | **não** dispara nuvem automática (D12 / fase P); ver `HybridEngine._after_local_failure` |
-| `YBY_CACHE_*`, `YBY_CACHE_PATH`, `YBY_CLOUD_CONTEXT_MAX_CHARS` | cache TTL (disco em `~/.local/state/yby-seed/response-cache.json`; `YBY_CACHE_PATH=memory` desliga o arquivo) e limite de contexto na nuvem |
+| `YBY_CACHE_*`, `YBY_CACHE_PATH`, `YBY_CLOUD_CONTEXT_MAX_CHARS` | cache TTL (disco em `~/.local/state/yby-seed/response-cache.json`; `YBY_CACHE_PATH=memory` desliga o arquivo) e limite de **entrada** (caracteres) na nuvem |
+| `YBY_CLOUD_MAX_OUTPUT_TOKENS` | teto de **saída** na chamada cloud (`max_tokens` no POST; padrão 512). Distinto de orçamento `YBY_CLOUD_*_TOKEN_LIMIT` (contabilidade local) |
 | `YBY_OLLAMA_NUM_CTX`, `YBY_OLLAMA_NUM_PREDICT`, `YBY_OLLAMA_THINK` | contexto local (padrão 4096, cabe em 4 GB), teto de tokens (padrão 1024) e thinking do Ollama (padrão omitido no JSON; `sim` envia `think: true`) |
 | `YBY_HEAVY_*` | limiares / frases que sobem para nuvem |
 | `YBY_VAULT_PATH` | pasta do vault Obsidian; backup: `scripts/backup-vault.sh` ([BACKUP.md](BACKUP.md)) |

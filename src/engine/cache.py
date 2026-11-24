@@ -41,8 +41,15 @@ class ResponseCache:
     def enabled(self) -> bool:
         return self.ttl_seconds > 0
 
-    def make_key(self, prompt: str, *, model: str, system: str) -> str:
-        raw = f"{model}\0{system}\0{prompt}".encode()
+    def make_key(
+        self,
+        prompt: str,
+        *,
+        model: str,
+        system: str,
+        cache_extra: str = "",
+    ) -> str:
+        raw = f"{model}\0{system}\0{cache_extra}\0{prompt}".encode()
         return hashlib.sha256(raw).hexdigest()
 
     def get(self, key: str) -> str | None:

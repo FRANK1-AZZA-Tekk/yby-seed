@@ -267,7 +267,8 @@ make check
 **P2 / próximos (não iniciados):**
 
 1. Smoke local: `ollama pull qwen2.5-coder:3b` + `python yby.py ask "..."` na máquina do dono.
-2. Ciclo de vida HTTP no CLI: `yby ask` → `HybridEngine.close()` (PR #125); `yby agent --local` → `OllamaProvider.close()` (PR a abrir).
+2. Ciclo de vida HTTP no CLI: `yby ask` → `HybridEngine.close()` (#125); `yby agent --local` → `OllamaProvider.close()` (#126).
+3. Nuvem: `YBY_CLOUD_MAX_OUTPUT_TOKENS` → `max_tokens` no POST (#127 pendente merge).
 3. Warnings FastAPI `on_event` / `datetime.utcnow` no gateway (fora do núcleo `ask`).
 
 ## Camada: versionar regras + diagramas + smoke sem Ollama
