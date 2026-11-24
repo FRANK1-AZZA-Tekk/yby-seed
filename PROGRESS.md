@@ -2,6 +2,24 @@
 
 Registro incremental de camadas. Sem `CONTRACT.md` / `config/agent/state.json` neste repo ainda.
 
+## Retomada atual
+
+**Atualizado:** 2026-11-24 (consulta GitHub + git local nesta VM, `/agent/repos/yby-seed`).
+
+| Campo | Estado |
+|-------|--------|
+| **Tarefa em andamento** | Integrar **PR #129** — CLI `yby route` (previsão offline local/nuvem). |
+| **Critério de conclusão** | Merge em `main` com escopo do PR (5 arquivos produto/doc de route); CI obrigatório verde no **SHA do head**; sem conflitos. |
+| **Próximo passo executável** | `git fetch origin main` → atualizar branch `cursor/yby-route-preview-6eec` com `main` @ `e1e89dd…` (merge ou rebase) → push → conferir CI no head `49f3ff6…` → merge #129 se verde (autorização baixo risco em `AGENTS.md`). |
+| **Branch de trabalho (remoto)** | `origin/cursor/yby-route-preview-6eec` @ `49f3ff6e8e7570ba7d5d51b96bc970206f810bcd`. |
+| **Branch local (esta VM)** | `main` @ `e1e89dd9e727662af4cad8cf061cb145f2e781e3` (sincronizado com `origin/main` nesta rodada). |
+| **PR #129** | Aberto; head `49f3ff6…`; base declarada no GitHub ainda `6dcd6b3…` (**atrás** de `main` atual) — atualizar antes de integrar. Última CI consultada no head: 9/9 verdes (sessão anterior; revalidar após atualizar base). |
+| **PR #130** | **Merged** → `main` `e1e89dd…` (Fluxo Cursor + Autorização em `AGENTS.md`). |
+| **WIP / stash** | Descrição: `wip cloud-reported tokens` (criado em `cursor/cloud-reported-tokens-6eec`). **OID do commit de stash:** `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` — confirmar com `git stash list` + `git rev-parse` (índice `stash@{N}` pode mudar). **Não aplicado.** Tarefa cloud-reported **não** retomada. |
+| **Bloqueios (PC Hub)** | Smokes Ollama e OpenRouter do [checklist](#checklist-de-aceite-do-núcleo-consolidado) — dependem do PC (modelo/chave/.env); não fecham aceite do núcleo sozinhos. |
+
+*Não é fonte de autorização; regras em `AGENTS.md`. Histórico de camadas abaixo permanece.*
+
 ## Camada concluída: contrato CLI do `yby agent`
 
 **Objetivo:** testes Click offline para `yby agent` + exemplo copy-paste em `docs/DEV.md`. Sem alterar runtime (`src/main.py`, `src/agent_loop/`, engine).
