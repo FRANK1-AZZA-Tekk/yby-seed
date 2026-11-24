@@ -4,19 +4,16 @@ Registro incremental de camadas. Sem `CONTRACT.md` / `config/agent/state.json` n
 
 ## Retomada atual
 
-**Atualizado:** 2026-11-24 (consulta GitHub + git local nesta VM, `/agent/repos/yby-seed`).
+**Atualizado:** 2026-11-24 (pós-merge **PR #129**; VM `/agent/repos/yby-seed`).
 
 | Campo | Estado |
 |-------|--------|
-| **Tarefa em andamento** | Integrar **PR #129** — CLI `yby route` (previsão offline local/nuvem). |
-| **Critério de conclusão** | Merge em `main` com escopo do PR (5 arquivos produto/doc de route); CI obrigatório verde no **SHA do head**; sem conflitos. |
-| **Próximo passo executável** | `git fetch origin main` → atualizar branch `cursor/yby-route-preview-6eec` com `main` @ `e1e89dd…` (merge ou rebase) → push → conferir CI no head `49f3ff6…` → merge #129 se verde (autorização baixo risco em `AGENTS.md`). |
-| **Branch de trabalho (remoto)** | `origin/cursor/yby-route-preview-6eec` @ `49f3ff6e8e7570ba7d5d51b96bc970206f810bcd`. |
-| **Branch local (esta VM)** | `main` @ `e1e89dd9e727662af4cad8cf061cb145f2e781e3` (sincronizado com `origin/main` nesta rodada). |
-| **PR #129** | Aberto; head `49f3ff6…`; base declarada no GitHub ainda `6dcd6b3…` (**atrás** de `main` atual) — atualizar antes de integrar. Última CI consultada no head: 9/9 verdes (sessão anterior; revalidar após atualizar base). |
-| **PR #130** | **Merged** → `main` `e1e89dd…` (Fluxo Cursor + Autorização em `AGENTS.md`). |
-| **WIP / stash** | Descrição: `wip cloud-reported tokens` (criado em `cursor/cloud-reported-tokens-6eec`). **OID do commit de stash:** `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` — confirmar com `git stash list` + `git rev-parse` (índice `stash@{N}` pode mudar). **Não aplicado.** Tarefa cloud-reported **não** retomada. |
-| **Bloqueios (PC Hub)** | Smokes Ollama e OpenRouter do [checklist](#checklist-de-aceite-do-núcleo-consolidado) — dependem do PC (modelo/chave/.env); não fecham aceite do núcleo sozinhos. |
+| **Tarefa concluída nesta linha** | **PR #129** merged — CLI `yby route` (+ `docs/DEV.md`, `tests/test_route_cli.py`). |
+| **`main` remoto** | `6a0bd49e8ad93cf16cf5cac039477c01ef89be77` (merge #129 sobre base `3559e41…`). |
+| **Validação integração #129** | Branch atualizada com merge de `main` (sem force push); head pré-merge **`45155a70f97ea06940e5becd5e5d2e49044b5d9b`**; CI **9/9** nesse SHA; local `make check` **372 passed**, 15 skipped; `tests/test_route_cli.py` **10 passed**. |
+| **Próxima tarefa sugerida (não iniciada)** | Stash cloud-reported tokens (aprovação explícita antes de aplicar) **ou** smokes no PC Hub. |
+| **WIP / stash** | Descrição: `wip cloud-reported tokens` (branch origem `cursor/cloud-reported-tokens-6eec`). **OID:** `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` — reconfirmar índice com `git stash list`. **Não aplicado.** |
+| **Bloqueios (PC Hub)** | Smokes Ollama/OpenRouter do [checklist](#checklist-de-aceite-do-núcleo-consolidado); `yby route` no PC opcional após `git pull` de `main` @ `6a0bd49…`. |
 
 *Não é fonte de autorização; regras em `AGENTS.md`. Histórico de camadas abaixo permanece.*
 
