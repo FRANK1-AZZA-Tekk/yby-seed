@@ -39,7 +39,7 @@ Contrato geral e mapa de módulos: `AGENTS.md` e `src/README.md`.
 
 ## Publicação e ações externas
 
-- Autorização para editar não implica commit, push, PR, merge ou deploy; cada ação precisa de aprovação explícita.
+- Commit, push, PR, merge e deploy: `AGENTS.md` (**Autorização**).
 
 ## Economia
 

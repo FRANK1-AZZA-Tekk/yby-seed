@@ -5,14 +5,17 @@ Python CLI (`yby`). Mapa de módulos: [src/README.md](src/README.md) (caminho do
 ## Como trabalhar
 
 - Comece pelos arquivos citados na tarefa; leia `docs/DEV.md` se o caminho estiver ambíguo. Abra testes, interfaces, imports e chamadores diretamente relacionados quando precisar implementar ou validar. Não varrer `docs/`, módulos fora do fluxo atual nem o repositório inteiro sem justificativa; peça orientação se o contexto necessário ultrapassar materialmente o escopo autorizado.
-- Mudança mínima. Não refatorar nem fazer merge sem pedido. Dependências novas só com aprovação explícita; necessidade técnica não equivale a autorização. Antes de propor uma dependência, explique por que a biblioteca padrão e as dependências já no projeto não bastam.
+- Mudança mínima. Não refatorar fora do escopo. Merge conforme **Autorização**. Dependências novas só com aprovação explícita; necessidade técnica não equivale a autorização. Antes de propor uma dependência, explique por que a biblioteca padrão e as dependências já no projeto não bastam.
 - Documentação: atualize só o que a mudança afeta diretamente (ou diga por que não mudou). Não criar documentos extensos nem reorganizar documentação fora do escopo.
 - No fim: `make doctor`, `make lint` e `make test` (ou `make check`). Não vigiar o CI do GitHub.
 - Responder com resumo e lista de arquivos; não despejar arquivos inteiros.
 
 ## Autorização
 
-- Autorização para editar não autoriza commit, push, abertura de PR, merge, publicação nem deploy. Cada ação exige aprovação explícita; operações destrutivas exigem aprovação específica.
+- Editar não implica, por si só, commit, push, PR, merge, publicação nem deploy.
+- **Baixo risco (com autorização do usuário para publicação/merge automáticos):** documentação, testes e correções pequenas **sem** mudança de contrato, política, arquitetura, permissões, privacidade ou orçamento. O agente pode commit, push, atualizar PR e **fazer merge** quando **todas** forem verdadeiras: diff no escopo; gates obrigatórios verdes no **SHA atual** do head; revisões exigidas pelo repositório atendidas; sem conflitos. Não contornar proteções de branch nem usar a própria revisão como substituto de revisão independente.
+- **Parar e pedir aprovação explícita para:** gasto/API real, segredos, deploy, ações destrutivas, novas dependências, mudança de contrato, arquitetura, permissões, privacidade ou política de orçamento; e quando a plataforma exigir confirmação.
+- Operações destrutivas (force push, bypass de checks, aplicar/remover stash alheio, etc.) exigem aprovação específica mesmo com merge automático habilitado.
 
 ## Fluxo Cursor
 
@@ -21,7 +24,7 @@ Leitura mínima, diff mínimo, dependências, gates locais e publicação: **Com
 - **Rodada:** uma tarefa completa por vez, com escopo e aceite explícitos; não encadear a próxima tarefa sem pedido.
 - **Testes:** cobrir comportamento e falhas relevantes; não enfraquecer testes nem relaxar asserts só para passar. Gates: testes direcionados à mudança e `make doctor` / `make lint` / `make test` (ou `make check`) conforme **Como trabalhar**.
 - **Preservação:** manter stash, branches e WIP de outras tarefas intactos; não aplicar nem remover stash sem instrução; não expor segredos (ver **yby.mdc** — Segurança).
-- **Git e CI:** commit, push e PR só com autorização; merge só com aprovação explícita e requisitos do repositório cumpridos no **SHA atual** do head — não reutilizar veredito de commit anterior. Consulta pontual ao CI; não vigiar continuamente.
+- **Git e CI:** commit, push, PR e merge conforme **Autorização**; verificar checks no **SHA atual** do head — não reutilizar veredito de commit anterior. Consulta pontual ao CI; não vigiar continuamente.
 - **Bloqueio:** relatar fatos concretos (comando, saída, SHA, check, conflito); não repetir intenção sem evidência nova.
 - **Encerramento:** resumo curto com `RESULTADO`, `ALTERAÇÕES`, `VALIDAÇÃO`, `GIT`, `PENDÊNCIA` (somente o que impede concluir).
 
