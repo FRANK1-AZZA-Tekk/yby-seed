@@ -6,12 +6,17 @@ Gera um **micro-app offline** (PWA) a partir de um pedido em português. O model
 
 | Arquivo | Função |
 |---|---|
-| `spec.py` | Modelo da especificação (nome, campos BR, Pix, WhatsApp, status de pagamento). |
-| `translator.py` | Converte o pedido em `YBYSpec` via Ollama local (`format=json`). Se falhar, usa fallback. **Não** chama nuvem sozinho. |
+| `spec.py` | Modelo da especificação (nome, campos BR, Pix, WhatsApp, status de pagamento) + `yby_spec_json_schema()`. |
+| `translator.py` | Converte o pedido em `YBYSpec` via Ollama local (`format=json`). Se falhar, usa fallback. **Não** chama nuvem sozinho (D12). Inclui o JSON Schema no system prompt. |
 | `fallback.py` | Spec mínima por palavras-chave (encomenda, oficina, estoque). |
-| `compiler.py` | Monta o PWA (HTML + CSS + JS + manifest + service worker). |
-| `http.py` | API fina: `POST /api/machine/generate` com `{"prompt": "..."}`. |
-| `__init__.py` | Exporta `YBYSpec`, `compile_pwa`, `prompt_to_spec`. |
+| `compiler.py` | Monta o PWA (HTML + CSS + JS + manifest + service worker + CSP). |
+| `cache.py` | Cache LRU em processo por fingerprint do prompt (sem Redis/pgvector). |
+| `http.py` | API fina: `POST /api/machine/generate`, `GET /api/machine/schema`. |
+| `__init__.py` | Exporta `YBYSpec`, `compile_pwa`, `prompt_to_spec`, `yby_spec_json_schema`. |
+
+## Persistência no PWA
+
+Registros ficam em **`localStorage`** no aparelho (chave `yby_machine_<name>`). IndexedDB / sync remoto ficam para depois. Service worker faz cache dos arquivos estáticos para uso offline.
 
 ## Como gerar e abrir no navegador
 
@@ -36,4 +41,15 @@ API (opcional):
 ```bash
 PYTHONPATH=. .venv/bin/uvicorn src.yby_machine.http:app --port 8090
 # POST http://127.0.0.1:8090/api/machine/generate  {"prompt":"..."}
+# GET  http://127.0.0.1:8090/api/machine/schema
 ```
+
+Schema no Python:
+
+```bash
+PYTHONPATH=. .venv/bin/python -c "from src.yby_machine import yby_spec_json_schema; import json; print(json.dumps(yby_spec_json_schema(), indent=2)[:400])"
+```
+
+## Fora do escopo deste módulo
+
+Redis, Postgres/pgvector, hub MQTT e dashboard — planos separados; não são usados pelo gerador Spec-First.
