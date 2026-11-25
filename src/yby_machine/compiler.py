@@ -41,6 +41,23 @@ def write_pwa(spec: YBYSpec, out_dir: str | Mapping[str, str] | None = None) -> 
     return bundle
 
 
+# CSP offline: só mesmos assets; wa.me é navegação (a href), não fetch.
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self'; "
+    "img-src 'self' data:; "
+    "font-src 'self'; "
+    "connect-src 'self'; "
+    "manifest-src 'self'; "
+    "worker-src 'self'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "object-src 'none'; "
+    "frame-ancestors 'none'"
+)
+
+
 def _html(spec: YBYSpec) -> str:
     title = _esc(spec.title)
     return f"""<!DOCTYPE html>
@@ -49,6 +66,8 @@ def _html(spec: YBYSpec) -> str:
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="{_BG}" />
+  <meta name="color-scheme" content="dark" />
+  <meta http-equiv="Content-Security-Policy" content="{_CSP}" />
   <title>{title}</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="styles.css" />
@@ -71,7 +90,7 @@ def _html(spec: YBYSpec) -> str:
     </section>
   </main>
   <footer class="foot">
-    <span>Offline-first · Spec-First</span>
+    <span>Offline-first · Spec-First · dados no aparelho (localStorage)</span>
   </footer>
   <script src="app.js"></script>
 </body>
@@ -219,7 +238,7 @@ def _manifest(spec: YBYSpec) -> str:
 
 def _service_worker() -> str:
     return """/* YBY Machine SW — cache estático offline */
-const CACHE = "yby-machine-v1";
+const CACHE = "yby-machine-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -404,17 +423,38 @@ def _app_js(spec_json: str) -> str:
     renderList(spec);
   }}
 
-  function summarize(row) {{
+  function fieldTypeMap(spec) {{
+    const map = {{}};
+    const entity = primaryEntity(spec);
+    for (const field of entity.fields || []) {{
+      map[field.name] = field.type;
+    }}
+    return map;
+  }}
+
+  function formatValue(key, value, types) {{
+    if (value == null || value === "") return "";
+    if (types[key] === "moeda_brl" || key === "total") {{
+      const n = Number(value);
+      if (!Number.isNaN(n)) {{
+        return n.toLocaleString("pt-BR", {{ style: "currency", currency: "BRL" }});
+      }}
+    }}
+    return String(value);
+  }}
+
+  function summarize(row, spec) {{
+    const types = fieldTypeMap(spec || EMBEDDED_SPEC);
     return Object.keys(row)
       .filter((k) => k !== "id" && k !== "created_at")
-      .map((k) => k + ": " + row[k])
+      .map((k) => k + ": " + formatValue(k, row[k], types))
       .join(" | ");
   }}
 
   function waLink(spec, row) {{
     const phone = (spec.whatsapp && spec.whatsapp.phone_e164) || "";
     const prefix = (spec.whatsapp && spec.whatsapp.summary_prefix) || "Resumo YBY";
-    const text = encodeURIComponent(prefix + "\\n" + summarize(row));
+    const text = encodeURIComponent(prefix + "\\n" + summarize(row, spec));
     const base = phone ? "https://wa.me/" + phone.replace(/\\D/g, "") : "https://wa.me/";
     return base + "?text=" + text;
   }}
@@ -433,7 +473,7 @@ def _app_js(spec_json: str) -> str:
     for (const row of rows) {{
       const li = document.createElement("li");
       const title = document.createElement("div");
-      title.textContent = summarize(row);
+      title.textContent = summarize(row, spec);
       li.appendChild(title);
       const meta = document.createElement("div");
       meta.className = "meta";

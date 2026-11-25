@@ -7,8 +7,9 @@ from typing import Any
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from src.yby_machine.cache import DEFAULT_SPEC_CACHE
 from src.yby_machine.compiler import compile_pwa
-from src.yby_machine.spec import YBYSpec
+from src.yby_machine.spec import YBYSpec, yby_spec_json_schema
 from src.yby_machine.translator import prompt_to_spec_result
 
 
@@ -31,9 +32,15 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok", "service": "yby-machine"}
 
+    @app.get("/api/machine/schema")
+    async def schema() -> dict[str, Any]:
+        """JSON Schema de YBYSpec (útil para clientes e docs)."""
+
+        return yby_spec_json_schema()
+
     @app.post("/api/machine/generate", response_model=GenerateResponse)
     async def generate(body: GenerateRequest) -> GenerateResponse:
-        result = await prompt_to_spec_result(body.prompt)
+        result = await prompt_to_spec_result(body.prompt, cache=DEFAULT_SPEC_CACHE)
         files = compile_pwa(result.spec)
         return GenerateResponse(spec=result.spec, files=files, source=result.source)
 
@@ -49,7 +56,7 @@ def generate_bundle_sync(prompt: str) -> dict[str, Any]:
     import asyncio
 
     async def _run() -> GenerateResponse:
-        result = await prompt_to_spec_result(prompt)
+        result = await prompt_to_spec_result(prompt, cache=DEFAULT_SPEC_CACHE)
         return GenerateResponse(
             spec=result.spec,
             files=compile_pwa(result.spec),
