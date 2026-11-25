@@ -23,6 +23,7 @@ Não apague em massa. Trate como legado / futuro até uma decisão explícita:
 | Pasta | Nota |
 |---|---|
 | `agent_loop/` | loop P0 controlado (`yby agent`); fora do `ask` |
+| `yby_machine/` | Spec-First: prompt → YBYSpec → PWA (`yby machine`); ver `yby_machine/README.md` |
 | `agents/` | stubs/agentes antigos (Router, Planning, …); ver `agents/README.md` |
 | `core/` | cliente Ollama e helpers usados por agentes, não pelo HybridEngine |
 | `rag/` | otimizações RAG; fora do fluxo atual |

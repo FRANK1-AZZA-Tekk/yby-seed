@@ -19,9 +19,11 @@ Comandos:
     note    - Grava nota no vault
     recall  - Busca no vault
     agent   - Loop de agente P0 (opt-in; não altera o ask)
+    machine - Spec-First: prompt → YBYSpec → PWA offline (HTML/CSS/JS)
     evo     - Observabilidade local v0.1 (relatórios; sem aplicar código)
 """
 
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -44,6 +46,8 @@ from src.platform.hub import main as hub_main
 from src.safety.policy import confirm, decide, default_policy_path, load_policy
 from src.voice.config import voice_config_from_env
 from src.voice.session import VoiceError, listen_once
+from src.yby_machine.compiler import write_pwa
+from src.yby_machine.translator import prompt_to_spec_result
 
 _LOG_READY = False
 
@@ -408,6 +412,58 @@ def recall(consulta: str) -> None:
         return
     for hit in hits:
         click.echo(f"{hit.score:.2f} {hit.name}")
+
+
+@cli.command("machine")
+@click.argument("prompt", nargs=-1, required=True)
+@click.option(
+    "-o",
+    "--out",
+    "out_dir",
+    default="generated/yby-machine",
+    show_default=True,
+    help="Pasta onde gravar o PWA (index.html, styles.css, app.js, …).",
+)
+@click.option(
+    "--fallback-only",
+    is_flag=True,
+    help="Não chama Ollama; monta a spec só por palavras-chave.",
+)
+def machine_cmd(prompt: tuple[str, ...], out_dir: str, fallback_only: bool) -> None:
+    """Gera um micro-app PWA offline a partir de um pedido em português.
+
+    Fluxo Spec-First: Ollama (local) → YBYSpec JSON → templates HTML/CSS/JS.
+    Sem nuvem automática. Se o modelo falhar, usa fallback por palavras-chave.
+
+    Depois: cd na pasta -o e rode ``python3 -m http.server 8765``; abra
+    http://127.0.0.1:8765/ no navegador. Ver src/yby_machine/README.md.
+    """
+
+    texto = " ".join(prompt).strip()
+    if not texto:
+        click.echo('Informe um pedido. Ex.: yby machine "encomendas com Pix"', err=True)
+        raise SystemExit(1)
+
+    load_dotenv(override=False)
+
+    if fallback_only:
+        from src.yby_machine.fallback import fallback_spec_from_prompt
+
+        spec = fallback_spec_from_prompt(texto)
+        source = "fallback"
+    else:
+        result = asyncio.run(prompt_to_spec_result(texto))
+        spec = result.spec
+        source = result.source
+
+    files = write_pwa(spec, out_dir)
+    click.echo(f"origem: {source}", err=True)
+    click.echo(f"app: {spec.title} ({spec.name})", err=True)
+    click.echo(f"arquivos: {len(files)} em {out_dir}", err=True)
+    click.echo(
+        f"abra: cd {out_dir} && python3 -m http.server 8765 --bind 127.0.0.1",
+        err=True,
+    )
 
 
 def _confirm_cloud(message: str) -> bool:
