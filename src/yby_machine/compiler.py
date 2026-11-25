@@ -490,11 +490,12 @@ def _app_js(spec_json: str) -> str:
       if (spec.pix && spec.pix.enabled && spec.pix.payload) {{
         const pixBtn = document.createElement("button");
         pixBtn.type = "button";
-        pixBtn.textContent = spec.pix.label || "Pix";
+        pixBtn.textContent = spec.pix.label || "Copiar Pix";
         pixBtn.addEventListener("click", () => {{
+          const label = spec.pix.label || "Copiar Pix";
           navigator.clipboard.writeText(spec.pix.payload).then(
             () => {{ pixBtn.textContent = "Copiado!"; setTimeout(() => {{
-              pixBtn.textContent = spec.pix.label || "Pix";
+              pixBtn.textContent = label;
             }}, 1200); }},
             () => {{ alert(spec.pix.payload); }}
           );
