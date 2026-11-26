@@ -4,16 +4,15 @@ Estado operacional atual. Histórico de camadas concluídas: [docs/HISTORY.md](d
 
 ## Retomada atual
 
-**Atualizado:** 2026-11-26 (política de ações: lacuna j; VM `/agent/repos/yby-seed`).
+**Atualizado:** 2026-11-26 (contrato de idempotência de tools; VM `/agent/repos/yby-seed`).
 
 | Campo | Estado |
 |-------|--------|
-| **Tarefa desta linha** | **Política de ações do agente** — já em `main` desde PR #153 (`ed2462a`): `config/agent-policy.yaml` + `src/safety/agent_policy.py`, aplicada em `ToolRegistry.authorize` → `AuthorizedCall` → `execute`; itens a–i cobertos por `tests/test_agent_policy.py`. Lacuna fechada nesta rodada: item j com 4 testes offline (route, cache, orçamento e ambiente inalterados pelo uso da política). Sem código de produto. Branch `cursor/policy-gap-j-0bef`. |
-| **`main` remoto (base)** | `dbf3ce3f91a8e4c0b4b633be3209232640fe9e10` (PR #156); atualizado com `main` @ `365de5d8ed2e4620098084804dbb83b08526245a` (merge do PR #157). |
-| **Validação local** | Direcionados (`test_agent_policy`, `test_engine`, `test_route_cli`, `test_budget`, `test_cache_context`) **114 passed**; `make check` exit 0 (doctor PASS, ruff OK, **732 passed, 1 skipped**); `git diff --check` OK. CI: consultar no SHA final do PR. |
-| **PR #157** (admissão de camadas) | Integrado em `main` @ `365de5d` (autorizado pelo dono) após todos os checks verdes no SHA `e25e87b`; o job Doctor do run `pull_request` 45860018498 ficou preso em `Checkout` por alguns minutos e depois passou. |
+| **Tarefa desta linha** | **Idempotência de tools com efeito externo** — contrato canônico [docs/TOOL_IDEMPOTENCY.md](docs/TOOL_IDEMPOTENCY.md) + referência pura `src/agent_loop/idempotency.py` (`operation_id`, normalização, estados `pending`/`succeeded`/`failed`/`unknown`, registro em memória, execução única sem retry) + `tests/test_tool_idempotency.py`. **Não** ligado ao `ToolRegistry`; nenhuma tool mutável criada; política, D12, route, cache e orçamento inalterados. Branch `cursor/tool-idempotency-0bef`. |
+| **`main` remoto (base)** | `766fdabf75236b6f80bf541e329cc7a4113cad55` (política de ações — item j, PR #158). |
+| **Validação local** | `test_tool_idempotency` **42 passed**; direcionados (`test_tool_idempotency`, `test_agent_policy`, `test_agent_loop`) **117 passed**; `make check` exit 0 (doctor PASS, ruff OK, **774 passed, 1 skipped**); `git diff --check` OK. CI: consultar no SHA final do PR. |
 | **WIP / stash** | OID `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` **não existe nesta VM** (`git stash list` vazio); nenhum comando de stash executado. Se existir em outra máquina, segue preservado lá. |
-| **Pendência real** | (1) Aceite do núcleo no PC Hub: smokes Ollama e OpenRouter do [checklist](#checklist-de-aceite-do-núcleo-consolidado), não executados nesta VM. (2) Lacunas de cobertura de `src/gateway` e `src/rag` (item A11 de [AUDIT-REPORT.md](docs/AUDIT-REPORT.md)), fora do núcleo. (3) Backlog P0 do [ROADMAP.md](ROADMAP.md) ("loop controlado", "contratos de tools") parece implementado em `src/agent_loop`, mas não foi conferido contra os critérios de aceite. (4) Decisão do dono sobre as recomendações de [LAYER_ADMISSION.md](docs/LAYER_ADMISSION.md#6-classificação-das-camadas-existentes) (congelar/arquivar). |
+| **Pendência real** | (1) Aceite do núcleo no PC Hub: smokes Ollama e OpenRouter do [checklist](#checklist-de-aceite-do-núcleo-consolidado), não executados nesta VM. (2) Lacunas de cobertura de `src/gateway` e `src/rag` (item A11 de [AUDIT-REPORT.md](docs/AUDIT-REPORT.md)), fora do núcleo. (3) Backlog P0 do [ROADMAP.md](ROADMAP.md) ("loop controlado", "contratos de tools") parece implementado em `src/agent_loop`, mas não foi conferido contra os critérios de aceite. (4) Decisão do dono sobre as recomendações de [LAYER_ADMISSION.md](docs/LAYER_ADMISSION.md#6-classificação-das-camadas-existentes) (congelar/arquivar). (5) Registro persistente de operações e integração no `ToolRegistry`, só junto da primeira tool mutável (ficha própria). |
 | **Próxima sugerida** | Smokes no PC Hub via agente aberto na própria máquina; ou canal local de aprovação na CLI para tools `manual`; ou Glass G1b; ou OpenCode O1 — todas exigem aprovação. |
 
 *Não é fonte de autorização; regras em `AGENTS.md`.*
