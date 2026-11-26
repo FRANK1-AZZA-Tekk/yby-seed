@@ -18,6 +18,7 @@
 | [OPENCODE_INTEGRATION.md](OPENCODE_INTEGRATION.md) | OpenCode como ferramenta de engenharia (não runtime) — perfil `yby-engineer`, permissões e testes da config |
 | [future/EVO_NIGHT_WATCH.md](future/EVO_NIGHT_WATCH.md) | Evo / Night Watch — design de auto-evolução supervisionada (fora do caminho `ask` até implementação pedida) |
 | [future/](future/) | Índice mobile/ESP / Evo |
+| [HISTORY.md](HISTORY.md) | Histórico de camadas concluídas (movido de `PROGRESS.md`); estado atual em [../PROGRESS.md](../PROGRESS.md) |
 
 ## Histórico / contexto (não é o caminho do `ask`)
 

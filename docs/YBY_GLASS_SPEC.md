@@ -221,7 +221,7 @@ Em G0 as latências vêm do relógio simulado; **não** representam desempenho r
 | Fase | Entrega | Estado | Gate |
 |---|---|---|---|
 | **G0** | Esta spec + contrato simulado + testes offline | **Feito** (PR #151) | `make check` |
-| **G1** | Consolidação do simulador: estados proibidos inalcançáveis sem `arm()`, retenção sem duplicata, isolamento entre sessões, tools Glass sob a política de ações (`manual`), roteiro dev `scripts/glass_sim.py` | **Feito** | `make check` |
+| **G1** | Consolidação do simulador: estados proibidos inalcançáveis sem `arm()`, retenção sem duplicata, isolamento entre sessões, tools Glass sob a política de ações (`manual`), roteiro dev `scripts/glass_sim.py` | **Feito** (PR #154) | `make check` |
 | G1b | Tools Glass opcionais no `yby agent` (só simulador, flag explícita) | Futuro | Aprovação do dono (muda superfície do agente) |
 | G2 | Retenção para o vault (`Vault.write_note`, só derivado) + política explícita de retenção | Futuro | Aprovação (privacidade/memória) |
 | G3 | Contrato de transporte hub↔óculos (mensagens versionadas, autenticação, loopback/LAN) com simulador de dispositivo | Futuro | Aprovação (rede/permissões) |

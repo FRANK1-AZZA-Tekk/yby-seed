@@ -49,7 +49,7 @@ Trilha prática para levar o YBY SEED de **CLI local confiável** a **agentes pr
 | **Pré-requisitos** | Fase A concluída; vault configurado ([docs/MEMORY.md](docs/MEMORY.md)); leitura de [src/agents/README.md](src/agents/README.md) e testes em [tests/test_agents*.py](tests/). |
 | **Tópicos essenciais** | Tool/function calling, schemas e validação de args; ReAct, decomposição, retries; memória curta/longa (histórico, resumo, vault); RAG (chunking, embeddings, metadados, avaliação — [docs/ARCHITECTURE_RAG.md](docs/ARCHITECTURE_RAG.md), [src/rag/](src/rag/), Qdrant opcional em [docker-compose.yml](docker-compose.yml)); grafos de estado (referência **yby-core** em repositório separado — D7; ou loop próprio inspirado em stubs em `src/agents/`); human-in-the-loop (D6, D10: `safety` decide, `actions` executa). |
 | **Entregável obrigatório** | Agente de pesquisa: consulta **fontes permitidas** (vault + paths allowlisted), produz resposta com **citações**, persiste rascunho no vault, e só grava/executa após confirmação explícita (mesmo padrão `ask` → sim/não do terminal). |
-| **Critérios de conclusão** | Cada afirmação factual tem fonte rastreável; escrita bloqueada sem aprovação; eval manual em ≥10 perguntas documentado; `pytest` relevante verde (`test_vault`, `test_rag`, agentes se tocados). |
+| **Critérios de conclusão** | Cada afirmação factual tem fonte rastreável; escrita bloqueada sem aprovação; eval manual em ≥10 perguntas documentado; `pytest` relevante verde (`test_vault`, `tests/rag/`, agentes se tocados). |
 | **Métricas de sucesso** | Taxa de citação correta ≥80% no conjunto de eval manual; 0 execuções `actions` sem passar por `safety`; recall do vault utilizável em ≥70% dos casos de “lembrar nota”. |
 | **Riscos e salvaguardas** | RAG sem metadados → exigir chunk + metadado obrigatório; alucinação → citação ou abstinência; escrita no vault → tratar como ação sensível (D10). |
 | **Relação YBY** | [src/memory](src/memory) (`note`/`recall`), [src/safety](src/safety) + [src/actions](src/actions), skills em [skills/](skills/) (dry-run D6), planejamento legado em `src/agents/`. |
@@ -153,7 +153,7 @@ Itens são **issues futuras** no sentido de planejamento; não implicam código 
 | Guardrails e aprovação humana | Unificar AST + safety + confirmação em fluxo agente | Escrita/execução sempre gated | D10, `ast_guard` | Alto |
 | Dataset de evals e regressão | Conjunto fixo de tarefas + trajetórias gold | CI ou `make test` estendido documentado | `tests/` | Baixo |
 | Tracing e custo por execução | Log estruturado por tarefa (local/nuvem) | Campos D12 preenchidos | engine, [litellm_config.yaml](litellm_config.yaml) | Médio: logs com PII |
-| Política de permissões por ferramenta | Matriz tool → run/ask/refuse | Doc + testes | `safety`, allowlist | Alto |
+| Política de permissões por ferramenta | Matriz tool → run/ask/refuse | Doc + testes — **feito para tools do `yby agent`** (#153, [config/agent-policy.yaml](config/agent-policy.yaml)) | `safety`, allowlist | Alto |
 
 ### P2 — melhoria e escalabilidade
 
