@@ -4,13 +4,14 @@ Estado operacional atual. Histórico de camadas concluídas: [docs/HISTORY.md](d
 
 ## Retomada atual
 
-**Atualizado:** 2026-11-26 (consolidação do estado operacional; VM `/agent/repos/yby-seed`).
+**Atualizado:** 2026-11-26 (política de ações: lacuna j; VM `/agent/repos/yby-seed`).
 
 | Campo | Estado |
 |-------|--------|
-| **Tarefa desta linha** | **Consolidação documental** — camadas antigas movidas sem reescrita para [docs/HISTORY.md](docs/HISTORY.md) (com desfecho verificado e índice dos PRs #129–#155); estados desatualizados corrigidos em ROBUSTNESS-SCAN, ROADMAP, OpenCode e Glass. Sem código de produto. Branch `cursor/progress-consolidation-0bef`. |
-| **`main` remoto (base)** | `69e841e82f4e89880a084cc4f8b36fdca19e48ae` (auditoria dos skips, PR #155). |
-| **Validação local** | `make check` exit 0 (doctor PASS, ruff OK, **728 passed, 1 skipped**); `git diff --check` OK; `diff` do bloco movido contra `origin/main:PROGRESS.md` (linhas 21–352) = só as 4 notas de desfecho adicionadas e os 2 links ajustados. CI: consultar no SHA final do PR. |
+| **Tarefa desta linha** | **Política de ações do agente** — já em `main` desde PR #153 (`ed2462a`): `config/agent-policy.yaml` + `src/safety/agent_policy.py`, aplicada em `ToolRegistry.authorize` → `AuthorizedCall` → `execute`; itens a–i cobertos por `tests/test_agent_policy.py`. Lacuna fechada nesta rodada: item j com 4 testes offline (route, cache, orçamento e ambiente inalterados pelo uso da política). Sem código de produto. Branch `cursor/policy-gap-j-0bef`. |
+| **`main` remoto (base)** | `dbf3ce3f91a8e4c0b4b633be3209232640fe9e10` (consolidação do estado operacional, PR #156). |
+| **Validação local** | Direcionados (`test_agent_policy`, `test_engine`, `test_route_cli`, `test_budget`, `test_cache_context`) **114 passed**; `make check` exit 0 (doctor PASS, ruff OK, **732 passed, 1 skipped**); `git diff --check` OK. CI: consultar no SHA final do PR. |
+| **PR #157** (admissão de camadas) | Merge autorizado pelo dono, **não feito**: no SHA `e25e87b`, o job Doctor do run `pull_request` 45860018498 ficou preso em `Checkout` (o Doctor do run `push` passou). Merge só com todos os checks verdes. |
 | **WIP / stash** | OID `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` **não existe nesta VM** (`git stash list` vazio); nenhum comando de stash executado. Se existir em outra máquina, segue preservado lá. |
 | **Pendência real** | (1) Aceite do núcleo no PC Hub: smokes Ollama e OpenRouter do [checklist](#checklist-de-aceite-do-núcleo-consolidado), não executados nesta VM. (2) Lacunas de cobertura de `src/gateway` e `src/rag` (item A11 de [AUDIT-REPORT.md](docs/AUDIT-REPORT.md)), fora do núcleo. (3) Backlog P0 do [ROADMAP.md](ROADMAP.md) ("loop controlado", "contratos de tools") parece implementado em `src/agent_loop`, mas não foi conferido contra os critérios de aceite. |
 | **Próxima sugerida** | Smokes no PC Hub via agente aberto na própria máquina; ou canal local de aprovação na CLI para tools `manual`; ou Glass G1b; ou OpenCode O1 — todas exigem aprovação. |
