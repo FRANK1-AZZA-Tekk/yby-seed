@@ -9,12 +9,12 @@ Uso:
     python scripts/validate_skills.py skills/backup-automation
 """
 
-import yaml
 import re
 import sys
+from datetime import date, datetime
 from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Tuple
+
+import yaml
 
 
 class SkillValidator:
@@ -122,20 +122,27 @@ class SkillValidator:
             
             # Valida last_updated
             if "last_updated" in metadata:
-                date_str = metadata["last_updated"]
-                
-                if not re.match(self.DATE_PATTERN, str(date_str)):
-                    self.errors.append(
-                        f"{skill_name}: last_updated inválido '{date_str}' (deve ser YYYY-MM-DD)"
-                    )
+                raw_date = metadata["last_updated"]
+                if isinstance(raw_date, datetime):
+                    last_updated_date = raw_date.date()
+                    date_str = last_updated_date.isoformat()
+                elif isinstance(raw_date, date):
+                    last_updated_date = raw_date
+                    date_str = last_updated_date.isoformat()
                 else:
-                    # Verifica se data não é futura
-                    last_updated = datetime.strptime(date_str, "%Y-%m-%d")
-                    
-                    if last_updated.date() > datetime.now().date():
-                        self.warnings.append(
-                            f"{skill_name}: last_updated é uma data futura ({date_str})"
+                    date_str = str(raw_date)
+                    if not re.match(self.DATE_PATTERN, date_str):
+                        self.errors.append(
+                            f"{skill_name}: last_updated inválido '{date_str}' (deve ser YYYY-MM-DD)"
                         )
+                        last_updated_date = None
+                    else:
+                        last_updated_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+                if last_updated_date is not None and last_updated_date > datetime.now().date():
+                    self.warnings.append(
+                        f"{skill_name}: last_updated é uma data futura ({date_str})"
+                    )
             
             # Valida changelog
             if "changelog" not in metadata:
@@ -165,7 +172,7 @@ class SkillValidator:
             elif not isinstance(metadata["authors"], list):
                 self.errors.append(f"{skill_name}: authors deve ser uma lista")
             
-            print(f"  ✅ Validação concluída")
+            print("  ✅ Validação concluída")
         
         except yaml.YAMLError as e:
             self.errors.append(f"{skill_name}: Erro ao parse YAML: {e}")

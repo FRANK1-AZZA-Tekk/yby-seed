@@ -68,7 +68,7 @@ def preview_skill(skill_name: str, request: tuple[str, ...], skills_dir: Path) -
         preview = layer.preview(skill_name, request=" ".join(request).strip())
     except KeyError:
         click.echo(f"ERRO: skill {skill_name!r} não encontrada. Use 'yby skills list'.", err=True)
-        raise SystemExit(2)
+        raise SystemExit(2) from None
 
     click.echo(f"=== DRY-RUN: {preview.skill.name} ===")
     click.echo(f"Descrição: {preview.skill.description}")
@@ -115,7 +115,7 @@ def confirm_skill(
             "Use 'yby skills list'.",
             err=True,
         )
-        raise SystemExit(2)
+        raise SystemExit(2) from None
 
     click.echo(f"=== CONFIRMAÇÃO: {preview.skill.name} ===")
     click.echo(f"Pedido: {request_text or '(nenhum)'}")
@@ -131,7 +131,7 @@ def confirm_skill(
         )
     except AutoRunRefused as exc:
         click.echo(f"ERRO: {exc}", err=True)
-        raise SystemExit(2)
+        raise SystemExit(2) from None
 
     if not confirmation.approved:
         click.echo("Execução não aprovada.", err=True)

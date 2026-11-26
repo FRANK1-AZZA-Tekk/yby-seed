@@ -22,7 +22,6 @@ import subprocess
 import logging
 from typing import Dict, Any
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -246,11 +245,26 @@ class GPUOffload:
             return []
 
 
-# Instância global
-gpu_offload = GPUOffload()
+_gpu_offload_instance: GPUOffload | None = None
+
+
+def get_gpu_offload() -> GPUOffload:
+    """Retorna instância singleton lazy de GPUOffload (sem side effects no import)."""
+    global _gpu_offload_instance
+    if _gpu_offload_instance is None:
+        _gpu_offload_instance = GPUOffload()
+    return _gpu_offload_instance
+
+
+def __getattr__(name: str) -> Any:
+    if name == "gpu_offload":
+        return get_gpu_offload()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    gpu_offload = get_gpu_offload()
     # Detectar GPU
     print(f"🎮 GPU: {gpu_offload.gpu_name} ({gpu_offload.gpu_vram}MB)")
     

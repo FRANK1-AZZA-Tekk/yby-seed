@@ -3,7 +3,7 @@ name: file-operations
 version: 1.0.0
 min_agent_version: 2.0.0
 last_updated: 2026-10-08
-description: Operações com arquivos: ler, escrever, copiar, mover, renomear, deletar, listar, buscar por padrão, organizar, limpar, gerenciar arquivos e pastas, manipular documentos
+description: "Operações com arquivos: ler, escrever, copiar, mover, renomear, deletar, listar, buscar por padrão, organizar, limpar, gerenciar arquivos e pastas, manipular documentos"
 compatibility: ubuntu, python-3.11+, os, shutil, pathlib, fnmatch
 license: MIT
 authors:
