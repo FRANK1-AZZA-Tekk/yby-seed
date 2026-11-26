@@ -10,7 +10,7 @@ Registro incremental de camadas. Sem `CONTRACT.md` / `config/agent/state.json` n
 |-------|--------|
 | **Tarefa desta linha** | **YBY Glass G0** — spec [docs/YBY_GLASS_SPEC.md](docs/YBY_GLASS_SPEC.md) + contrato simulado `src/yby/glass/` + testes offline. Branch `cursor/yby-glass-g0-0bef`; PR aberto, **merge pendente de aprovação do dono** (novo contrato de privacidade/arquitetura). |
 | **`main` remoto (base)** | `a3a93aa6398f22d1217e33194bcd141f85275285`. |
-| **Validação local** | `tests/yby/test_glass_*.py` **60 passed**; `make check` doctor PASS, ruff OK, **539 passed**, 15 skipped; `git diff --check` OK. |
+| **Validação local** | `tests/yby/test_glass_*.py` **60 passed**; `make check` doctor PASS, ruff OK, **539 passed**, 15 skipped; `git diff --check origin/main...HEAD` OK (reexecutado após revisão de licença OpenGlass e SRC-020; só docs mudaram). CI no SHA `a2b2757`: Doctor/Lint/Test/auto-review pass. OpenGlass: sem arquivo LICENSE no repo (ver SRC-018). |
 | **WIP / stash** | OID `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` **não existe nesta VM** (`git stash list` vazio); nenhum comando de stash executado. Se existir em outra máquina, segue preservado lá. |
 | **Próxima sugerida** | Glass G1 (tools Glass opcionais no `yby agent`, só simulador) — exige aprovação; ou smokes no PC Hub ([checklist](#checklist-de-aceite-do-núcleo-consolidado)). |
 | **Bloqueios (PC Hub)** | Smokes Ollama/OpenRouter reais; não executados nesta VM. |
