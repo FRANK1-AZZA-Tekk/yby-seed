@@ -90,7 +90,7 @@ def _html(spec: YBYSpec) -> str:
     </section>
   </main>
   <footer class="foot">
-    <span>Offline-first · Spec-First · dados no aparelho (localStorage)</span>
+    <span>Offline-first · Spec-First · dados no aparelho (IndexedDB + localStorage)</span>
   </footer>
   <script src="app.js"></script>
 </body>
@@ -271,13 +271,15 @@ self.addEventListener("fetch", (event) => {
 
 
 def _app_js(spec_json: str) -> str:
-    # Spec embutida + fetch de spec.json como reforço
+    # Spec embutida + persistência IndexedDB com fallback automático para localStorage
     return f"""/* YBY Machine — runtime Spec-First (gerado; não editar à mão) */
 (function () {{
   "use strict";
 
   const EMBEDDED_SPEC = {spec_json};
   const STORAGE_KEY = "yby_machine_" + (EMBEDDED_SPEC.name || "app");
+  const IDB_NAME = "yby_machine_db_" + (EMBEDDED_SPEC.name || "app");
+  const IDB_STORE = "records";
 
   const TYPE_HINTS = {{
     cpf: "000.000.000-00",
@@ -292,7 +294,13 @@ def _app_js(spec_json: str) -> str:
 
   function $(id) {{ return document.getElementById(id); }}
 
-  function loadRecords() {{
+  function clearNode(el) {{
+    while (el && el.firstChild) {{
+      el.removeChild(el.firstChild);
+    }}
+  }}
+
+  function loadLocalStorage() {{
     try {{
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return [];
@@ -303,8 +311,90 @@ def _app_js(spec_json: str) -> str:
     }}
   }}
 
-  function saveRecords(rows) {{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+  function saveLocalStorage(rows) {{
+    try {{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+    }} catch (e) {{
+      // Storage indisponível (modo privado ou cota cheia)
+    }}
+  }}
+
+  function openDb() {{
+    return new Promise((resolve, reject) => {{
+      if (typeof indexedDB === "undefined") {{
+        reject(new Error("indexedDB indisponivel"));
+        return;
+      }}
+      try {{
+        const req = indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = function () {{
+          const db = req.result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) {{
+            db.createObjectStore(IDB_STORE, {{ keyPath: "id" }});
+          }}
+        }};
+        req.onsuccess = function () {{ resolve(req.result); }};
+        req.onerror = function () {{ reject(req.error || new Error("idb open erro")); }};
+      }} catch (err) {{
+        reject(err);
+      }}
+    }});
+  }}
+
+  async function loadRecords() {{
+    try {{
+      const db = await openDb();
+      const rows = await new Promise((resolve, reject) => {{
+        const tx = db.transaction(IDB_STORE, "readonly");
+        const store = tx.objectStore(IDB_STORE);
+        const req = store.getAll();
+        req.onsuccess = function () {{ resolve(Array.isArray(req.result) ? req.result : []); }};
+        req.onerror = function () {{ reject(req.error || new Error("idb read erro")); }};
+      }});
+      db.close();
+      if (rows.length > 0) {{
+        rows.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+        return rows;
+      }}
+      return loadLocalStorage();
+    }} catch (e) {{
+      return loadLocalStorage();
+    }}
+  }}
+
+  async function saveRecord(row) {{
+    const fallbackRows = loadLocalStorage().filter((r) => r.id !== row.id);
+    fallbackRows.unshift(row);
+    saveLocalStorage(fallbackRows);
+    try {{
+      const db = await openDb();
+      await new Promise((resolve, reject) => {{
+        const tx = db.transaction(IDB_STORE, "readwrite");
+        tx.objectStore(IDB_STORE).put(row);
+        tx.oncomplete = function () {{ resolve(); }};
+        tx.onerror = function () {{ reject(tx.error || new Error("idb write erro")); }};
+      }});
+      db.close();
+    }} catch (e) {{
+      // Fallback já salvo em localStorage
+    }}
+  }}
+
+  async function deleteRecord(id) {{
+    const fallbackRows = loadLocalStorage().filter((r) => r.id !== id);
+    saveLocalStorage(fallbackRows);
+    try {{
+      const db = await openDb();
+      await new Promise((resolve, reject) => {{
+        const tx = db.transaction(IDB_STORE, "readwrite");
+        tx.objectStore(IDB_STORE).delete(id);
+        tx.oncomplete = function () {{ resolve(); }};
+        tx.onerror = function () {{ reject(tx.error || new Error("idb delete erro")); }};
+      }});
+      db.close();
+    }} catch (e) {{
+      // Fallback já atualizado em localStorage
+    }}
   }}
 
   function primaryEntity(spec) {{
@@ -334,7 +424,7 @@ def _app_js(spec_json: str) -> str:
 
   function buildForm(spec) {{
     const form = $("record-form");
-    form.innerHTML = "";
+    clearNode(form);
     const entity = primaryEntity(spec);
     for (const field of entity.fields || []) {{
       const label = document.createElement("label");
@@ -380,12 +470,12 @@ def _app_js(spec_json: str) -> str:
     form.appendChild(pay);
 
     const actions = $("form-actions");
-    actions.innerHTML = "";
+    clearNode(actions);
     const saveBtn = document.createElement("button");
     saveBtn.type = "button";
     saveBtn.className = "primary";
     saveBtn.textContent = "Salvar";
-    saveBtn.addEventListener("click", () => onSave(spec));
+    saveBtn.addEventListener("click", () => {{ void onSave(spec); }});
     actions.appendChild(saveBtn);
   }}
 
@@ -410,17 +500,15 @@ def _app_js(spec_json: str) -> str:
     }}
   }}
 
-  function onSave(spec) {{
+  async function onSave(spec) {{
     const form = $("record-form");
     if (!form.reportValidity()) return;
     const values = readForm(spec);
     values.id = String(Date.now());
     values.created_at = new Date().toISOString();
-    const rows = loadRecords();
-    rows.unshift(values);
-    saveRecords(rows);
+    await saveRecord(values);
     clearForm(spec);
-    renderList(spec);
+    await renderList(spec);
   }}
 
   function fieldTypeMap(spec) {{
@@ -459,10 +547,24 @@ def _app_js(spec_json: str) -> str:
     return base + "?text=" + text;
   }}
 
-  function renderList(spec) {{
+  async function copyPixPayload(payload, btn, label) {{
+    if (navigator.clipboard && navigator.clipboard.writeText) {{
+      try {{
+        await navigator.clipboard.writeText(payload);
+        btn.textContent = "Copiado!";
+        setTimeout(() => {{ btn.textContent = label; }}, 1200);
+        return;
+      }} catch (e) {{
+        // Fallback manual abaixo
+      }}
+    }}
+    window.prompt("Pix copia e cola:", payload);
+  }}
+
+  async function renderList(spec) {{
     const list = $("record-list");
-    list.innerHTML = "";
-    const rows = loadRecords();
+    clearNode(list);
+    const rows = await loadRecords();
     if (!rows.length) {{
       const empty = document.createElement("li");
       empty.className = "empty";
@@ -490,15 +592,10 @@ def _app_js(spec_json: str) -> str:
       if (spec.pix && spec.pix.enabled && spec.pix.payload) {{
         const pixBtn = document.createElement("button");
         pixBtn.type = "button";
-        pixBtn.textContent = spec.pix.label || "Copiar Pix";
+        const label = spec.pix.label || "Copiar Pix";
+        pixBtn.textContent = label;
         pixBtn.addEventListener("click", () => {{
-          const label = spec.pix.label || "Copiar Pix";
-          navigator.clipboard.writeText(spec.pix.payload).then(
-            () => {{ pixBtn.textContent = "Copiado!"; setTimeout(() => {{
-              pixBtn.textContent = label;
-            }}, 1200); }},
-            () => {{ alert(spec.pix.payload); }}
-          );
+          void copyPixPayload(spec.pix.payload, pixBtn, label);
         }});
         btns.appendChild(pixBtn);
       }}
@@ -519,8 +616,7 @@ def _app_js(spec_json: str) -> str:
       del.type = "button";
       del.textContent = "Apagar";
       del.addEventListener("click", () => {{
-        saveRecords(loadRecords().filter((r) => r.id !== row.id));
-        renderList(spec);
+        void deleteRecord(row.id).then(() => renderList(spec));
       }});
       btns.appendChild(del);
 
@@ -533,7 +629,7 @@ def _app_js(spec_json: str) -> str:
     $("app-title").textContent = spec.title || "YBY App";
     $("app-desc").textContent = spec.description || "";
     buildForm(spec);
-    renderList(spec);
+    void renderList(spec);
     if ("serviceWorker" in navigator) {{
       navigator.serviceWorker.register("./sw.js").catch(function () {{}});
     }}
