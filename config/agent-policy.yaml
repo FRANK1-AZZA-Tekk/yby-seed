@@ -1,0 +1,50 @@
+# Política de ações do agente (tools do `yby agent`). Lida e validada por
+# src/safety/agent_policy.py antes de qualquer execução; erro aqui = nada executa.
+#
+# autonomy:
+#   autonomous  roda sem confirmação (só risk: read)
+#   manual      exige aprovação humana a cada chamada
+#   human_only  o agente não pode pedir nem executar
+# risk: read | write | external | privileged (privileged exige human_only)
+#
+# Ação sem entrada recebe `default`. Shell humano (`yby run`/`gate`) segue
+# config/safety-allowlist.txt e não passa por aqui.
+
+version: 1
+default: manual
+
+actions:
+  echo_json:
+    autonomy: autonomous
+    risk: read
+    description: "Devolve a mensagem validada; sem disco e sem rede."
+
+  vault_search:
+    autonomy: autonomous
+    risk: read
+    description: "Busca no vault; não altera notas, mas pode reescrever o índice derivado .yby/index.json."
+
+  shell.exec:
+    autonomy: human_only
+    risk: privileged
+    description: "Executar shell pelo agente; o caminho humano é yby run com a allowlist."
+
+  secrets.read:
+    autonomy: human_only
+    risk: privileged
+    description: "Ler ou expor .env, chaves, tokens e credenciais."
+
+  deploy:
+    autonomy: human_only
+    risk: privileged
+    description: "Deploy, serviços systemd, publicação e push para remoto."
+
+  safety.policy.edit:
+    autonomy: human_only
+    risk: privileged
+    description: "Alterar allowlist, esta política, AGENTS.md, regras ou CI."
+
+  data.delete:
+    autonomy: human_only
+    risk: privileged
+    description: "Apagar dados de forma irreversível."

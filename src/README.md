@@ -7,7 +7,7 @@ Pacote Python do YBY SEED (`pythonpath = ["."]` no `pyproject.toml`). Entrada CL
 | Pacote | Papel |
 |---|---|
 | `engine/` | HybridEngine, roteamento local/nuvem, cache |
-| `safety/` | allowlist + decisão (não executa) |
+| `safety/` | allowlist + decisão (não executa); política das tools do agente (`agent_policy.py` + `config/agent-policy.yaml`) |
 | `actions/` | subprocess após a porta |
 | `memory/` | vault Markdown |
 | `voice/` | STT/TTS opcional (`listen` / `ask --voice`) |

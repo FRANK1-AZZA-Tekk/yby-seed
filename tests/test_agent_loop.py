@@ -300,7 +300,7 @@ def test_tool_timeout_loop_retorna_sem_aguardar_handler_bloqueado() -> None:
     done = threading.Event()
     calls: list[int] = []
     effects_after_wait: list[int] = []
-    registry = ToolRegistry()
+    registry = ToolRegistry(approve=lambda _request: True)
     registry.register(
         ToolSpec(
             name="gate_tool",
@@ -361,7 +361,7 @@ def test_tool_timeout_handler_pode_efetuar_apos_retorno_do_loop() -> None:
     done = threading.Event()
     calls: list[int] = []
     effects_after_wait: list[int] = []
-    registry = ToolRegistry()
+    registry = ToolRegistry(approve=lambda _request: True)
     registry.register(
         ToolSpec(
             name="gate_tool",
@@ -404,7 +404,7 @@ def test_tool_fast_success_single_call() -> None:
         calls.append(args.message)
         return {"ok": True, "message": args.message}
 
-    registry = ToolRegistry()
+    registry = ToolRegistry(approve=lambda _request: True)
     registry.register(
         ToolSpec(
             name="echo_json",
@@ -441,7 +441,7 @@ def test_tool_timeout_none_executa_na_thread_principal() -> None:
         gate.wait(5.0)
         return {"ok": True}
 
-    registry = ToolRegistry()
+    registry = ToolRegistry(approve=lambda _request: True)
     registry.register(
         ToolSpec(
             name="sync_block",
@@ -479,7 +479,7 @@ def test_tool_timeout_none_executa_na_thread_principal() -> None:
 
 
 def test_tool_timeout_interrupts_hung_tool() -> None:
-    registry = ToolRegistry()
+    registry = ToolRegistry(approve=lambda _request: True)
     registry.register(
         ToolSpec(
             name="slow_echo",

@@ -8,6 +8,7 @@
 **Rodada 2:** 2026-11-24 · `main` base `7c6ef5b403ed19593583b88dcfe34aca58c9a924` (spike `format` no planner).
 **Rodada 3:** 2026-11-26 · `main` base `a3a93aa6398f22d1217e33194bcd141f85275285` (YBY Glass G0, [YBY_GLASS_SPEC.md](YBY_GLASS_SPEC.md)).
 **Rodada 4:** 2026-11-26 · `main` base `14a5653629b34abce8b495d01d19d6ccc39621df` (OpenCode como ferramenta de engenharia, [OPENCODE_INTEGRATION.md](OPENCODE_INTEGRATION.md)).
+**Rodada 5:** 2026-11-26 · `main` base `c985ac995502291bcad31cae4230668684c31860` (política de ações do agente, `config/agent-policy.yaml`).
 
 ## Contagens acumuladas (sem duplicatas)
 
@@ -17,9 +18,10 @@
 | 2 | 0 | 2 | 3 | **5** |
 | 3 | 0 | 4 | 1 | **5** |
 | 4 | 1 | 6 | 1 | **8** |
-| **Total novas** | **2** | **16** | **10** | **28** |
+| 5 | 1 | 2 | 0 | **3** |
+| **Total novas** | **3** | **18** | **10** | **31** |
 
-**Acumulado útil:** **28/300** entradas novas (rodadas 1–2 incluem inspeções internas YBY; rodadas 3–4 só externas) + 3 referências prévias reutilizadas (não recontadas). Reutilizadas na rodada 2: **SRC-001**, **SRC-006**, **SRC-007** (sem recontagem). **Meta não concluída.**
+**Acumulado útil:** **31/300** entradas novas (rodadas 1–2 incluem inspeções internas YBY; rodadas 3–5 só externas) + 3 referências prévias reutilizadas (não recontadas). Reutilizadas na rodada 2: **SRC-001**, **SRC-006**, **SRC-007** (sem recontagem). **Meta não concluída.**
 
 **Rodada 2 — externas vs internas:** fontes **externas** novas = **2** (SRC-011, SRC-012); **inspeções código/teste YBY** = **3** (SRC-013–015). O total **5** da rodada 2 soma ambos — não confundir com “5 fontes externas”.
 
@@ -174,6 +176,28 @@ Só fontes externas efetivamente lidas em 2026-11-26. Nada copiado: `opencode.js
 | `AGENTS.md`, `.cursor/rules/*.mdc` | Autorização, escopo, gates e segredos já definidos | Referenciados via `instructions`; não duplicados |
 | `Makefile`, `.github/workflows/ci.yml` | Gates `doctor`/`lint`/`test`/`check`; CI só leitura | Allowlist de shell = esses gates; `setup`/`install-dev`/`clean`/`qdrant-*` negados |
 | `.git/config` (só a forma da URL do remote, sem ler valor) | URL do remote carrega credencial | `read`/shell de `.git/config` negados |
+
+---
+
+## Entradas — rodada 5 (política de ações do agente)
+
+Só fontes externas efetivamente lidas em 2026-11-26. Ideias adaptadas ao contrato YBY; nenhum código, formato exato ou runtime copiado ou instalado (sem Node.js).
+
+| ID | URL / arquivo | Origem | Versão / data | Nível | Evidência útil | Licença | Decisão YBY |
+|----|---------------|--------|---------------|-------|----------------|---------|-------------|
+| SRC-031 | https://github.com/approval-md/approval.md/blob/main/README.md | GitHub approval-md | `main` @ `fe9d784` (lido 2026-11-26) | L1 | Níveis por classe de ação (`autonomous`, `supervised-*`, `manual`, `human-only`); `human-only` = agente não pode nem pedir | Apache-2.0 | Três níveis (`autonomous`/`manual`/`human_only`); sem `supervised` (exige amostragem/log que o YBY não tem) |
+| SRC-032 | https://github.com/approval-md/approval.md/blob/main/SPEC.md (§4, §5.2, §7, §11) | GitHub approval-md | idem | L1 | Classe sem regra recebe `defaults.autonomy`; fail-closed; agente não pode alterar a política; piso de irreversibilidade (não reversível nunca é `autonomous`); token de execução de uso único; auto-relato do agente nunca reduz o nível | Apache-2.0 | `default: manual`; arquivo inválido = nada roda; invariantes `risk` (não-read ≠ autonomous; privileged = human_only); `AuthorizedCall` de uso único; resultado de tool não altera decisão |
+| SRC-033 | https://github.com/approval-md/approval.md | GitHub (metadados) | `pushed_at` 2026-11-26 | D0 | Repositório da spec + runtime de referência; licença via API | Apache-2.0 | Só metadados; runtime/código não examinado nem instalado |
+
+### Inspeção interna — rodada 5 (não conta como fonte externa)
+
+| Arquivo | Evidência | Decisão |
+|---------|-----------|---------|
+| `src/safety/policy.py`, `src/actions/runner.py` | `Decision(run/ask/refuse)` + `confirm` para shell humano | Política das tools reutiliza `Decision`; allowlist de shell intocada |
+| `src/agent_loop/tools.py`, `loop.py` | `ToolRegistry.run` era o único ponto de execução, sem política | Política aplicada em `authorize`; execução só via autorização de uso único |
+| `src/memory/vault.py` | `Vault.search` → `_sync_index` pode reescrever `.yby/index.json` | `vault_search` `autonomous`/`read` por decisão do dono, efeito documentado na política |
+
+Seções da SPEC não citadas acima (canais, budgets, log, vault de credenciais) **não** foram lidas a fundo e **não** foram contadas como evidência; `llms-full.txt` só apareceu em resultado de busca e **não** foi contado.
 
 ---
 
