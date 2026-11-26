@@ -105,6 +105,20 @@ def create_mesh_app(
                     close_fn()
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("Falha ao fechar publisher MQTT: %s", exc)
+            if router is not None:
+                router_close = getattr(router, "aclose", None)
+                if callable(router_close):
+                    try:
+                        await router_close()
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("Falha ao fechar HTTP client do router: %s", exc)
+            embedder = getattr(edge_worker, "embedder", None)
+            embedder_close = getattr(embedder, "aclose", None)
+            if callable(embedder_close):
+                try:
+                    await embedder_close()
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Falha ao fechar HTTP client do embedder: %s", exc)
 
     app = FastAPI(
         title="YBY Mesh Hub (4-Node Local-First)",
@@ -258,25 +272,34 @@ def build_mesh_app_from_env(
     twatch_bridge = TWatchBridge(router=router, mqtt_bus=mqtt_bus)
 
     audio_cfg = AudioPipelineConfig.from_env(source)
+    whisper_bin = source.get("YBY_WHISPER_CPP_BIN", "whisper-cli").strip() or "whisper-cli"
+    kokoro_bin = source.get("YBY_KOKORO_BIN", "kokoro-tts").strip() or "kokoro-tts"
     audio_pipeline = AsyncVoicePipeline(
         device=PipeWireBluetoothDevice(device_name=audio_cfg.bt_device_name),
         stt=WhisperCppBackend(
-            model_path=source.get("YBY_WHISPER_CPP_MODEL", "").strip()
+            binary=whisper_bin,
+            model_path=source.get("YBY_WHISPER_CPP_MODEL", "").strip(),
         ),
-        tts=KokoroTTSBackend(default_voice=audio_cfg.kokoro_voice),
+        tts=KokoroTTSBackend(
+            binary=kokoro_bin,
+            default_voice=audio_cfg.kokoro_voice,
+        ),
         router=router,
         mqtt_bus=mqtt_bus,
         config=audio_cfg,
         twatch_bridge=twatch_bridge,
     )
 
-    fallback_path = Path(
-        source.get("YBY_EDGE_FALLBACK_DB", "logs/edge_sync_fallback.sqlite3").strip()
+    fallback_raw = (
+        source.get("YBY_EDGE_FALLBACK_DB")
+        or source.get("YBY_EDGE_SQLITE_PATH")
         or "logs/edge_sync_fallback.sqlite3"
-    )
+    ).strip()
+    fallback_path = Path(fallback_raw or "logs/edge_sync_fallback.sqlite3")
     fallback_store = SQLiteFallbackEdgeStore(fallback_path)
     pg_dsn = (
         source.get("YBY_PGVECTOR_DSN")
+        or source.get("YBY_DATABASE_URL")
         or source.get("DATABASE_URL")
         or ""
     ).strip()

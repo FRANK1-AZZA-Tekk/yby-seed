@@ -66,6 +66,8 @@ class HilQaConfig:
     redis_url: str = "redis://127.0.0.1:6379/0"
     mqtt_host: str = "127.0.0.1"
     mqtt_port: int = 1883
+    mqtt_user: str | None = None
+    mqtt_pass: str | None = None
     ollama_base_url: str = "http://127.0.0.1:11434"
     litellm_base_url: str = "http://127.0.0.1:4000"
     litellm_master_key: str = ""
@@ -105,6 +107,8 @@ class HilQaConfig:
             or "redis://127.0.0.1:6379/0",
             mqtt_host=src.get("YBY_MQTT_HOST", "127.0.0.1").strip() or "127.0.0.1",
             mqtt_port=mqtt_port,
+            mqtt_user=src.get("YBY_MQTT_USER", "").strip() or None,
+            mqtt_pass=src.get("YBY_MQTT_PASS", "").strip() or None,
             ollama_base_url=(
                 src.get("YBY_OLLAMA_BASE_URL")
                 or src.get("OLLAMA_API_BASE")
@@ -415,11 +419,15 @@ def default_mqtt_mesh_roundtrip(cfg: HilQaConfig) -> tuple[bool, str]:
 
     sub.on_connect = on_connect
     sub.on_message = on_message
+    if cfg.mqtt_user:
+        sub.username_pw_set(cfg.mqtt_user, cfg.mqtt_pass)
 
     pub = PahoMqttPublisher(
         host=cfg.mqtt_host,
         port=cfg.mqtt_port,
         client_id=f"yby-hil-qa-pub-{uuid.uuid4().hex[:8]}",
+        username=cfg.mqtt_user,
+        password=cfg.mqtt_pass,
     )
     try:
         sub.connect(cfg.mqtt_host, cfg.mqtt_port, keepalive=30)

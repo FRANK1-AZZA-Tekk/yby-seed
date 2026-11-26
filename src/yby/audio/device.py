@@ -46,8 +46,12 @@ class SubprocessCommandRunner:
                 timeout=timeout,
             )
         except TimeoutError:
-            proc.kill()
-            await proc.wait()
+            proc.terminate()
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=0.5)
+            except TimeoutError:
+                proc.kill()
+                await proc.wait()
             raise
         return int(proc.returncode or 0), stdout, stderr
 
@@ -132,6 +136,7 @@ class PipeWireBluetoothDevice:
         return None
 
     async def set_profile(self, profile: BluetoothProfile) -> bool:
+        used_cached = self._cached_card is not None
         card = self._cached_card or await self.detect_device()
         if not card:
             return False
@@ -142,7 +147,22 @@ class PipeWireBluetoothDevice:
             )
         except FileNotFoundError:
             return False
-        return code == 0
+        if code == 0:
+            return True
+        if used_cached:
+            self._cached_card = None
+            refreshed = await self.detect_device()
+            if refreshed and refreshed != card:
+                try:
+                    code, _, _ = await self._runner.run(
+                        [self._pactl_bin, "set-card-profile", refreshed, pw_profile]
+                    )
+                except FileNotFoundError:
+                    return False
+                return code == 0
+        else:
+            self._cached_card = None
+        return False
 
     async def record_utterance(
         self,

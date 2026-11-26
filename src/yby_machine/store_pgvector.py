@@ -253,7 +253,11 @@ def create_spec_store_from_env(
     """Ativa PgVectorSpecStore só com YBY_DATABASE_URL + psycopg importável."""
 
     source = environ if environ is not None else os.environ
-    dsn = source.get("YBY_DATABASE_URL", "").strip()
+    dsn = (
+        source.get("YBY_DATABASE_URL")
+        or source.get("YBY_PGVECTOR_DSN")
+        or ""
+    ).strip()
     if not dsn:
         return InMemorySpecStore()
     try:

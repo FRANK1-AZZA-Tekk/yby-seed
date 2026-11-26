@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import inspect
 import logging
+import threading
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
@@ -73,25 +75,27 @@ class PahoMqttPublisher:
         self.password = password
         self._client = client
         self._connected = False
+        self._lock = threading.Lock()
 
     def _ensure_connected(self) -> Any:
-        if self._client is None:
-            import paho.mqtt.client as mqtt
+        with self._lock:
+            if self._client is None:
+                import paho.mqtt.client as mqtt
 
-            if hasattr(mqtt, "CallbackAPIVersion"):
-                self._client = mqtt.Client(
-                    callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-                    client_id=self.client_id,
-                )
-            else:
-                self._client = mqtt.Client(client_id=self.client_id)
-            if self.username:
-                self._client.username_pw_set(self.username, self.password)
-        if not self._connected:
-            self._client.connect(self.host, self.port, keepalive=60)
-            self._client.loop_start()
-            self._connected = True
-        return self._client
+                if hasattr(mqtt, "CallbackAPIVersion"):
+                    self._client = mqtt.Client(
+                        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+                        client_id=self.client_id,
+                    )
+                else:
+                    self._client = mqtt.Client(client_id=self.client_id)
+                if self.username:
+                    self._client.username_pw_set(self.username, self.password)
+            if not self._connected:
+                self._client.connect(self.host, self.port, keepalive=60)
+                self._client.loop_start()
+                self._connected = True
+            return self._client
 
     def _publish_sync(self, topic: str, payload: str, qos: int, retain: bool) -> None:
         client = self._ensure_connected()
@@ -110,10 +114,11 @@ class PahoMqttPublisher:
         await asyncio.to_thread(self._publish_sync, topic, payload, qos, retain)
 
     def close(self) -> None:
-        if self._client is not None and self._connected:
-            self._client.loop_stop()
-            self._client.disconnect()
-            self._connected = False
+        with self._lock:
+            if self._client is not None and self._connected:
+                self._client.loop_stop()
+                self._client.disconnect()
+                self._connected = False
 
 
 class PahoMqttBridgeSubscriber:
@@ -142,6 +147,7 @@ class PahoMqttBridgeSubscriber:
         self._client = client
         self._loop = loop
         self._connected = False
+        self._pending_tasks: set[asyncio.Task[Any]] = set()
 
     def _build_client(self) -> Any:
         if self._client is None:
@@ -173,6 +179,35 @@ class PahoMqttBridgeSubscriber:
         self._client.on_message = _on_message
         return self._client
 
+    def _track_task(self, task: asyncio.Task[Any], topic: str) -> asyncio.Task[Any]:
+        self._pending_tasks.add(task)
+
+        def _on_done(done_task: asyncio.Task[Any]) -> None:
+            self._pending_tasks.discard(done_task)
+            if done_task.cancelled():
+                return
+            exc = done_task.exception()
+            if exc is not None:
+                logger.warning("Falha assíncrona no handler MQTT de %s: %s", topic, exc)
+
+        task.add_done_callback(_on_done)
+        return task
+
+    @staticmethod
+    def _track_future(
+        fut: concurrent.futures.Future[Any],
+        topic: str,
+    ) -> concurrent.futures.Future[Any]:
+        def _on_done(done_fut: concurrent.futures.Future[Any]) -> None:
+            if done_fut.cancelled():
+                return
+            exc = done_fut.exception()
+            if exc is not None:
+                logger.warning("Falha em thread MQTT de %s: %s", topic, exc)
+
+        fut.add_done_callback(_on_done)
+        return fut
+
     def process_message(self, topic: str, payload: bytes | str) -> Any:
         """Processa uma mensagem recebida e agenda corrotinas no event loop configurado."""
 
@@ -186,10 +221,13 @@ class PahoMqttBridgeSubscriber:
             running = None
 
         if running is not None:
-            return running.create_task(result)
+            return self._track_task(running.create_task(result), topic)
 
         if self._loop is not None and self._loop.is_running():
-            return asyncio.run_coroutine_threadsafe(result, self._loop)
+            return self._track_future(
+                asyncio.run_coroutine_threadsafe(result, self._loop),
+                topic,
+            )
 
         return asyncio.run(result)
 

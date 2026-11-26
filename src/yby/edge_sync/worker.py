@@ -49,6 +49,19 @@ class OllamaEmbeddingProvider:
         self.model = model
         self.timeout = timeout
         self._external_client = http_client
+        self._client: httpx.AsyncClient | None = None
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._external_client is not None:
+            return self._external_client
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=self.timeout)
+        return self._client
+
+    async def aclose(self) -> None:
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
+        self._client = None
 
     async def embed(self, text: str) -> list[float] | None:
         clean = text.strip()
@@ -57,11 +70,8 @@ class OllamaEmbeddingProvider:
         url = f"{self.ollama_host}/api/embeddings"
         payload = {"model": self.model, "prompt": clean}
         try:
-            if self._external_client is not None:
-                resp = await self._external_client.post(url, json=payload)
-            else:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    resp = await client.post(url, json=payload)
+            client = self._get_client()
+            resp = await client.post(url, json=payload)
             resp.raise_for_status()
             data = resp.json()
             vec = data.get("embedding")

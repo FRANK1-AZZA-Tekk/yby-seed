@@ -233,5 +233,14 @@ class AsyncVoicePipeline:
             self.run_turn(wav_bytes=wav_bytes, speak_reply=speak_reply)
         )
         self._background_tasks.add(task)
-        task.add_done_callback(self._background_tasks.discard)
+
+        def _on_done(done_task: asyncio.Task[VoiceTurnResult]) -> None:
+            self._background_tasks.discard(done_task)
+            if done_task.cancelled():
+                return
+            exc = done_task.exception()
+            if exc is not None:
+                logger.warning("Turno de voz em background falhou: %s", exc)
+
+        task.add_done_callback(_on_done)
         return task
