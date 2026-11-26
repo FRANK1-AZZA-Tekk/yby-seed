@@ -1,0 +1,35 @@
+---
+description: Governança de Conhecimento YBY (Obsidian-First, Spec-First e Identidade YBY ZERO)
+globs:
+alwaysApply: true
+---
+
+# YBY CORE — Governança de Conhecimento (Obsidian-First & Spec-First)
+
+Complementa `AGENTS.md`, `.cursor/rules/yby.mdc` e `.cursor/rules/yby-economy.mdc` para a camada de conhecimento (`yby-vault`), especificações determinísticas (`YBY-Spec`) e documentação da malha local-first.
+
+## Formato Canônico (Obsidian Flavored Markdown)
+
+- Sempre consultar e registrar decisões arquiteturais, especificações determinísticas (`YBY-Spec`) e documentação de hardware no formato **Obsidian Flavored Markdown** (`.md`), tomando como referência estrutural o template em `docs/yby-vault-template/`.
+- Toda nota técnica, spec ou ficha de hardware deve conter **frontmatter YAML padronizado** (ex.: `spec_id`, `target_node`, `status`, `offline_ready`, `ui_palette`, `tags`) e conectar conceitos relacionados via **wikilinks** (`[[...]]`).
+- Notas de especificação devem seguir o padrão `docs/yby-vault-template/01-specs/TEMPLATE_YBY_SPEC.md`, mantendo compatibilidade com `obsidian-markdown` e `knap` antes de compilar qualquer código ou PWA em `src/yby_machine/`.
+
+## Uso Obrigatório das Obsidian Skills
+
+- Ao criar ou editar notas no cofre ou no template do cofre, utilizar a skill **`obsidian-markdown`** (frontmatter YAML válido, wikilinks `[[alvo]]`, embeds `![[...]]`, callouts `> [!info]` e propriedades limpas).
+- Ao criar ou atualizar painéis tabulares, inventários de hardware ou listas dinâmicas `.base` (como `docs/yby-vault-template/03-hardware/INVENTARIO_NOS_YBY.base`), utilizar a skill **`obsidian-bases`** garantindo YAML válido com `filters`, `properties` e `views`.
+- Ao criar ou atualizar diagramas de topologia da malha YBY `.canvas` (como `docs/yby-vault-template/02-architecture/TOPOLOGIA_MALHA_YBY.canvas`), utilizar a skill **`json-canvas`** produzindo JSON Canvas 1.0 válido (`nodes` e `edges`).
+- Quando houver automação de cofre, captura web ou sincronização headless, priorizar **`obsidian-cli`**, **`obsidian-headless`**, **`defuddle`** e **`knap`** sobre scripts ad hoc.
+
+## Regra Local-First (Malha YBY)
+
+- Nenhuma dependência obrigatória de nuvem é permitida para leitura/escrita de specs, busca semântica no cofre (`yby-vault` -> `pgvector` ou fallback local) ou operação dos nós da malha (**PC Hub**, **Xiaomi 12**, **Moto Edge 30 + PhoneBox**, **LILYGO T-Watch S3 Plus**, **YBY Glass** e **CyberTupã**).
+- Toda automação de captura (`00-inbox/YYYY-MM-DD.md`), reindexação RAG e telemetria/comandos via PhoneBox (`/api/v1/cockpit/*` e tópico MQTT `yby/cockpit/action`) deve funcionar 100% offline na LAN/Tailscale, degradando com segurança quando Redis, PostgreSQL/`pgvector` ou broker MQTT não estiverem ativos.
+
+## Identidade Visual (YBY ZERO)
+
+- Interfaces, painéis PhoneBox, templates de spec e diagramas devem preservar a linguagem **Zero UI / dark mode**:
+  - Obsidian (fundo primário): `#0D0D0D`
+  - Off-White (texto primário): `#F5F5F2`
+  - Silicon Green (sinal ativo / destaque funcional): `#00FF66`
+  - Titanium Gray (metadados / superfícies secundárias): `#8E8E93`

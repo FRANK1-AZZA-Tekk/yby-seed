@@ -1,0 +1,226 @@
+{
+  "nodes": [
+    {
+      "id": "grp-pc-hub",
+      "type": "group",
+      "x": -480,
+      "y": -260,
+      "width": 720,
+      "height": 540,
+      "label": "PC Hub (Core Local-First — Ryzen 5 4600G / 16GB RAM / GTX 1650 4GB)",
+      "color": "#00FF66"
+    },
+    {
+      "id": "node-fastapi",
+      "type": "text",
+      "x": -440,
+      "y": -200,
+      "width": 300,
+      "height": 140,
+      "color": "#00FF66",
+      "text": "### FastAPI Mesh Hub & Cockpit\n- `GET /api/v1/cockpit/status`\n- `POST /api/v1/cockpit/webhook`\n- `POST /edge/sync` | `POST /route`\n- `yby_machine` (YBY-Spec -> PWA)"
+    },
+    {
+      "id": "node-inference",
+      "type": "text",
+      "x": -100,
+      "y": -200,
+      "width": 300,
+      "height": 140,
+      "color": "#8E8E93",
+      "text": "### Inferência Local & Roteamento\n- LiteLLM Proxy + PrivacyGate\n- Ollama / `llama.cpp` (`qwen2.5-coder:3b`)\n- Embeddings locais (`all-minilm:22m` / offline)"
+    },
+    {
+      "id": "node-data",
+      "type": "text",
+      "x": -440,
+      "y": -20,
+      "width": 300,
+      "height": 130,
+      "color": "#8E8E93",
+      "text": "### Memória, Cache e RAG\n- PostgreSQL 16 + `pgvector`\n- Redis 7 (cache + estado leve)\n- Fallback offline SQLite WAL / memória"
+    },
+    {
+      "id": "node-mqtt",
+      "type": "text",
+      "x": -100,
+      "y": -20,
+      "width": 300,
+      "height": 130,
+      "color": "#00FF66",
+      "text": "### Mosquitto MQTT Broker\n- Porta local `1883` (QoS 1)\n- `yby/cockpit/action`\n- `yby/audio/state` | `yby/nodes/+/telemetry`"
+    },
+    {
+      "id": "node-vault",
+      "type": "text",
+      "x": -440,
+      "y": 140,
+      "width": 640,
+      "height": 110,
+      "color": "#F5F5F2",
+      "text": "### Cofre Obsidian (`yby-vault`)\n- `00-inbox/YYYY-MM-DD.md` (captura tátil via PhoneBox)\n- `01-specs/` (`TEMPLATE_YBY_SPEC.md`) | `02-architecture/` | `03-hardware/` (`INVENTARIO_NOS_YBY.base`)\n- Indexador incremental Markdown (YAML + `[[wikilinks]]`) -> `pgvector`"
+    },
+    {
+      "id": "node-tailscale",
+      "type": "text",
+      "x": 320,
+      "y": -60,
+      "width": 240,
+      "height": 140,
+      "color": "#8E8E93",
+      "text": "### Malha Privada\n- **Tailscale WireGuard**\n- LAN Local (`127.0.0.1` / subnet)\n- Zero dependência obrigatória de nuvem"
+    },
+    {
+      "id": "node-edge30",
+      "type": "text",
+      "x": 640,
+      "y": -260,
+      "width": 320,
+      "height": 170,
+      "color": "#00FF66",
+      "text": "### Moto Edge 30 + PhoneBox\n- Painel tátil YBY ZERO (`#0D0D0D` / `#00FF66`)\n- Widgets GPU/VRAM/RAM, serviços e specs\n- Webhooks HTTP locais:\n  `capture_inbox`, `trigger_reindex`, `publish_mqtt`"
+    },
+    {
+      "id": "node-xiaomi12",
+      "type": "text",
+      "x": 640,
+      "y": -40,
+      "width": 320,
+      "height": 150,
+      "color": "#8E8E93",
+      "text": "### Xiaomi 12 (Gateway Móvel)\n- Termux / Android\n- Buffer local + failover PocketPal\n- Sync idempotente `POST /edge/sync`"
+    },
+    {
+      "id": "grp-wearables",
+      "type": "group",
+      "x": 620,
+      "y": 150,
+      "width": 360,
+      "height": 340,
+      "label": "Wearables e Estação Off-Grid",
+      "color": "#8E8E93"
+    },
+    {
+      "id": "node-twatch",
+      "type": "text",
+      "x": 640,
+      "y": 180,
+      "width": 320,
+      "height": 85,
+      "color": "#00FF66",
+      "text": "### LILYGO T-Watch S3 Plus\n- Interface pulso + alertas hápticos via MQTT (`yby/cockpit/action`)"
+    },
+    {
+      "id": "node-glass",
+      "type": "text",
+      "x": 640,
+      "y": 280,
+      "width": 320,
+      "height": 85,
+      "color": "#00FF66",
+      "text": "### YBY Glass (XIAO ESP32-S3 Sense)\n- Captura visual/áudio leve + ações via MQTT"
+    },
+    {
+      "id": "node-cybertupa",
+      "type": "text",
+      "x": 640,
+      "y": 380,
+      "width": 320,
+      "height": 85,
+      "color": "#8E8E93",
+      "text": "### CyberTupã\n- Estação off-grid (bateria 18V) e telemetria local"
+    },
+    {
+      "id": "file-inventory",
+      "type": "file",
+      "file": "03-hardware/INVENTARIO_NOS_YBY.base",
+      "x": -480,
+      "y": 330,
+      "width": 340,
+      "height": 140
+    },
+    {
+      "id": "file-spec-template",
+      "type": "file",
+      "file": "01-specs/TEMPLATE_YBY_SPEC.md",
+      "x": -100,
+      "y": 330,
+      "width": 340,
+      "height": 140
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-phonebox-tailscale",
+      "fromNode": "node-edge30",
+      "fromSide": "left",
+      "toNode": "node-tailscale",
+      "toSide": "top",
+      "label": "HTTP Status & Webhook"
+    },
+    {
+      "id": "edge-xiaomi-tailscale",
+      "fromNode": "node-xiaomi12",
+      "fromSide": "left",
+      "toNode": "node-tailscale",
+      "toSide": "right",
+      "label": "Edge Sync + PocketPal"
+    },
+    {
+      "id": "edge-tailscale-fastapi",
+      "fromNode": "node-tailscale",
+      "fromSide": "left",
+      "toNode": "node-fastapi",
+      "toSide": "right",
+      "label": "LAN / Tailscale HTTP"
+    },
+    {
+      "id": "edge-fastapi-inference",
+      "fromNode": "node-fastapi",
+      "fromSide": "right",
+      "toNode": "node-inference",
+      "toSide": "left",
+      "label": "Roteamento / Specs"
+    },
+    {
+      "id": "edge-fastapi-data",
+      "fromNode": "node-fastapi",
+      "fromSide": "bottom",
+      "toNode": "node-data",
+      "toSide": "top",
+      "label": "pgvector + Redis"
+    },
+    {
+      "id": "edge-fastapi-mqtt",
+      "fromNode": "node-fastapi",
+      "fromSide": "bottom",
+      "toNode": "node-mqtt",
+      "toSide": "top",
+      "label": "publish_mqtt"
+    },
+    {
+      "id": "edge-vault-data",
+      "fromNode": "node-vault",
+      "fromSide": "top",
+      "toNode": "node-data",
+      "toSide": "bottom",
+      "label": "ObsidianVaultIndexer -> pgvector"
+    },
+    {
+      "id": "edge-mqtt-wearables",
+      "fromNode": "node-mqtt",
+      "fromSide": "right",
+      "toNode": "grp-wearables",
+      "toSide": "left",
+      "label": "MQTT QoS 1 (yby/cockpit/action)"
+    },
+    {
+      "id": "edge-wearables-xiaomi",
+      "fromNode": "grp-wearables",
+      "fromSide": "top",
+      "toNode": "node-xiaomi12",
+      "toSide": "bottom",
+      "label": "BLE / Wi-Fi Local"
+    }
+  ]
+}

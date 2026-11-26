@@ -41,6 +41,6 @@ Contrato geral e mapa de módulos: `AGENTS.md` e `src/README.md`.
 
 - Autorização para editar não implica commit, push, PR, merge ou deploy; cada ação precisa de aprovação explícita.
 
-## Economia
+## Economia e Governança de Conhecimento
 
-- Ver `yby-economy.mdc` (recursos e nuvem). Não repetir aqui.
+- Ver `yby-economy.mdc` (recursos e nuvem) e `yby-core.mdc` (governança Obsidian-First & Spec-First). Não repetir aqui.
