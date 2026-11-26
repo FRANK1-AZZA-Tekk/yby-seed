@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import os
 import subprocess
 from pathlib import Path
 
@@ -336,3 +337,74 @@ def test_shell_allowlist_path_unchanged():
     )
     assert result.decision.action == "run"
     assert result.executed
+
+
+def _use_policy() -> None:
+    registry, calls = _registry(approve=lambda _req: True)
+    registry.execute(registry.authorize("peek", {"text": "x"}))
+    registry.execute(registry.authorize("write_note", {"text": "x"}))
+    load_agent_policy()
+    assert calls == ["peek", "write_note"]
+
+
+_ROUTE_CASES = (
+    ("explica uma lista", False, "local", ("local_default",)),
+    ("explica uma lista", True, "cloud", ("explicit_heavy",)),
+    ("a? b? c?", False, "cloud", ("many_questions",)),
+    ("pensa mais sobre isso", False, "cloud", ("heavy_phrase",)),
+)
+
+
+def _routes() -> list[tuple[str, tuple[str, ...]]]:
+    from src.engine.routing import decide_route
+
+    decisions = [
+        decide_route(
+            prompt,
+            explicit_heavy=heavy,
+            heavy_min_chars=500,
+            heavy_min_lines=20,
+            heavy_min_questions=3,
+            heavy_phrases=("pensa mais",),
+        )
+        for prompt, heavy, _target, _codes in _ROUTE_CASES
+    ]
+    return [(d.target, d.codes) for d in decisions]
+
+
+def test_route_decisions_unchanged_by_policy_use():
+    expected = [(target, codes) for _p, _h, target, codes in _ROUTE_CASES]
+    assert _routes() == expected
+    _use_policy()
+    assert _routes() == expected
+
+
+def test_cache_key_unchanged_by_policy_use():
+    from src.engine.cache import ResponseCache
+
+    cache = ResponseCache(ttl_seconds=60)
+    key = cache.make_key("ping", model="qwen2.5-coder:3b", system="s")
+    _use_policy()
+    assert cache.make_key("ping", model="qwen2.5-coder:3b", system="s") == key
+    cache.set(key, "pong")
+    assert cache.get(key) == "pong"
+
+
+def test_budget_defaults_unchanged_by_policy_use():
+    from src.engine.budget import CloudBudget
+
+    def snapshot() -> tuple[str, bool, bool]:
+        budget = CloudBudget.from_env({})
+        return budget.cloud_mode, budget.require_confirm, budget.allow_no_tty
+
+    assert snapshot() == ("ask", True, False)
+    _use_policy()
+    assert snapshot() == ("ask", True, False)
+
+
+def test_policy_use_does_not_touch_environment(monkeypatch):
+    monkeypatch.setenv("YBY_CLOUD_MODE", "ask")
+    monkeypatch.setenv("YBY_CLOUD_REQUIRE_CONFIRM", "1")
+    before = dict(os.environ)
+    _use_policy()
+    assert dict(os.environ) == before
