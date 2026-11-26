@@ -12,6 +12,7 @@
 | [../DECISIONS.md](../DECISIONS.md) | D1–D13 (vigentes) |
 | [../ARCHITECTURE.md](../ARCHITECTURE.md) | Arquitetura do v1 (`ask` / safety / engine) |
 | [../ROADMAP.md](../ROADMAP.md) | Fases (atualizar com o checklist em REPOS) |
+| [TOOL_IDEMPOTENCY.md](TOOL_IDEMPOTENCY.md) | Contrato de idempotência para tools com efeito externo (`operation_id`, estados, sem retry; ainda não ligado ao agente) |
 | [LAYER_ADMISSION.md](LAYER_ADMISSION.md) | Política de admissão de camadas (ficha, estados, proibição de expansão sem aceite) e classificação atual |
 | [archive/FORA-DO-V1.md](archive/FORA-DO-V1.md) | Mobile/firmware removidos da árvore |
 | [future/PLANO_ECOSISTEMA_WEARABLE.md](future/PLANO_ECOSISTEMA_WEARABLE.md) | Wearable, gateway, métricas, execução (fora do v1) |
