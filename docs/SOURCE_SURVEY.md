@@ -7,6 +7,7 @@
 **Rodada 1:** 2026-11-24 · `main` base `d098334…`
 **Rodada 2:** 2026-11-24 · `main` base `7c6ef5b403ed19593583b88dcfe34aca58c9a924` (spike `format` no planner).
 **Rodada 3:** 2026-11-26 · `main` base `a3a93aa6398f22d1217e33194bcd141f85275285` (YBY Glass G0, [YBY_GLASS_SPEC.md](YBY_GLASS_SPEC.md)).
+**Rodada 4:** 2026-11-26 · `main` base `14a5653629b34abce8b495d01d19d6ccc39621df` (OpenCode como ferramenta de engenharia, [OPENCODE_INTEGRATION.md](OPENCODE_INTEGRATION.md)).
 
 ## Contagens acumuladas (sem duplicatas)
 
@@ -15,9 +16,10 @@
 | 1 | 1 | 4 | 5 | **10** |
 | 2 | 0 | 2 | 3 | **5** |
 | 3 | 0 | 4 | 1 | **5** |
-| **Total novas** | **1** | **10** | **9** | **20** |
+| 4 | 1 | 6 | 1 | **8** |
+| **Total novas** | **2** | **16** | **10** | **28** |
 
-**Acumulado útil:** **20/300** entradas novas (rodadas 1–2 incluem inspeções internas YBY; rodada 3 só externas) + 3 referências prévias reutilizadas (não recontadas). Reutilizadas na rodada 2: **SRC-001**, **SRC-006**, **SRC-007** (sem recontagem). **Meta não concluída.**
+**Acumulado útil:** **28/300** entradas novas (rodadas 1–2 incluem inspeções internas YBY; rodadas 3–4 só externas) + 3 referências prévias reutilizadas (não recontadas). Reutilizadas na rodada 2: **SRC-001**, **SRC-006**, **SRC-007** (sem recontagem). **Meta não concluída.**
 
 **Rodada 2 — externas vs internas:** fontes **externas** novas = **2** (SRC-011, SRC-012); **inspeções código/teste YBY** = **3** (SRC-013–015). O total **5** da rodada 2 soma ambos — não confundir com “5 fontes externas”.
 
@@ -150,4 +152,29 @@ Descobertas vistas só em resultado de busca (ex.: página "Mentra HUD Constrain
 
 ---
 
-*Próxima rodada sugerida:* smoke Hub planner+format; OWASP LLM07 (L1); para Glass G3, obter confirmação de licença do OpenGlass (sem arquivo LICENSE no repo) antes de qualquer reuso.
+## Entradas — rodada 4 (OpenCode como ferramenta de engenharia)
+
+Só fontes externas efetivamente lidas em 2026-11-26. Nada copiado: `opencode.json` é config própria; o schema foi usado só para validar.
+
+| ID | URL / arquivo | Origem | Versão / data | Nível | Evidência útil | Licença | Decisão YBY |
+|----|---------------|--------|---------------|-------|----------------|---------|-------------|
+| SRC-023 | https://opencode.ai/docs/permissions/ | Doc oficial OpenCode | lido 2026-11-26 | L1 | V2 `permissions` `{action, resource, effect}`; última regra vence; sem regra = `ask`; base `* * allow`; `external_directory` permitido por padrão; scanner de shell "best effort" | — | Config começa restringindo; `external_directory` `deny`; shell por allowlist estreita |
+| SRC-024 | https://opencode.ai/docs/agents/ | Doc oficial OpenCode | idem | L1 | `agents` com `mode`, `description`, `permissions`; regras do agente anexadas às globais; `system` substitui o prompt base; subagente usa permissões próprias | — | Perfil `yby-engineer` primary, sem `system`/`model`; regras no topo para cobrir agentes embutidos |
+| SRC-025 | https://opencode.ai/docs/config/ | Doc oficial OpenCode | idem | L1 | Locais e precedência de config (sistema > projeto > global); `instructions`; substituição de env/arquivo; `share` | — | Sem substituições nem `providers`; `share: disabled`; risco de sobreposição global documentado |
+| SRC-026 | https://opencode.ai/docs/mcp-servers/ | Doc oficial OpenCode | idem | L1 | Servidores conectam automaticamente; `disabled` mantém sem conectar; remoto usa OAuth por padrão | — | Sem bloco `mcp`; critérios para MCP local futuro |
+| SRC-027 | https://opencode.ai/docs/rules/ | Doc oficial OpenCode | idem | L1 | `AGENTS.md` carregado automaticamente; `instructions` somam arquivos locais/URLs | — | Reutilizar `AGENTS.md` e `.cursor/rules` sem duplicar |
+| SRC-028 | https://opencode.ai/docs/policies/ | Doc oficial OpenCode | idem | L1 | `tool.use` deny é bloqueio rígido acima de "Allow always"; `mcp.use`/`plugin.use`/`skill.use` (≥ 2.2.3); policies globais sobrepõem as do projeto | — | Hard-deny para push/merge/reset/clean/stash/sudo/pip/.env/.git/subagentes |
+| SRC-029 | https://opencode.ai/config.json | Schema oficial OpenCode | baixado 2026-11-26 (75 KB) | L2 | JSON Schema 2020-12; `additionalProperties: false` na raiz e no agente; chaves V1 marcadas `deprecated` | — | Lista de chaves fixada no teste; validação manual 0 erros |
+| SRC-030 | https://github.com/anomalyco/opencode | GitHub (metadados) | `pushed_at` 2026-11-26 | D0 | Repositório do OpenCode; licença MIT via API | MIT | Só metadados; código não examinado |
+
+### Inspeção interna — rodada 4 (não conta como fonte externa)
+
+| Arquivo | Evidência | Decisão |
+|---------|-----------|---------|
+| `AGENTS.md`, `.cursor/rules/*.mdc` | Autorização, escopo, gates e segredos já definidos | Referenciados via `instructions`; não duplicados |
+| `Makefile`, `.github/workflows/ci.yml` | Gates `doctor`/`lint`/`test`/`check`; CI só leitura | Allowlist de shell = esses gates; `setup`/`install-dev`/`clean`/`qdrant-*` negados |
+| `.git/config` (só a forma da URL do remote, sem ler valor) | URL do remote carrega credencial | `read`/shell de `.git/config` negados |
+
+---
+
+*Próxima rodada sugerida:* smoke Hub planner+format; OWASP LLM07 (L1); para Glass G3, obter confirmação de licença do OpenGlass (sem arquivo LICENSE no repo) antes de qualquer reuso; OpenCode O1 (humano confirma versão ≥ 2.2.3 antes de qualquer sessão).
