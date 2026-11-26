@@ -17,11 +17,16 @@ Otimizações:
 Licença: MIT
 """
 
-import os
-from typing import Dict, Any, List
+import hashlib
 import logging
+import math
+import os
+from typing import Any, Dict, List
 
-logging.basicConfig(level=logging.INFO)
+import httpx
+
+from ..gateway.config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -43,9 +48,12 @@ class LearningAgent:
         if self.db_url:
             self._connect()
 
-    def _ensure(self) -> None:
+    def _ensure(self) -> Any:
         if self.conn is None:
             self._connect()
+        if self.conn is None:
+            raise RuntimeError("Conexão PostgreSQL indisponível.")
+        return self.conn
 
     def _connect(self):
         """Conectar ao PostgreSQL"""
@@ -67,7 +75,8 @@ class LearningAgent:
     
     def _create_tables(self):
         """Criar tabelas se não existirem"""
-        with self.conn.cursor() as cur:
+        conn = self._ensure()
+        with conn.cursor() as cur:
             # Tabela de execuções
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS executions (
@@ -101,13 +110,20 @@ class LearningAgent:
                 USING ivfflat (embedding vector_cosine_ops)
                 WITH (lists = 100)
             """)
-            
-            self.conn.commit()
-    
-    def log_execution(self, intent: str, slots: Dict, code: str, result: Dict, feedback: str = None):
+
+            conn.commit()
+
+    def log_execution(
+        self,
+        intent: str,
+        slots: Dict[str, Any],
+        code: str,
+        result: Dict[str, Any],
+        feedback: str | None = None,
+    ):
         """
         Logar execução.
-        
+
         Args:
             intent: Intenção (ex: backup_automation)
             slots: Slots preenchidos
@@ -115,58 +131,53 @@ class LearningAgent:
             result: Resultado da execução
             feedback: Feedback do usuário (success, error, neutral)
         """
-        self._ensure()
-        logger.info(f"Logando execução: {intent}")
-        
-        # Gerar embedding da execução
+        conn = self._ensure()
+        logger.info("Logando execução: %s", intent)
+
         embedding = self._generate_embedding(f"{intent} {slots} {code}")
-        
-        with self.conn.cursor() as cur:
-            cur.execute("""
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
                 INSERT INTO executions (intent, slots, code, result, feedback, embedding)
                 VALUES (%s, %s, %s, %s, %s, %s)
-            """, (intent, slots, code, result, feedback, embedding))
-            
-            self.conn.commit()
-        
+                """,
+                (intent, slots, code, result, feedback, embedding),
+            )
+
+            conn.commit()
+
         logger.info("✅ Execução logada")
-    
+
     def learn_from_feedback(self, execution_id: int, feedback: str):
         """
         Aprender com feedback do usuário.
-        
-        Args:
-            execution_id: ID da execução
-            feedback: Feedback (success, error, neutral)
         """
-        self._ensure()
-        logger.info(f"Aprendendo com feedback: {feedback}")
-        
-        # Atualizar feedback
-        with self.conn.cursor() as cur:
-            cur.execute("""
+        conn = self._ensure()
+        logger.info("Aprendendo com feedback: %s", feedback)
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
                 UPDATE executions
                 SET feedback = %s
                 WHERE id = %s
-            """, (feedback, execution_id))
-            
-            self.conn.commit()
-        
-        # Bayesian update
+                """,
+                (feedback, execution_id),
+            )
+
+            conn.commit()
+
         self._bayesian_update(execution_id, feedback)
-        
+
         logger.info("✅ Feedback aprendido")
-    
+
     def _bayesian_update(self, execution_id: int, feedback: str):
         """
         Atualizar crenças com Bayesian Teaching.
-        
-        Args:
-            execution_id: ID da execução
-            feedback: Feedback (success, error)
         """
-        # Obter execução
-        with self.conn.cursor() as cur:
+        conn = self._ensure()
+        with conn.cursor() as cur:
             cur.execute("""
                 SELECT intent, slots, result
                 FROM executions
@@ -199,34 +210,24 @@ class LearningAgent:
     def _get_belief(self, key: str) -> float:
         """
         Obter crença (prior).
-        
-        Args:
-            key: Chave da crença
-        
-        Returns:
-            Valor do prior (0.0-1.0)
         """
-        with self.conn.cursor() as cur:
+        conn = self._ensure()
+        with conn.cursor() as cur:
             cur.execute("""
                 SELECT prior
                 FROM beliefs
                 WHERE key = %s
             """, (key,))
-            
+
             row = cur.fetchone()
             return row[0] if row else 0.5  # Default: 0.5 (incerteza)
-    
+
     def _update_belief(self, key: str, prior: float, likelihood: float, posterior: float):
         """
         Atualizar crença.
-        
-        Args:
-            key: Chave da crença
-            prior: Prior anterior
-            likelihood: Likelihood calculada
-            posterior: Posterior calculado
         """
-        with self.conn.cursor() as cur:
+        conn = self._ensure()
+        with conn.cursor() as cur:
             cur.execute("""
                 INSERT INTO beliefs (key, prior, likelihood, posterior)
                 VALUES (%s, %s, %s, %s)
@@ -237,23 +238,17 @@ class LearningAgent:
                     posterior = EXCLUDED.posterior,
                     updated_at = NOW()
             """, (key, prior, likelihood, posterior))
-            
-            self.conn.commit()
-    
+
+            conn.commit()
+
     def suggest_improvements(self, limit: int = 5) -> List[Dict[str, Any]]:
         """
         Sugerir melhorias baseado em erros.
-        
-        Args:
-            limit: Número máximo de sugestões
-        
-        Returns:
-            Lista de sugestões
         """
-        self._ensure()
-        logger.info(f"Sugerindo melhorias (top {limit})...")
-        
-        with self.conn.cursor() as cur:
+        conn = self._ensure()
+        logger.info("Sugerindo melhorias (top %d)...", limit)
+
+        with conn.cursor() as cur:
             # Buscar execuções com erro
             cur.execute("""
                 SELECT intent, slots, code, result
@@ -313,17 +308,34 @@ class LearningAgent:
     
     def _generate_embedding(self, text: str) -> List[float]:
         """
-        Gerar embedding (modelo local via Ollama).
-        
-        Args:
-            text: Texto para embedar
-        
-        Returns:
-            Vetor de 384 dimensões
+        Gerar embedding via Ollama local com fallback determinístico normalizado.
         """
-        # TODO: Implementar com Ollama embeddings
-        # Por enquanto, retornar vetor dummy
-        return [0.0] * 384
+        url = f"{settings.OLLAMA_HOST.rstrip('/')}/api/embeddings"
+        try:
+            response = httpx.post(
+                url,
+                json={"model": settings.OLLAMA_MODEL_EMBEDDING, "prompt": text},
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            raw = response.json().get("embedding")
+            if isinstance(raw, list) and raw:
+                return [float(x) for x in raw]
+        except Exception as exc:
+            logger.warning("Ollama embeddings indisponível em LearningAgent (%s); usando fallback.", type(exc).__name__)
+
+        values: List[float] = []
+        counter = 0
+        while len(values) < 384:
+            digest = hashlib.sha256(f"{counter}:{text}".encode("utf-8")).digest()
+            for idx in range(0, len(digest), 4):
+                if len(values) >= 384:
+                    break
+                chunk = int.from_bytes(digest[idx : idx + 4], "big", signed=False)
+                values.append((chunk / 0xFFFFFFFF) * 2.0 - 1.0)
+            counter += 1
+        norm = math.sqrt(sum(v * v for v in values)) or 1.0
+        return [v / norm for v in values]
     
     def close(self):
         """Fechar conexão"""

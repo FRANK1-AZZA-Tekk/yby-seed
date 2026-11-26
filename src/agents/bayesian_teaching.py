@@ -20,7 +20,6 @@ Licença: MIT
 from typing import Dict, List
 import logging
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -99,24 +98,25 @@ class BayesianTeaching:
         Returns:
             Número de iterações para convergir
         """
-        logger.info(f"🧮 Simulando convergência: {belief_key} (target: {target_confidence:.2f})")
-        
+        logger.info("🧮 Simulando convergência: %s (target: %.2f)", belief_key, target_confidence)
+
         iterations = 0
-        
+        posterior = self.beliefs.get(belief_key, 0.5)
+
         while iterations < max_iterations:
             # Simular feedback positivo
             posterior = self.update(belief_key, "success", likelihood_success=0.9)
             iterations += 1
-            
+
             # Verificar convergência
             if posterior >= target_confidence:
-                logger.info(f"✅ Convergiu em {iterations} iterações (posterior: {posterior:.2f})")
+                logger.info("✅ Convergiu em %d iterações (posterior: %.2f)", iterations, posterior)
                 return iterations
-        
-        logger.warning(f"⚠️  Não convergiu em {max_iterations} iterações (posterior: {posterior:.2f})")
+
+        logger.warning("⚠️  Não convergiu em %d iterações (posterior: %.2f)", max_iterations, posterior)
         return iterations
-    
-    def reset(self, belief_key: str = None):
+
+    def reset(self, belief_key: str | None = None):
         """
         Resetar crenças (para experimentos).
         
