@@ -64,14 +64,8 @@ bool PowerPmuManager::begin() {
 
 void PowerPmuManager::setBacklight(bool enabled) {
     screen_on_ = enabled;
+    // Mantem ALDO2 (logica ST7789V3) alimentado em light-sleep para evitar corrupcao do TFT ao acordar.
     digitalWrite(YBY_DISP_BL, enabled ? HIGH : LOW);
-    if (initialized_) {
-        if (enabled) {
-            s_pmu.enableALDO2();
-        } else {
-            s_pmu.disableALDO2();
-        }
-    }
 }
 
 void PowerPmuManager::notifyInteraction(uint32_t now_ms) {
@@ -111,6 +105,7 @@ void PowerPmuManager::enterDeepSleep() {
     setBacklight(false);
 
     if (initialized_) {
+        s_pmu.disableALDO2();
         s_pmu.disableALDO3();
         s_pmu.disableBLDO2();
         s_pmu.disableALDO4();
@@ -122,8 +117,13 @@ void PowerPmuManager::enterDeepSleep() {
     WiFi.mode(WIFI_OFF);
 
     // Wake por botao PWR (GPIO21), toque FT6336U (GPIO16) ou movimento BMA423 (GPIO14)
+#ifdef ESP_EXT1_WAKEUP_ANY_LOW
     const uint64_t wake_mask = (1ULL << YBY_BMA_INT) | (1ULL << YBY_TOUCH_INT) | (1ULL << YBY_PMU_INT);
-    esp_sleep_enable_ext1_wakeup(wake_mask, ESP_EXT1_WAKEUP_ALL_LOW);
+    esp_sleep_enable_ext1_wakeup(wake_mask, ESP_EXT1_WAKEUP_ANY_LOW);
+#else
+    // ESP-IDF 4.x nao expoe EXT1_ANY_LOW; usar EXT0 em LOW no botao PWR para nao travar em ALL_LOW.
+    esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(YBY_PMU_INT), 0);
+#endif
     esp_deep_sleep_start();
 }
 

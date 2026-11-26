@@ -63,7 +63,7 @@ void setup() {
             }
             g_haptics.playAudioState(g_audio_state);
         },
-        [](const char* cmd, const char* text, const char* accent_hex) {
+        [](const char* cmd, const char* text, const char* accent_hex, const char* state) {
             g_pmu.notifyInteraction(millis());
             if (strcmp(cmd, "haptic_pulse") == 0) {
                 g_haptics.playAlertDoublePulse();
@@ -72,9 +72,13 @@ void setup() {
                 g_haptics.playShortClick();
                 g_ui.setLastReply(text);
                 g_ui.showAlert(text, accent_hex);
-            } else if (strcmp(cmd, "set_state") == 0 && text != nullptr && strlen(text) > 0) {
-                strncpy(g_audio_state, text, sizeof(g_audio_state) - 1);
-                g_audio_state[sizeof(g_audio_state) - 1] = '\0';
+            } else if (strcmp(cmd, "set_state") == 0) {
+                const char* next_state = (state != nullptr && strlen(state) > 0) ? state : text;
+                if (next_state != nullptr && strlen(next_state) > 0) {
+                    strncpy(g_audio_state, next_state, sizeof(g_audio_state) - 1);
+                    g_audio_state[sizeof(g_audio_state) - 1] = '\0';
+                    g_haptics.playAudioState(g_audio_state);
+                }
             }
         }
     );

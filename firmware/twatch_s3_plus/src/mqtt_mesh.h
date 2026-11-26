@@ -10,7 +10,7 @@ enum class LinkMode : uint8_t {
 };
 
 using AudioStateCallback = std::function<void(const char* state)>;
-using CommandCallback = std::function<void(const char* cmd, const char* text, const char* accent_hex)>;
+using CommandCallback = std::function<void(const char* cmd, const char* text, const char* accent_hex, const char* state)>;
 
 class MqttMeshClient {
 public:

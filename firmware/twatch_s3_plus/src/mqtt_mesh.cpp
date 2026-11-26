@@ -118,8 +118,9 @@ void MqttMeshClient::handleIncoming(char* topic, uint8_t* payload, unsigned int 
         const char* cmd = doc["command"] | "display_text";
         const char* text = doc["text"] | "";
         const char* accent = doc["accent_color"] | "#00FF66";
+        const char* state = doc["state"] | "";
         if (on_command_) {
-            on_command_(cmd, text, accent);
+            on_command_(cmd, text, accent, state);
         }
     }
 }
