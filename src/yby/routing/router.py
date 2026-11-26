@@ -97,6 +97,14 @@ class RouterConfig:
                 f"YBY_CACHE_TTL_SECONDS inválido: {ttl_raw!r}"
             ) from exc
 
+        timeout_raw = source.get("YBY_REQUEST_TIMEOUT_SECONDS", "").strip()
+        try:
+            req_timeout = float(timeout_raw) if timeout_raw else 45.0
+        except ValueError as exc:
+            raise ValueError(
+                f"YBY_REQUEST_TIMEOUT_SECONDS inválido: {timeout_raw!r}"
+            ) from exc
+
         return cls(
             ollama_base_url=ollama_v1,
             fast_model=source.get("YBY_FAST_MODEL", "qwen2.5-coder:3b").strip()
@@ -122,6 +130,7 @@ class RouterConfig:
                 or "qwen2.5-coder-3b-instruct"
             ),
             cache_ttl_seconds=max(1, ttl),
+            request_timeout_seconds=max(1.0, req_timeout),
             offgrid_mode=offgrid,
         )
 
@@ -149,6 +158,21 @@ class OpenAICompatibleBackend:
     ) -> None:
         self.config = config
         self._external_client = http_client
+        self._owned_client: httpx.AsyncClient | None = None
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._external_client is not None:
+            return self._external_client
+        if self._owned_client is None or self._owned_client.is_closed:
+            self._owned_client = httpx.AsyncClient(
+                timeout=self.config.request_timeout_seconds
+            )
+        return self._owned_client
+
+    async def aclose(self) -> None:
+        if self._owned_client is not None and not self._owned_client.is_closed:
+            await self._owned_client.aclose()
+            self._owned_client = None
 
     def _endpoint_for(self, tier: RouteTier) -> tuple[str, str, dict[str, str]]:
         if tier == "yby-fast":
@@ -185,11 +209,8 @@ class OpenAICompatibleBackend:
 
         payload: dict[str, Any] = {"model": model, "messages": messages}
         try:
-            if self._external_client is not None:
-                resp = await self._external_client.post(url, json=payload, headers=headers)
-            else:
-                async with httpx.AsyncClient(timeout=self.config.request_timeout_seconds) as client:
-                    resp = await client.post(url, json=payload, headers=headers)
+            client = self._get_client()
+            resp = await client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()
             content = data["choices"][0]["message"].get("content")
@@ -225,6 +246,11 @@ class CognitiveRouter:
         self._health = health or NodeHealthTracker(self._cache)
         self._cloud_log = cloud_log
         self._triage_runner = triage_runner
+
+    async def aclose(self) -> None:
+        closer = getattr(self._backend, "aclose", None)
+        if callable(closer):
+            await closer()
 
     def _build_cascade(
         self,
@@ -293,7 +319,12 @@ class CognitiveRouter:
         )
 
         primary = classification.tier
-        cache_key = build_cache_key(privacy.effective_sensitivity, primary, request.prompt)
+        cache_key = build_cache_key(
+            privacy.effective_sensitivity,
+            primary,
+            request.prompt,
+            system_prompt=request.system_prompt,
+        )
         if request.use_cache:
             cached_raw = await self._cache.get(cache_key)
             if cached_raw is not None:

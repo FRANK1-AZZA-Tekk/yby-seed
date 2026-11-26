@@ -1,6 +1,10 @@
 ---
 name: cli-import
+version: 1.0.0
+min_agent_version: 2.0.0
+last_updated: 2026-11-26
 description: Prepara um briefing para revisar a importação de uma CLI externa no YBY, sem instalar ou executar nada.
+license: MIT
 ---
 
 # Revisão de importação de CLI

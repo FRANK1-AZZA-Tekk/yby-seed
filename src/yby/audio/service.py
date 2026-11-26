@@ -7,6 +7,7 @@ import logging
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from src.yby.audio.backends import AudioBackendError, STTBackend, TTSBackend
 from src.yby.audio.device import AudioDeviceAdapter
@@ -22,6 +23,9 @@ from src.yby.audio.schemas import (
 )
 from src.yby.routing.router import CognitiveRouter
 from src.yby.routing.schemas import RouteRequest
+
+if TYPE_CHECKING:
+    from src.yby.audio.twatch_bridge import TWatchBridge
 
 logger = logging.getLogger("yby.audio.service")
 
@@ -85,6 +89,7 @@ class AsyncVoicePipeline:
         router: CognitiveRouter,
         mqtt_bus: MqttPublisher | None = None,
         config: AudioPipelineConfig | None = None,
+        twatch_bridge: TWatchBridge | None = None,
     ) -> None:
         self.device = device
         self.stt = stt
@@ -92,6 +97,7 @@ class AsyncVoicePipeline:
         self.router = router
         self.mqtt_bus = mqtt_bus or InMemoryMqttBus()
         self.config = config or AudioPipelineConfig()
+        self.twatch_bridge = twatch_bridge
         self._state: AudioSessionState = "idle"
         self._lock = asyncio.Lock()
         self._background_tasks: set[asyncio.Task[VoiceTurnResult]] = set()
@@ -121,6 +127,8 @@ class AsyncVoicePipeline:
             qos=1,
             retain=True,
         )
+        if self.twatch_bridge is not None and self.config.notify_twatch:
+            await self.twatch_bridge.sync_audio_state(state, text=detail)
 
     async def _notify_twatch(self, text: str, state: AudioSessionState) -> None:
         if not self.config.notify_twatch:
@@ -225,5 +233,14 @@ class AsyncVoicePipeline:
             self.run_turn(wav_bytes=wav_bytes, speak_reply=speak_reply)
         )
         self._background_tasks.add(task)
-        task.add_done_callback(self._background_tasks.discard)
+
+        def _on_done(done_task: asyncio.Task[VoiceTurnResult]) -> None:
+            self._background_tasks.discard(done_task)
+            if done_task.cancelled():
+                return
+            exc = done_task.exception()
+            if exc is not None:
+                logger.warning("Turno de voz em background falhou: %s", exc)
+
+        task.add_done_callback(_on_done)
         return task

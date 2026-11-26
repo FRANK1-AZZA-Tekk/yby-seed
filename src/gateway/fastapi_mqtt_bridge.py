@@ -140,7 +140,7 @@ async def receive_telemetry(data: Dict[str, Any], request: Request):
         raise
     except Exception as e:
         logger.error(f"❌ Erro ao receber telemetria: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.websocket("/ws/telemetry")
@@ -199,7 +199,7 @@ async def get_metrics(device_id: str, request: Request, limit: int = 100):
     
     except Exception as e:
         logger.error(f"❌ Erro ao recuperar métricas: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/vectors/search")
@@ -216,7 +216,7 @@ async def search_vectors(query: str, request: Request, top_k: int = 5):
     
     except Exception as e:
         logger.error(f"❌ Erro ao buscar vetores: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def process_batch(batch: List[Dict[str, Any]]) -> None:

@@ -6,7 +6,8 @@ import asyncio
 import json
 import math
 import sqlite3
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Literal, Protocol, runtime_checkable
 
@@ -239,12 +240,25 @@ class SQLiteFallbackEdgeStore:
         self._init_sync()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.execute("PRAGMA journal_mode=WAL")
+        conn = sqlite3.connect(self.path, timeout=10.0)
+        conn.execute("PRAGMA busy_timeout=5000")
         return conn
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        conn = self._connect()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     def _init_sync(self) -> None:
-        with self._connect() as conn:
+        with self._connection() as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS edge_events_fallback (
@@ -261,13 +275,12 @@ class SQLiteFallbackEdgeStore:
                 )
                 """
             )
-            conn.commit()
 
     async def ensure_schema(self) -> None:
         await asyncio.to_thread(self._init_sync)
 
     def _upsert_sync(self, event: EdgeEvent, embedding: list[float] | None) -> UpsertStatus:
-        with self._connect() as conn:
+        with self._connection() as conn:
             cur = conn.execute(
                 """
                 INSERT OR IGNORE INTO edge_events_fallback (
@@ -296,7 +309,6 @@ class SQLiteFallbackEdgeStore:
                     json.dumps(embedding) if embedding is not None else None,
                 ),
             )
-            conn.commit()
             return "inserted" if cur.rowcount == 1 else "duplicate"
 
     async def upsert_event(
@@ -310,7 +322,7 @@ class SQLiteFallbackEdgeStore:
         query = "SELECT COUNT(*) FROM edge_events_fallback"
         if only_undrained:
             query += " WHERE drained = 0"
-        with self._connect() as conn:
+        with self._connection() as conn:
             row = conn.execute(query).fetchone()
         return int(row[0]) if row else 0
 
@@ -321,7 +333,7 @@ class SQLiteFallbackEdgeStore:
         return await asyncio.to_thread(self._count_sync, only_undrained=True)
 
     def _list_undrained_sync(self, limit: int) -> list[tuple[EdgeEvent, list[float] | None]]:
-        with self._connect() as conn:
+        with self._connection() as conn:
             rows = conn.execute(
                 """
                 SELECT
@@ -369,12 +381,11 @@ class SQLiteFallbackEdgeStore:
     def _mark_drained_sync(self, event_ids: list[str]) -> None:
         if not event_ids:
             return
-        with self._connect() as conn:
+        with self._connection() as conn:
             conn.executemany(
                 "UPDATE edge_events_fallback SET drained = 1 WHERE event_id = ?",
                 [(eid,) for eid in event_ids],
             )
-            conn.commit()
 
     async def drain_to(
         self,
@@ -403,7 +414,7 @@ class SQLiteFallbackEdgeStore:
         return inserted, duplicates
 
     def _search_sync(self, query_embedding: list[float], limit: int) -> list[StoredEdgeEvent]:
-        with self._connect() as conn:
+        with self._connection() as conn:
             rows = conn.execute(
                 """
                 SELECT

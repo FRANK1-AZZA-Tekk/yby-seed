@@ -9,11 +9,19 @@ from typing import Any, Protocol, runtime_checkable
 from src.yby.routing.schemas import RouteTier, Sensitivity
 
 
-def build_cache_key(sensitivity: Sensitivity, tier: RouteTier, prompt: str) -> str:
-    """Chave determinística particionada para evitar colisão entre private e public."""
+def build_cache_key(
+    sensitivity: Sensitivity,
+    tier: RouteTier,
+    prompt: str,
+    *,
+    system_prompt: str | None = None,
+) -> str:
+    """Chave determinística particionada para evitar colisão entre private/public e system_prompt."""
 
     normalized = " ".join(prompt.strip().split())
-    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    norm_sys = " ".join(system_prompt.strip().split()) if system_prompt else ""
+    payload = f"{normalized}\x00sys:{norm_sys}" if norm_sys else normalized
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
     return f"yby:route:{sensitivity}:{tier}:{digest}"
 
 
@@ -29,11 +37,17 @@ class CacheBackend(Protocol):
 
 
 class InMemoryCacheBackend:
-    """Cache em memória com TTL monotônico para execução offline e testes."""
+    """Cache em memória com TTL monotônico e limite de entradas (evita vazamento de RAM)."""
 
-    def __init__(self, *, clock: Any = None) -> None:
+    def __init__(self, *, clock: Any = None, max_entries: int = 2048) -> None:
         self._clock = clock or time.monotonic
+        self._max_entries = max(1, int(max_entries))
         self._store: dict[str, tuple[str, float]] = {}
+
+    def _prune_expired(self, now: float) -> None:
+        expired = [k for k, (_, exp) in self._store.items() if now >= exp]
+        for k in expired:
+            self._store.pop(k, None)
 
     async def get(self, key: str) -> str | None:
         item = self._store.get(key)
@@ -47,7 +61,13 @@ class InMemoryCacheBackend:
 
     async def set(self, key: str, value: str, *, ttl_seconds: int = 300) -> None:
         ttl = max(1, int(ttl_seconds))
-        self._store[key] = (value, self._clock() + ttl)
+        now = self._clock()
+        if key not in self._store and len(self._store) >= self._max_entries:
+            self._prune_expired(now)
+            while len(self._store) >= self._max_entries:
+                oldest_key = next(iter(self._store))
+                self._store.pop(oldest_key, None)
+        self._store[key] = (value, now + ttl)
 
     async def delete(self, key: str) -> None:
         self._store.pop(key, None)

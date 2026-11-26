@@ -11,3 +11,8 @@ evo/reports/*
 !evo/reports/.gitkeep
 *.sqlite3
 generated/
+# Módulo C (T-Watch S3 Plus) — segredos locais, build PlatformIO e dumps de flash
+firmware/twatch_s3_plus/include/secrets.h
+firmware/twatch_s3_plus/.pio/
+backups/
+

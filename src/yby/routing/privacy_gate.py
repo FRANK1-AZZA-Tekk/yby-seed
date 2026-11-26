@@ -67,14 +67,31 @@ class PrivacyGate:
         if _PIX_COMMERCIAL_PATTERN.search(request.prompt):
             reasons.append("pix_commercial_pattern")
 
+        if request.system_prompt and _PIX_COMMERCIAL_PATTERN.search(request.system_prompt):
+            reasons.append("system_prompt_pix_commercial_pattern")
+
         # Força o sanitizador sempre ativo para inspeção, independente de env debug.
         sanitized = sanitize_for_cloud(
             request.prompt,
             environ={"YBY_CLOUD_SANITIZE": "1"},
         )
+        redacted_types = dict(sanitized.by_type)
+        redaction_count = sanitized.redactions
         if sanitized.redactions > 0:
             types_str = ",".join(sorted(sanitized.by_type.keys()))
             reasons.append(f"sensitive_content_detected:{types_str}")
+
+        if request.system_prompt:
+            sys_sanitized = sanitize_for_cloud(
+                request.system_prompt,
+                environ={"YBY_CLOUD_SANITIZE": "1"},
+            )
+            if sys_sanitized.redactions > 0:
+                redaction_count += sys_sanitized.redactions
+                for k, v in sys_sanitized.by_type.items():
+                    redacted_types[k] = redacted_types.get(k, 0) + v
+                sys_types_str = ",".join(sorted(sys_sanitized.by_type.keys()))
+                reasons.append(f"system_prompt_sensitive_content:{sys_types_str}")
 
         if self._extra_guard is not None:
             allowed_by_extra, extra_reason = self._extra_guard(request)
@@ -87,8 +104,8 @@ class PrivacyGate:
                 effective_sensitivity="private",
                 blocked_reasons=tuple(reasons),
                 allowed_tiers=LOCAL_TIERS,
-                redaction_count=sanitized.redactions,
-                redacted_types=dict(sanitized.by_type),
+                redaction_count=redaction_count,
+                redacted_types=redacted_types,
                 sanitized_prompt=sanitized.text,
             )
 

@@ -53,7 +53,12 @@ def setup_logging(*, log_path: Path | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
     root = logging.getLogger()
-    root.handlers.clear()
+    for existing in list(root.handlers):
+        root.removeHandler(existing)
+        try:
+            existing.close()
+        except Exception:  # noqa: BLE001
+            pass
     root.setLevel(logging.INFO)
     for handler in (
         logging.StreamHandler(sys.stderr),
