@@ -13,6 +13,8 @@ Estado alinhado ao checklist em [docs/REPOS.md](docs/REPOS.md) e às decisões [
 | 3+ | Skills dry-run, agentes no caminho do `ask`, gateway exposto | Depois |
 | Futuro | Mobile / ESP32 | Depois |
 
+Toda camada nova ou expansão segue a [política de admissão de camadas](docs/LAYER_ADMISSION.md) (ficha aceita pelo dono antes do código).
+
 ## Escopo
 
 - **v1 agora:** `engine`, `safety`, `actions`, `memory`, `voice`, `platform`, `security/ast_guard`, testes — ver [src/README.md](src/README.md).
