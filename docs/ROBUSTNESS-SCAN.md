@@ -17,13 +17,13 @@ Detalhes de cada entrega: `PROGRESS.md` (seção Robustez PR-n / PR-A).
 
 ## Skips conhecidos (`pytest -rs`)
 
-Captura 2026-11-23 (pós #114–#119 + PR-3): **350 passed**, **14 skipped**.
+Captura 2026-11-26 (`main` @ `36de739` + auditoria de skips): **728 passed**, **1 skipped**.
 
-| Área | Qtd | Motivo |
-| :--- | ---: | :--- |
-| `tests/test_agents.py` | 8 | Agentes (Router/Planning/Execution/Validation/Learning) ainda não implementados |
-| `tests/test_gateway.py` | 3 | Gateway depende de Ollama/PostgreSQL/MQTT — fixtures pendentes |
-| `tests/test_rag.py` | 3 | RAG depende de embeddings reais — fixtures pendentes |
+| Área | Qtd | Motivo | Classe |
+| :--- | ---: | :--- | :--- |
+| `tests/vision/test_fusion_client.py::test_fusion_client_analyze_with_mocks` | 1 | Pillow ausente — extra opcional em `requirements-vision.txt`, não instalado no CI/`make setup`; visão fora do `ask` | Legítimo |
+
+Removidos na auditoria de 2026-11-26: 14 placeholders sem asserts em `tests/test_agents.py` (8), `tests/test_gateway.py` (3) e `tests/test_rag.py` (3). Os motivos declarados ("não implementado", "fixtures pendentes") estavam desatualizados: as classes existem e o comportamento tem testes reais (`tests/test_*_agent.py`, `tests/test_vault.py`, `tests/gateway/`, `tests/test_gateway_auth.py`, `tests/rag/`, `tests/test_deep_scan_regressions.py`).
 
 ## PR-A — checklist (core / engine / agent_loop)
 
