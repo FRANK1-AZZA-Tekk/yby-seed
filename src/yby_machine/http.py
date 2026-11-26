@@ -1,16 +1,21 @@
-"""HTTP fino: FastAPI POST /api/machine/generate → YBYSpec + bundle PWA."""
+"""HTTP fino: FastAPI /api/machine/{generate,apps,apps/{app_id},schema}."""
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from src.yby_machine.cache import DEFAULT_SPEC_CACHE
-from src.yby_machine.compiler import compile_pwa
+from src.yby_machine.cache import create_translate_cache_from_env
+from src.yby_machine.embedder import create_embedder_from_env
+from src.yby_machine.pipeline import MachinePipeline
+from src.yby_machine.ports import AppSummary
 from src.yby_machine.spec import YBYSpec, yby_spec_json_schema
-from src.yby_machine.translator import prompt_to_spec_result
+from src.yby_machine.store_pgvector import create_spec_store_from_env
+from src.yby_machine.translator import TranslateResult, prompt_to_spec_result
 
 
 class GenerateRequest(BaseModel):
@@ -18,15 +23,51 @@ class GenerateRequest(BaseModel):
 
 
 class GenerateResponse(BaseModel):
+    app_id: str | None = None
     spec: YBYSpec
     files: dict[str, str]
-    source: str = Field(description="ollama|fallback — origem da spec")
+    source: str = Field(description="reuse|cache|ollama|litellm|fallback — origem da spec")
+    similarity: float | None = None
+    created_at: str | None = None
 
 
-def create_app() -> FastAPI:
-    """App FastAPI do YBY Machine (montar ou rodar com uvicorn)."""
+class AppDetailResponse(BaseModel):
+    app_id: str
+    spec: YBYSpec
+    files: dict[str, str]
+    source: str
+    created_at: str
 
-    app = FastAPI(title="YBY Machine", version="0.1.0")
+
+async def _translate_via_module_hook(prompt: str) -> TranslateResult:
+    """Resolve `prompt_to_spec_result` dinamicamente para suportar monkeypatch em testes."""
+
+    return await prompt_to_spec_result(prompt, cache=None)
+
+
+def _build_default_pipeline() -> MachinePipeline:
+    return MachinePipeline(
+        embedder=create_embedder_from_env(),
+        store=create_spec_store_from_env(),
+        cache=create_translate_cache_from_env(),
+        translator=_translate_via_module_hook,
+    )
+
+
+def create_app(*, pipeline: MachinePipeline | None = None) -> FastAPI:
+    """App FastAPI do YBY Machine com lifespan leve só para fechar adapters opcionais."""
+
+    active_pipeline = pipeline or _build_default_pipeline()
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            await active_pipeline.close()
+
+    app = FastAPI(title="YBY Machine", version="0.2.0", lifespan=lifespan)
+    app.state.pipeline = active_pipeline
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -40,9 +81,33 @@ def create_app() -> FastAPI:
 
     @app.post("/api/machine/generate", response_model=GenerateResponse)
     async def generate(body: GenerateRequest) -> GenerateResponse:
-        result = await prompt_to_spec_result(body.prompt, cache=DEFAULT_SPEC_CACHE)
-        files = compile_pwa(result.spec)
-        return GenerateResponse(spec=result.spec, files=files, source=result.source)
+        result = await active_pipeline.generate(body.prompt)
+        return GenerateResponse(
+            app_id=result.app_id,
+            spec=result.spec,
+            files=result.files,
+            source=result.source,
+            similarity=result.similarity,
+            created_at=result.created_at,
+        )
+
+    @app.get("/api/machine/apps", response_model=list[AppSummary])
+    async def list_apps(limit: int = Query(default=50, ge=1, le=200)) -> list[AppSummary]:
+        return await active_pipeline.list_apps(limit=limit)
+
+    @app.get("/api/machine/apps/{app_id}", response_model=AppDetailResponse)
+    async def get_app(app_id: str) -> AppDetailResponse:
+        found = await active_pipeline.get_app(app_id)
+        if found is None:
+            raise HTTPException(status_code=404, detail="app não encontrado")
+        record, files = found
+        return AppDetailResponse(
+            app_id=record.app_id,
+            spec=record.spec,
+            files=files,
+            source=record.source,
+            created_at=record.created_at,
+        )
 
     return app
 
@@ -56,12 +121,19 @@ def generate_bundle_sync(prompt: str) -> dict[str, Any]:
     import asyncio
 
     async def _run() -> GenerateResponse:
-        result = await prompt_to_spec_result(prompt, cache=DEFAULT_SPEC_CACHE)
-        return GenerateResponse(
-            spec=result.spec,
-            files=compile_pwa(result.spec),
-            source=result.source,
-        )
+        pipeline = _build_default_pipeline()
+        try:
+            result = await pipeline.generate(prompt)
+            return GenerateResponse(
+                app_id=result.app_id,
+                spec=result.spec,
+                files=result.files,
+                source=result.source,
+                similarity=result.similarity,
+                created_at=result.created_at,
+            )
+        finally:
+            await pipeline.close()
 
     result = asyncio.run(_run())
     return result.model_dump(mode="json")

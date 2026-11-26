@@ -1,9 +1,11 @@
-"""Prompt → YBYSpec via Ollama local (format json). Sem nuvem automática (D12)."""
+"""Prompt -> YBYSpec via Ollama local (format json). LiteLLM só com env explícita (D12)."""
 
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
+import os
 import re
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -14,11 +16,13 @@ from src.engine.config import DEFAULT_LOCAL_MODEL, DEFAULT_OLLAMA_BASE_URL, Engi
 from src.engine.providers import OllamaProvider, ProviderError
 from src.yby_machine.cache import SpecFingerprintCache
 from src.yby_machine.fallback import fallback_spec_from_prompt
+from src.yby_machine.ports import TranslateCachePort
 from src.yby_machine.spec import YBYSpec, yby_spec_schema_for_prompt
 
 _JSON_FENCE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 
-SourceKind = Literal["ollama", "fallback"]
+SourceKind = Literal["ollama", "litellm", "fallback"]
+CacheLike = SpecFingerprintCache | TranslateCachePort
 
 
 def _system_prompt() -> str:
@@ -41,15 +45,65 @@ class TranslateResult:
     source: SourceKind
 
 
+async def _cache_get(cache: CacheLike, prompt: str) -> TranslateResult | None:
+    res = cache.get(prompt)
+    if inspect.isawaitable(res):
+        return await res
+    return res
+
+
+async def _cache_put(cache: CacheLike, prompt: str, result: TranslateResult) -> None:
+    res = cache.put(prompt, result)
+    if inspect.isawaitable(res):
+        await res
+
+
+def _litellm_complete_sync(
+    prompt: str,
+    *,
+    model: str,
+    system: str,
+    timeout: float,
+) -> str:
+    import litellm
+
+    resp = litellm.completion(
+        model=model,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ],
+        response_format={"type": "json_object"},
+        timeout=timeout,
+    )
+    choices = getattr(resp, "choices", None)
+    if not choices and isinstance(resp, dict):
+        choices = resp.get("choices")
+    if not choices:
+        raise ValueError("resposta vazia do LiteLLM")
+    first = choices[0]
+    message = getattr(first, "message", None) if not isinstance(first, dict) else first.get("message")
+    content = (
+        getattr(message, "content", None)
+        if not isinstance(message, dict)
+        else message.get("content")
+    )
+    if not content:
+        raise ValueError("conteúdo vazio do LiteLLM")
+    return str(content)
+
+
 async def prompt_to_spec(
     prompt: str,
     *,
     provider: OllamaProvider | None = None,
     model: str | None = None,
     use_fallback_on_error: bool = True,
-    cache: SpecFingerprintCache | None = None,
+    cache: CacheLike | None = None,
+    timeout: float | None = None,
+    backend: str | None = None,
 ) -> YBYSpec:
-    """Traduz prompt em YBYSpec. Falha → fallback seguro (sem nuvem)."""
+    """Traduz prompt em YBYSpec. Falha -> fallback seguro (sem nuvem automática)."""
 
     result = await prompt_to_spec_result(
         prompt,
@@ -57,6 +111,8 @@ async def prompt_to_spec(
         model=model,
         use_fallback_on_error=use_fallback_on_error,
         cache=cache,
+        timeout=timeout,
+        backend=backend,
     )
     return result.spec
 
@@ -67,7 +123,9 @@ async def prompt_to_spec_result(
     provider: OllamaProvider | None = None,
     model: str | None = None,
     use_fallback_on_error: bool = True,
-    cache: SpecFingerprintCache | None = None,
+    cache: CacheLike | None = None,
+    timeout: float | None = None,
+    backend: str | None = None,
 ) -> TranslateResult:
     """Igual a `prompt_to_spec`, com indicação explícita da origem."""
 
@@ -78,37 +136,82 @@ async def prompt_to_spec_result(
         raise ValueError("prompt vazio")
 
     if cache is not None:
-        hit = cache.get(text)
+        hit = await _cache_get(cache, text)
         if hit is not None:
             return hit
 
+    selected_backend = (
+        (backend if backend is not None else os.environ.get("YBY_MACHINE_TRANSLATOR", "ollama"))
+        .strip()
+        .casefold()
+    )
+
+    # Ramo LiteLLM SOMENTE quando explicitamente pedido via env/parâmetro e sem provider Ollama injetado
+    if selected_backend == "litellm" and provider is None:
+        litellm_model = (
+            model
+            or os.environ.get("YBY_MACHINE_LITELLM_MODEL", "").strip()
+            or f"ollama/{DEFAULT_LOCAL_MODEL}"
+        )
+        eff_timeout = float(timeout if timeout is not None else 60.0)
+        try:
+            raw = await asyncio.wait_for(
+                asyncio.to_thread(
+                    _litellm_complete_sync,
+                    text,
+                    model=litellm_model,
+                    system=_system_prompt(),
+                    timeout=eff_timeout,
+                ),
+                timeout=eff_timeout,
+            )
+            result = TranslateResult(parse_spec_json(raw), "litellm")
+        except Exception:  # noqa: BLE001
+            if use_fallback_on_error:
+                result = TranslateResult(fallback_spec_from_prompt(text), "fallback")
+            else:
+                raise
+        if cache is not None:
+            await _cache_put(cache, text, result)
+        return result
+
     owns_provider = provider is None
+    eff_timeout = float(timeout) if timeout is not None else 60.0
     if provider is None:
         try:
             cfg = EngineConfig.from_env()
             base = cfg.ollama_base_url
             model = model or cfg.local_model
-            timeout = cfg.ollama_timeout
-        except Exception:
+            if timeout is None:
+                eff_timeout = cfg.ollama_timeout
+        except Exception:  # noqa: BLE001
             base = DEFAULT_OLLAMA_BASE_URL
             model = model or DEFAULT_LOCAL_MODEL
-            timeout = 60.0
-        provider = OllamaProvider(base, timeout=timeout)
+        provider = OllamaProvider(base, timeout=eff_timeout)
 
     model = model or DEFAULT_LOCAL_MODEL
     result: TranslateResult | None = None
 
     try:
         try:
-            raw = await asyncio.to_thread(
+            coro = asyncio.to_thread(
                 provider.complete,
                 text,
                 model=model,
                 system=_system_prompt(),
                 ollama_format="json",
             )
+            raw = await asyncio.wait_for(coro, timeout=eff_timeout)
             result = TranslateResult(parse_spec_json(raw), "ollama")
-        except (ProviderError, ValidationError, ValueError, json.JSONDecodeError, OSError):
+        except (
+            ProviderError,
+            ValidationError,
+            ValueError,
+            json.JSONDecodeError,
+            OSError,
+            TimeoutError,
+            asyncio.TimeoutError,
+        ):
             if use_fallback_on_error:
                 result = TranslateResult(fallback_spec_from_prompt(text), "fallback")
             else:
@@ -119,7 +222,7 @@ async def prompt_to_spec_result(
 
     assert result is not None
     if cache is not None:
-        cache.put(text, result)
+        await _cache_put(cache, text, result)
     return result
 
 
@@ -153,7 +256,6 @@ def _normalize_payload(payload: dict[str, Any]) -> dict[str, Any]:
     out = dict(payload)
     if "name" not in out and "title" in out:
         raw_name = str(out["title"]).casefold().replace(" ", "_")
-        # Mantém só identificador válido para passar no Field validator
         cleaned = re.sub(r"[^a-z0-9_]", "", raw_name.replace("-", "_"))
         out["name"] = (cleaned or "app")[:80]
     if "title" not in out and "name" in out:
