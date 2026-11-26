@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 from dataclasses import dataclass
@@ -50,7 +51,7 @@ class CloudBudget:
         self.warn_token_limit = warn_token_limit
         self.require_confirm = require_confirm
         self.allow_no_tty = allow_no_tty
-        self._usage_stamp: tuple[int, int] | None = None
+        self._usage_stamp: tuple[int, int, int, int, int] | None = None
         self._usage_day = 0
         self._usage_month = 0
 
@@ -143,8 +144,9 @@ class CloudBudget:
         if not self.log_path.is_file():
             self._usage_stamp = None
             return 0, 0
+        now = time.gmtime()
         stat = self.log_path.stat()
-        stamp = (stat.st_mtime_ns, stat.st_size)
+        stamp = (stat.st_mtime_ns, stat.st_size, now.tm_year, now.tm_mon, now.tm_mday)
         if stamp == self._usage_stamp:
             return self._usage_day, self._usage_month
         day_total, month_total = self._scan_usage()
@@ -167,18 +169,23 @@ class CloudBudget:
                     row = json.loads(line)
                 except json.JSONDecodeError:
                     continue
+                if not isinstance(row, dict):
+                    continue
                 if row.get("result") != EVENT_COMPLETED:
                     continue
                 ts = row.get("timestamp")
-                if not isinstance(ts, (int, float)):
+                if isinstance(ts, bool) or not isinstance(ts, (int, float)) or not math.isfinite(ts):
                     continue
-                when = time.gmtime(ts)
+                try:
+                    when = time.gmtime(ts)
+                except (OSError, OverflowError, ValueError):
+                    continue
                 if when.tm_year != year or when.tm_mon != month:
                     continue
                 tokens = 0
                 for field in ("input_tokens_estimate", "output_tokens_estimate"):
                     value = row.get(field, 0)
-                    if isinstance(value, int):
+                    if not isinstance(value, bool) and isinstance(value, int) and value > 0:
                         tokens += value
                 month_total += tokens
                 if when.tm_mday == day:

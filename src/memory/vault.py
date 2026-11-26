@@ -29,8 +29,8 @@ class VaultError(ValueError):
 class Vault:
     """Lê e grava Markdown. O Syncthing sincroniza a pasta; este módulo não."""
 
-    def __init__(self, path: Path):
-        self.root = path
+    def __init__(self, path: Path | str):
+        self.root = Path(path)
         self.root.mkdir(parents=True, exist_ok=True)
         self.index_path = self.root / ".yby" / "index.json"
 
@@ -59,6 +59,8 @@ class Vault:
         return sorted(notes)
 
     def search(self, query: str, k: int = 3) -> list[Hit]:
+        if k <= 0:
+            return []
         index = self._sync_index()
         query_vector = _vector(query)
         scored = [

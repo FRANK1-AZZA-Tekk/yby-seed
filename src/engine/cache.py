@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -102,7 +104,12 @@ class ResponseCache:
                 continue
             text = item.get("text")
             expires = item.get("expires_at")
-            if not isinstance(text, str) or not isinstance(expires, (int, float)):
+            if (
+                not isinstance(text, str)
+                or isinstance(expires, bool)
+                or not isinstance(expires, (int, float))
+                or not math.isfinite(float(expires))
+            ):
                 continue
             if float(expires) <= now:
                 continue
@@ -121,12 +128,21 @@ class ResponseCache:
                 for key, entry in self._entries.items()
             }
         }
+        tmp_path: Path | None = None
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            temporary = self.path.with_suffix(self.path.suffix + ".tmp")
-            temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-            os.chmod(temporary, 0o600)
-            os.replace(temporary, self.path)
+            fd, tmp_name = tempfile.mkstemp(
+                dir=str(self.path.parent),
+                prefix=f".{self.path.name}.",
+                suffix=".tmp",
+            )
+            tmp_path = Path(tmp_name)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(json.dumps(payload, ensure_ascii=False))
+            os.chmod(tmp_path, 0o600)
+            os.replace(tmp_path, self.path)
             os.chmod(self.path, 0o600)
         except OSError:
+            if tmp_path is not None:
+                tmp_path.unlink(missing_ok=True)
             return

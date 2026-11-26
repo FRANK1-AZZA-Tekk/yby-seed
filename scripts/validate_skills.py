@@ -91,7 +91,10 @@ class SkillValidator:
             
             yaml_str = parts[1].strip()
             metadata = yaml.safe_load(yaml_str)
-            
+            if not isinstance(metadata, dict):
+                self.errors.append(f"{skill_name}: YAML frontmatter deve ser um objeto/mapa")
+                return
+
             # Valida campos obrigatórios
             for field in self.REQUIRED_FIELDS:
                 if field not in metadata:
@@ -145,7 +148,7 @@ class SkillValidator:
                 else:
                     # Valida cada entrada do changelog
                     for entry in changelog:
-                        if "version" not in entry or "changes" not in entry:
+                        if not isinstance(entry, dict) or "version" not in entry or "changes" not in entry:
                             self.warnings.append(
                                 f"{skill_name}: Entrada de changelog sem version ou changes"
                             )
@@ -224,12 +227,14 @@ if __name__ == "__main__":
     # Se argumento passado, valida skill específica
     if len(sys.argv) > 1:
         skill_path = Path(sys.argv[1])
-        
-        if skill_path.exists():
-            validator._validate_skill(skill_path)
-            validator._print_report()
+        target = skill_path / "SKILL.md" if skill_path.is_dir() else skill_path
+
+        if target.is_file():
+            validator._validate_skill(target)
+            success = validator._print_report()
+            sys.exit(0 if success else 1)
         else:
-            print(f"❌ Skill não encontrada: {skill_path}")
+            print(f"❌ Skill não encontrada: {target}")
             sys.exit(1)
     else:
         # Valida todas

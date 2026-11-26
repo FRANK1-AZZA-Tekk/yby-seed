@@ -68,7 +68,10 @@ class PendingEpisodeQueue:
         ).fetchall()
         out: list[PendingEpisode] = []
         for row in rows:
-            payload = json.loads(row[2])
+            try:
+                payload = json.loads(row[2])
+            except (json.JSONDecodeError, TypeError):
+                continue
             if not isinstance(payload, dict):
                 continue
             out.append(

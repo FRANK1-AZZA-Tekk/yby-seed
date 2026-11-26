@@ -162,6 +162,7 @@ class HybridEngine:
 
     def _cloud_first(self, prompt: str, decision: RouteDecision) -> EngineReply:
         why = "; ".join(decision.reasons)
+        self._budget_warn = None
         cached = self._lookup_cloud(prompt)
         if cached is not None:
             return EngineReply(

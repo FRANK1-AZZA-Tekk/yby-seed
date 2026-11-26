@@ -97,6 +97,9 @@ def run_cmd(timeout: float, comando: tuple[str, ...]) -> None:
     if not texto:
         click.echo('Informe um comando. Exemplo: yby run "ls"', err=True)
         raise SystemExit(1)
+    if timeout <= 0:
+        click.echo("--timeout deve ser maior que zero.", err=True)
+        raise SystemExit(1)
 
     policy = load_policy(default_policy_path())
     project_root = default_policy_path().parents[1]
@@ -335,13 +338,25 @@ def agent_cmd(
     ollama: OllamaProvider | None = None
     try:
         if script:
-            raw = json.loads(script.read_text(encoding="utf-8"))
+            try:
+                raw = json.loads(script.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                click.echo(f"Script JSON inválido: {exc}", err=True)
+                raise SystemExit(1) from exc
             if not isinstance(raw, list):
                 click.echo("O script deve ser um JSON array de passos.", err=True)
                 raise SystemExit(1)
-            planner: ScriptedPlanner | OllamaJsonPlanner = ScriptedPlanner(raw)
+            try:
+                planner: ScriptedPlanner | OllamaJsonPlanner = ScriptedPlanner(raw)
+            except (ValueError, Exception) as exc:
+                click.echo(f"Script inválido: {exc}", err=True)
+                raise SystemExit(1) from exc
         else:
-            cfg = EngineConfig.from_env()
+            try:
+                cfg = EngineConfig.from_env()
+            except EngineConfigError as exc:
+                click.echo(str(exc), err=True)
+                raise SystemExit(1) from exc
             ollama = OllamaProvider(cfg.ollama_base_url, timeout=cfg.ollama_timeout)
             planner = OllamaJsonPlanner(ollama, model=cfg.local_model)
 

@@ -91,12 +91,20 @@ def generate_report(
 
     agg = aggregate_day(day, events)
 
+    owns_completer = False
     if completer is _USE_DEFAULT_COMPLETER:
         resolved: TextCompleter | None = build_local_completer()
+        owns_completer = resolved is not None
     else:
         resolved = completer
 
-    analysis = analyze_day(agg, completer=resolved, model=model or local_model_name())
+    try:
+        analysis = analyze_day(agg, completer=resolved, model=model or local_model_name())
+    finally:
+        if owns_completer and resolved is not None:
+            closer = getattr(resolved, "close", None)
+            if callable(closer):
+                closer()
     md = render_markdown(agg, analysis)
     path = write_report(md, day, reports_dir=out_dir)
     finished = datetime.now(timezone.utc).replace(microsecond=0).isoformat()

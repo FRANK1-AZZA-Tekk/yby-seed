@@ -14,6 +14,7 @@ import os
 import resource
 import signal
 import subprocess
+import sys
 import textwrap
 import tempfile
 from pathlib import Path
@@ -89,12 +90,15 @@ class SandboxExecutor:
                 "RLIMIT_NOFILE": 64  # Máx 64 arquivos abertos
             }
             
-            # 4. Prepara comando
-            cmd = ["python3", str(script_path)]
-            
-            env = os.environ.copy()
-            env["PYTHONPATH"] = tmpdir
-            env["PYTHONDONTWRITEBYTECODE"] = "1"
+            # 4. Prepara comando e ambiente mínimo (sem segredos do host)
+            cmd = [sys.executable, str(script_path)]
+
+            env = {
+                "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+                "PYTHONPATH": tmpdir,
+                "PYTHONDONTWRITEBYTECODE": "1",
+                "LANG": os.environ.get("LANG", "C.UTF-8"),
+            }
             
             # 5. Executa com isolamento
             try:
@@ -127,6 +131,7 @@ class SandboxExecutor:
             
             except subprocess.TimeoutExpired:
                 process.kill()
+                process.communicate()
                 logger.error("⏰ Timeout na execução")
                 return {
                     "success": False,
@@ -297,7 +302,11 @@ class SandboxExecutor:
         input_data: Optional[str] = None
     ) -> Dict[str, Any]:
         """Executa código com retry automático"""
-        
+
+        if max_retries < 1:
+            raise ValueError("max_retries deve ser >= 1")
+
+        result: Dict[str, Any] = {}
         for attempt in range(max_retries):
             result = self.execute(code, input_data)
             

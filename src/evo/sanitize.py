@@ -10,6 +10,9 @@ REDACTED = "[REDACTED]"
 
 _SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
+        r"(?i)\bauthorization\b\s*[:=]\s*(?:Bearer|Basic|Token)\s+['\"]?([^\s'\"]+)"
+    ),
+    re.compile(
         r"(?i)\b(api[_-]?key|access[_-]?token|auth[_-]?token|bearer|secret|"
         r"password|passwd|token|authorization)\b\s*[:=]\s*['\"]?([^\s'\"]+)"
     ),

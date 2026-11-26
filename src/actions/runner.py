@@ -53,6 +53,9 @@ def run_command(
 ) -> RunResult:
     """Decide com a safety, confirma se preciso, e só então executa."""
 
+    if timeout <= 0:
+        raise ValueError("timeout deve ser maior que zero")
+
     root = Path(project_root) if project_root is not None else default_policy_path().parents[1]
     active_policy = policy if policy is not None else load_policy(default_policy_path())
     decision = decide(command, policy=active_policy, project_root=root)
@@ -84,7 +87,26 @@ def run_command(
             stderr="",
         )
 
-    argv = _argv(command)
+    try:
+        argv = _argv(command)
+    except ValueError as exc:
+        return RunResult(
+            decision=decision,
+            approved=True,
+            executed=False,
+            exit_code=1,
+            stdout="",
+            stderr=f"comando inválido: {exc}",
+        )
+    if not argv:
+        return RunResult(
+            decision=decision,
+            approved=True,
+            executed=False,
+            exit_code=1,
+            stdout="",
+            stderr="comando vazio",
+        )
     workdir = Path(cwd) if cwd is not None else root
     execute = runner or _default_runner
 

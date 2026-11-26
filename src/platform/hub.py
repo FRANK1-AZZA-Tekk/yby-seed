@@ -115,13 +115,25 @@ def run_loop(
     return 0
 
 
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning("Valor inválido em %s=%r; usando default %.1f", name, raw, default)
+        return default
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     load_dotenv(override=False)
     parser = argparse.ArgumentParser(description="YBY hub keepalive")
     parser.add_argument(
         "--interval",
         type=float,
-        default=float(os.environ.get("YBY_HUB_INTERVAL", DEFAULT_INTERVAL_SECONDS)),
+        default=_env_float("YBY_HUB_INTERVAL", DEFAULT_INTERVAL_SECONDS),
         help="Segundos entre checagens",
     )
     parser.add_argument(
@@ -138,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("YBY_OLLAMA_BASE_URL precisa ser loopback: %s", base_url)
         return 2
 
-    timeout = float(os.environ.get("YBY_HUB_TIMEOUT", DEFAULT_TIMEOUT_SECONDS))
+    timeout = _env_float("YBY_HUB_TIMEOUT", DEFAULT_TIMEOUT_SECONDS)
     if args.once:
         status = check_ollama(base_url, timeout=max(timeout, 0.1))
         if status == "ok":

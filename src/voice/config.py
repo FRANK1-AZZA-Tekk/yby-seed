@@ -38,12 +38,10 @@ class VoiceConfig:
         else:
             source = environ
 
-        sample_raw = source.get("YBY_VOICE_SAMPLE_RATE", "").strip()
-        sample_rate = int(sample_raw) if sample_raw else DEFAULT_SAMPLE_RATE
+        sample_rate = _parse_int(source, "YBY_VOICE_SAMPLE_RATE", DEFAULT_SAMPLE_RATE)
         if sample_rate < 8_000:
             raise ValueError("YBY_VOICE_SAMPLE_RATE deve ser >= 8000.")
-        max_raw = source.get("YBY_VOICE_MAX_SECONDS", "").strip()
-        max_seconds = int(max_raw) if max_raw else 120
+        max_seconds = _parse_int(source, "YBY_VOICE_MAX_SECONDS", 120)
         if max_seconds < 1:
             raise ValueError("YBY_VOICE_MAX_SECONDS deve ser >= 1.")
 
@@ -65,3 +63,13 @@ def voice_config_from_env() -> VoiceConfig:
 
 def _text(source: Mapping[str, str], name: str) -> str:
     return source.get(name, "").strip()
+
+
+def _parse_int(source: Mapping[str, str], name: str, default: int) -> int:
+    raw = source.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} deve ser um inteiro válido; recebi {raw!r}.") from exc
