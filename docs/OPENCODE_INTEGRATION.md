@@ -111,7 +111,7 @@ Validação extra, manual e não versionada: em 2026-11-26 o `opencode.json` foi
 
 | Camada | Conteúdo | Estado |
 |--------|----------|--------|
-| O0 | Esta spec + `opencode.json` + testes offline | concluída nesta rodada |
+| O0 | Esta spec + `opencode.json` + testes offline | concluída (#152) |
 | O1 | Humano confirma `opencode --version` ≥ 2.2.3 e faz uma sessão só leitura, sem provedor de nuvem; confere os `deny` na prática | futuro |
 | O2 | Uma tarefa de docs/testes via OpenCode até `make check` verde, com push/PR fora dele | futuro |
 | O3 | Avaliar `policies` `provider.use` alinhadas a D12 | futuro |

@@ -7,13 +7,13 @@ Mapeamento e correções incrementais. Um PR por camada; métricas finais em `do
 | **PR-1** | `src/core`, `src/engine`, `src/agent_loop` | Concluído (#113) |
 | **PR-A** | Revisão da camada 1 (pós-merge #113) | Concluído (#116) |
 | **PR-2** | `src/memory`, `src/rag` | Concluído (#114) |
-| **PR-3** | `src/iot` | Em review |
+| **PR-3** | `src/iot` | Concluído (#115) |
 | PR-4 | `src/voice`, `src/vision` | Pendente |
 | PR-5 | `src/safety`, `src/security` | Pendente |
 | PR-6 | `src/gateway`, `src/monitoring` | Pendente |
 | PR-7 | Transversal + `docs/PERFORMANCE.md` | Pendente |
 
-Detalhes de cada entrega: `PROGRESS.md` (seção Robustez PR-n / PR-A).
+Detalhes de cada entrega: [HISTORY.md](HISTORY.md) (seção Robustez PR-n / PR-A).
 
 ## Skips conhecidos (`pytest -rs`)
 
