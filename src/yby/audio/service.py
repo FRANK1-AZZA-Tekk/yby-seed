@@ -165,7 +165,11 @@ class AsyncVoicePipeline:
 
                 if speak_reply and route_reply.text.strip():
                     await self.device.set_profile("a2dp")
-                    await self._set_state("speaking", profile="a2dp", detail="sintetizando resposta")
+                    await self._set_state(
+                        "speaking",
+                        profile="a2dp",
+                        detail="sintetizando resposta",
+                    )
                     try:
                         wav_out = await self.tts.synthesize(
                             route_reply.text,

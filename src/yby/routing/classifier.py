@@ -48,7 +48,9 @@ def classify_deterministic(
 
     if request.preferred_tier is not None:
         if request.preferred_tier == "yby-cloud-frontier" and not privacy.allow_cloud:
-            reasons.append("preferred_tier=yby-cloud-frontier bloqueado pelo PrivacyGate -> yby-code")
+            reasons.append(
+                "preferred_tier=yby-cloud-frontier bloqueado pelo PrivacyGate -> yby-code"
+            )
             return ClassificationResult(tier="yby-code", reasons=tuple(reasons))
         reasons.append(f"preferred_tier={request.preferred_tier}")
         return ClassificationResult(tier=request.preferred_tier, reasons=tuple(reasons))
