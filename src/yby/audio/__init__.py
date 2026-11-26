@@ -36,6 +36,7 @@ from src.yby.audio.schemas import (
     VoiceTurnResult,
 )
 from src.yby.audio.service import AsyncVoicePipeline, AudioPipelineConfig
+from src.yby.audio.twatch_bridge import TWatchBridge, map_audio_state_feedback
 
 __all__ = [
     "TOPIC_AUDIO_STATE",
@@ -59,10 +60,12 @@ __all__ = [
     "STTBackend",
     "SubprocessCommandRunner",
     "TTSBackend",
+    "TWatchBridge",
     "TWatchCommand",
     "TWatchTelemetry",
     "TWatchVoiceEnvelope",
     "VoiceTurnResult",
     "WhisperCppBackend",
     "has_voice_activity",
+    "map_audio_state_feedback",
 ]
