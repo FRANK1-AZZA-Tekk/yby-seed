@@ -57,6 +57,9 @@ class PahoMqttPublisher:
         client_id: str = "yby-audio-bus",
         username: str | None = None,
         password: str | None = None,
+        use_tls: bool = False,
+        ca_certs: str | None = None,
+        tls_insecure: bool = False,
         client: Any = None,
     ) -> None:
         self.host = host
@@ -64,6 +67,9 @@ class PahoMqttPublisher:
         self.client_id = client_id
         self.username = username
         self.password = password
+        self.use_tls = use_tls or (port == 8883)
+        self.ca_certs = ca_certs
+        self.tls_insecure = tls_insecure
         self._client = client
         self._connected = False
 
@@ -80,6 +86,13 @@ class PahoMqttPublisher:
                 self._client = mqtt.Client(client_id=self.client_id)
             if self.username:
                 self._client.username_pw_set(self.username, self.password)
+            if self.use_tls:
+                tls_kwargs: dict[str, Any] = {}
+                if self.ca_certs:
+                    tls_kwargs["ca_certs"] = self.ca_certs
+                self._client.tls_set(**tls_kwargs)
+                if self.tls_insecure:
+                    self._client.tls_insecure_set(True)
         if not self._connected:
             self._client.connect(self.host, self.port, keepalive=60)
             self._client.loop_start()
