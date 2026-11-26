@@ -17,6 +17,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from src.gateway.auth import check_token
 from src.vision.fusion.client import FusionClient
 from src.vision.fusion.config import FusionConfig
 
@@ -77,17 +78,38 @@ def _write_temp_image(data: bytes, suffix: str = ".png") -> Path:
     return path
 
 
+def _resolve_fusion_token(explicit_token: str | None) -> str:
+    if explicit_token is not None:
+        return explicit_token.strip()
+    return (os.environ.get("FUSION_API_TOKEN") or os.environ.get("GATEWAY_TOKEN") or "").strip()
+
+
+def _require_fusion_auth(request: Request, explicit_token: str | None) -> None:
+    expected = _resolve_fusion_token(explicit_token)
+    ok, status, detail = check_token(request.headers, expected)
+    if not ok:
+        if status == 503:
+            detail = "FUSION_API_TOKEN ou GATEWAY_TOKEN não configurado"
+        raise HTTPException(status_code=status, detail=detail)
+
+
 def create_app(
     client: FusionClient | None = None,
     *,
     inference_timeout_s: float = DEFAULT_INFERENCE_TIMEOUT_S,
+    api_token: str | None = None,
 ) -> FastAPI:
     """Factory FastAPI para testes e produção."""
     fusion_client = client or FusionClient(FusionConfig.from_env(), eager_load=False)
     app = FastAPI(title="YBY FUSION Vision", version="0.1.0")
 
+    @app.get("/health")
+    async def health() -> dict[str, str]:
+        return {"status": "ok"}
+
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request) -> JSONResponse:
+        _require_fusion_auth(request, api_token)
         temp_path: Path | None = None
         try:
             content_type = request.headers.get("content-type", "")
@@ -116,7 +138,7 @@ def create_app(
                 try:
                     payload = ChatCompletionRequest.model_validate(await request.json())
                 except Exception as exc:  # noqa: BLE001
-                    raise HTTPException(status_code=400, detail=str(exc)) from exc
+                    raise HTTPException(status_code=400, detail="Payload JSON inválido.") from exc
                 user_prompt, image_b64 = _extract_prompt_and_image_b64(payload.messages)
                 if not image_b64:
                     raise HTTPException(
@@ -127,6 +149,8 @@ def create_app(
                     image_bytes = base64.b64decode(image_b64, validate=True)
                 except (binascii.Error, ValueError) as exc:
                     raise HTTPException(status_code=400, detail="image_url base64 inválido.") from exc
+                if not image_bytes:
+                    raise HTTPException(status_code=400, detail="Imagem vazia.")
                 temp_path = _write_temp_image(image_bytes)
 
             loop = asyncio.get_running_loop()
@@ -139,7 +163,7 @@ def create_app(
             except asyncio.TimeoutError as exc:
                 raise HTTPException(status_code=504, detail="Tempo esgotado na inferência.") from exc
             except FileNotFoundError as exc:
-                raise HTTPException(status_code=404, detail=str(exc)) from exc
+                raise HTTPException(status_code=404, detail="Imagem não encontrada.") from exc
             except Exception as exc:  # noqa: BLE001
                 logger.exception("Falha na inferência FUSION")
                 raise HTTPException(status_code=500, detail="Erro na inferência.") from exc
@@ -176,6 +200,8 @@ def main() -> None:
 
     host = os.environ.get("FUSION_SERVER_HOST", "127.0.0.1")
     port = int(os.environ.get("FUSION_SERVER_PORT", "8100"))
+    if host not in {"127.0.0.1", "localhost", "::1"} and not _resolve_fusion_token(None):
+        raise RuntimeError("FUSION_API_TOKEN ou GATEWAY_TOKEN obrigatório para bind fora de loopback.")
     uvicorn.run("src.vision.fusion.server:app", host=host, port=port, reload=False)
 
 
