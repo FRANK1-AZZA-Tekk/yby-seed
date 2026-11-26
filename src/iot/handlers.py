@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -100,7 +101,10 @@ def parse_message(topic: str, payload: bytes | str) -> SensorEvent:
     event_type, sensor_id, room = _event_type_from_topic(topic)
 
     if isinstance(payload, bytes):
-        text = payload.decode("utf-8")
+        try:
+            text = payload.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise PayloadValidationError("payload não é UTF-8 válido") from exc
     else:
         text = payload
 
@@ -111,7 +115,14 @@ def parse_message(topic: str, payload: bytes | str) -> SensorEvent:
 
     value = validate_payload(data)
     received = data.get("ts")
-    received_at = float(received) if isinstance(received, (int, float)) else time.time()
+    if (
+        not isinstance(received, bool)
+        and isinstance(received, (int, float))
+        and math.isfinite(float(received))
+    ):
+        received_at = float(received)
+    else:
+        received_at = time.time()
 
     return SensorEvent(
         sensor_id=sensor_id,

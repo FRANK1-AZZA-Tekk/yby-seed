@@ -151,8 +151,12 @@ class MetricsDashboard:
         SELECT elapsed_time_seconds
         FROM task_executions
         WHERE timestamp > ?
-        ORDER BY elapsed_time_seconds DESC
-        LIMIT 1 OFFSET (SELECT COUNT(*) * 95 / 100 FROM task_executions WHERE timestamp > ?)
+        ORDER BY elapsed_time_seconds ASC
+        LIMIT 1 OFFSET (
+            SELECT MAX(COUNT(*) - 1, 0) * 95 / 100
+            FROM task_executions
+            WHERE timestamp > ?
+        )
         """, (cutoff, cutoff))
         
         result = cursor.fetchone()

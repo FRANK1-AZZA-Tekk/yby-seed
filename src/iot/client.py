@@ -28,7 +28,13 @@ def _create_paho_client(config: IoTConfig, client_id: str) -> Any:
     except ImportError as exc:
         raise ImportError("Instale requirements-iot.txt (paho-mqtt).") from exc
 
-    client = mqtt.Client(client_id=client_id)
+    if hasattr(mqtt, "CallbackAPIVersion"):
+        client = mqtt.Client(
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION1,
+            client_id=client_id,
+        )
+    else:
+        client = mqtt.Client(client_id=client_id)
     if config.username:
         client.username_pw_set(config.username, config.password or "")
     # Reconexão manual com backoff; desativa backoff automático do paho.

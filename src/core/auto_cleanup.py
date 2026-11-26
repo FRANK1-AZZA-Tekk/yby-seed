@@ -19,6 +19,7 @@ import subprocess
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
+from urllib.parse import unquote, urlparse, urlunparse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -78,31 +79,32 @@ class AutoCleanup:
             raise RuntimeError("defina YBY_DATABASE_URL (sem senha no código)")
 
         try:
-            # Extrair credenciais da URL
-            # postgresql://user:pass@host:port/db
-            parts = self.db_url.replace("postgresql://", "").split("@")
-            user_pass = parts[0].split(":")
-            host_db = parts[1].split("/")
-            
-            user = user_pass[0]
-            password = user_pass[1]
-            host_port = host_db[0]
-            db = host_db[1]
-            
-            # Executar VACUUM
+            parsed = urlparse(self.db_url)
+            if parsed.scheme not in {"postgresql", "postgres"} or not parsed.hostname:
+                raise ValueError(f"URL PostgreSQL inválida: {self.db_url!r}")
+
             env = os.environ.copy()
-            env["PGPASSWORD"] = password
-            
+            if parsed.password is not None:
+                env["PGPASSWORD"] = unquote(parsed.password)
+
+            user = unquote(parsed.username) if parsed.username else ""
+            host = parsed.hostname
+            port = f":{parsed.port}" if parsed.port else ""
+            netloc = f"{user}@{host}{port}" if user else f"{host}{port}"
+            clean_uri = urlunparse(
+                ("postgresql", netloc, parsed.path or "/", parsed.params, parsed.query, "")
+            )
+
             subprocess.run(
-                ["psql", f"postgresql://{user}@{host_port}/{db}", "-c", "VACUUM ANALYZE"],
+                ["psql", clean_uri, "-c", "VACUUM ANALYZE"],
                 env=env,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
-            
+
             logger.info("✅ VACUUM executado")
-        
+
         except Exception as e:
             logger.error(f"❌ Erro ao executar VACUUM: {e}")
     

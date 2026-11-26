@@ -174,6 +174,12 @@ class LearningAgent:
             """, (execution_id,))
             
             row = cur.fetchone()
+            if row is None:
+                logger.warning(
+                    "Execução %s não encontrada para atualização bayesiana",
+                    execution_id,
+                )
+                return
             intent, slots, result = row
         
         # Calcular likelihood (probabilidade do feedback dado a crença)

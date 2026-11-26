@@ -18,9 +18,11 @@ Otimizações:
 Licença: Apache 2.0
 """
 
-import lancedb
-from typing import List, Dict, Any
+import json
 import logging
+from typing import Any, Dict, List
+
+import lancedb
 
 
 logging.basicConfig(level=logging.INFO)
@@ -179,9 +181,9 @@ class LanceDBClient:
             "id": str(uuid.uuid4()),
             "device_id": data["device_id"],
             "timestamp": data["timestamp"],
-            "text": str(data["features"]),
+            "text": json.dumps(data["features"], ensure_ascii=False),
             "vector": data["vector"],
-            "metadata": "{\"metrics\": " + str(data["metrics"]) + "}"
+            "metadata": json.dumps({"metrics": data["metrics"]}, ensure_ascii=False),
         })
     
     async def get_metrics(self, device_id: str, limit: int = 100) -> List[Dict[str, Any]]:
@@ -196,10 +198,11 @@ class LanceDBClient:
             Lista de métricas ordenadas por timestamp (desc)
         """
         try:
+            safe_device_id = device_id.replace("'", "''")
             results = (
                 self.metrics_table
                 .search()
-                .where(f"device_id = '{device_id}'")
+                .where(f"device_id = '{safe_device_id}'")
                 .order_by("timestamp", order="desc")
                 .limit(limit)
                 .to_list()

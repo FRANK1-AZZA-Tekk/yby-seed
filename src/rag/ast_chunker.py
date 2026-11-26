@@ -63,15 +63,16 @@ class ASTChunker:
         logger.info(f"🔍 Fatiando código ({len(code)} chars)...")
         
         # Parsear código
-        tree = self.parser.parse(bytes(code, "utf8"))
-        
+        code_bytes = code.encode("utf-8")
+        tree = self.parser.parse(code_bytes)
+
         # Percorrer AST e extrair chunks
         chunks = []
-        
+
         for node in tree.root_node.children:
             # Tipos de nós que formam unidades sintáticas completas
             if node.type in ["function_definition", "class_definition", "module"]:
-                chunk_code = code[node.start_byte:node.end_byte]
+                chunk_code = code_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
                 
                 # Verificar tamanho
                 token_count = len(chunk_code.split())
@@ -106,14 +107,15 @@ class ASTChunker:
             Lista de sub-chunks
         """
         # Parsear chunk
-        tree = self.parser.parse(bytes(code, "utf8"))
-        
+        code_bytes = code.encode("utf-8")
+        tree = self.parser.parse(code_bytes)
+
         sub_chunks = []
-        
+
         # Percorrer filhos do nó raiz
         for node in tree.root_node.children:
             if node.type in ["function_definition", "class_definition", "expression_statement"]:
-                sub_code = code[node.start_byte:node.end_byte]
+                sub_code = code_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
                 token_count = len(sub_code.split())
                 
                 if token_count <= max_tokens:

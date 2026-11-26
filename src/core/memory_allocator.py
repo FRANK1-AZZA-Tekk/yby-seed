@@ -20,6 +20,7 @@ Licença: BSD-2 (jemalloc) / MIT (mimalloc)
 
 import os
 import subprocess
+import sys
 import logging
 from typing import Optional
 
@@ -117,16 +118,18 @@ class MemoryAllocator:
     
     def disable(self):
         """Desabilitar allocator"""
+        if not self.lib_path:
+            return
         logger.info(f"🔧 Desabilitando {self.allocator}...")
-        
+
         # Remover do LD_PRELOAD
         current_preload = os.environ.get("LD_PRELOAD", "")
-        new_preload = current_preload.replace(f"{self.lib_path}:", "").replace(self.lib_path, "")
-        
-        os.environ["LD_PRELOAD"] = new_preload.strip(":")
-        
+        parts = [p for p in current_preload.split(":") if p and p != self.lib_path]
+
+        os.environ["LD_PRELOAD"] = ":".join(parts)
+
         logger.info(f"✅ {self.allocator} desabilitado")
-    
+
     def benchmark(self, test_script: str = "test_alloc.py"):
         """
         Benchmark de alocação.
@@ -137,15 +140,18 @@ class MemoryAllocator:
         Returns:
             Dict com métricas (tempo, memória, fragmentation)
         """
+        if not self.lib_path:
+            return {"error": "biblioteca não encontrada"}
+
         logger.info(f"📊 Benchmark: {self.allocator}...")
-        
+
         # Executar script com allocator
         env = os.environ.copy()
         env["LD_PRELOAD"] = self.lib_path
-        
+
         try:
             result = subprocess.run(
-                ["python3", test_script],
+                [sys.executable, test_script],
                 env=env,
                 capture_output=True,
                 text=True,
@@ -168,17 +174,17 @@ class MemoryAllocator:
         metrics = {}
         
         # Extrair tempo
-        time_match = re.search(r"Time: ([\\d.]+)s", output)
+        time_match = re.search(r"Time: ([\d.]+)s", output)
         if time_match:
             metrics["time_sec"] = float(time_match.group(1))
-        
+
         # Extrair memória
-        mem_match = re.search(r"Memory: (\\d+)MB", output)
+        mem_match = re.search(r"Memory: (\d+)MB", output)
         if mem_match:
             metrics["memory_mb"] = int(mem_match.group(1))
-        
+
         # Extrair fragmentation
-        frag_match = re.search(r"Fragmentation: (\\d+)%", output)
+        frag_match = re.search(r"Fragmentation: (\d+)%", output)
         if frag_match:
             metrics["fragmentation_pct"] = int(frag_match.group(1))
         

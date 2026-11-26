@@ -21,7 +21,7 @@ Licença: MIT
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 import paho.mqtt.client as mqtt
@@ -42,11 +42,14 @@ async def mqtt_listener(queue: asyncio.Queue[Any]) -> None:
     logger.info("📡 Iniciando MQTT listener...")
     
     loop = asyncio.get_running_loop()
-    client = mqtt.Client(
-        client_id=settings.MQTT_CLIENT_ID,
-        clean_session=False,  # Manter sessão para QoS 2
-        userdata={"queue": queue, "loop": loop},
-    )
+    client_kwargs: dict[str, Any] = {
+        "client_id": settings.MQTT_CLIENT_ID,
+        "clean_session": False,  # Manter sessão para QoS 2
+        "userdata": {"queue": queue, "loop": loop},
+    }
+    if hasattr(mqtt, "CallbackAPIVersion"):
+        client_kwargs["callback_api_version"] = mqtt.CallbackAPIVersion.VERSION1
+    client = mqtt.Client(**client_kwargs)
     
     # Callbacks
     client.on_connect = on_connect
@@ -155,7 +158,7 @@ def on_message(client, userdata, msg) -> None:
         data["_metadata"] = {
             "topic": msg.topic,
             "qos": msg.qos,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         enqueue_mqtt_payload(loop, queue, data)
         logger.debug("iot_mqtt_gateway_enqueued", extra={"topic": msg.topic})

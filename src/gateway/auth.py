@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 from collections.abc import Mapping
 
 
@@ -18,6 +19,6 @@ def check_token(headers: Mapping[str, str], expected: str) -> tuple[bool, int, s
     else:
         token = lowered.get("x-api-token", "").strip()
 
-    if token != expected:
+    if not hmac.compare_digest(token, expected):
         return False, 401, "token inválido"
     return True, 200, "ok"

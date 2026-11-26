@@ -89,8 +89,12 @@ Inclua TODOS os imports necessários.
         
         # Extrai código do bloco Markdown
         import re
-        code_match = re.search(r'```python\n(.+?)\n```', code, re.DOTALL)
-        
+        code_match = re.search(
+            r"```(?:python|py)?[ \t]*\r?\n(.+?)\r?\n```",
+            code,
+            re.DOTALL | re.IGNORECASE,
+        )
+
         if code_match:
             code = code_match.group(1)
         

@@ -13,7 +13,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -37,6 +37,9 @@ class ChatCompletionRequest(BaseModel):
     temperature: float | None = None
 
 
+_ALLOWED_IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"})
+
+
 def _extract_prompt_and_image_b64(messages: list[ChatMessage]) -> tuple[str, str | None]:
     prompt_parts: list[str] = []
     image_b64: str | None = None
@@ -45,15 +48,21 @@ def _extract_prompt_and_image_b64(messages: list[ChatMessage]) -> tuple[str, str
         if isinstance(content, str):
             prompt_parts.append(content)
             continue
+        msg_texts: list[str] = []
+        msg_image: str | None = None
         for part in content:
             if not isinstance(part, dict):
                 continue
             if part.get("type") == "text" and part.get("text"):
-                prompt_parts.append(str(part["text"]))
+                msg_texts.append(str(part["text"]))
             elif part.get("type") == "image_url":
                 url = (part.get("image_url") or {}).get("url", "")
                 if url.startswith("data:") and "," in url:
-                    image_b64 = url.split(",", 1)[1]
+                    msg_image = url.split(",", 1)[1]
+        if msg_texts:
+            prompt_parts.append("\n".join(msg_texts))
+        if image_b64 is None and msg_image is not None:
+            image_b64 = msg_image
     prompt = "\n".join(reversed(prompt_parts)).strip()
     if not prompt:
         prompt = "Descreva a imagem em detalhes."
@@ -78,23 +87,31 @@ def create_app(
     app = FastAPI(title="YBY FUSION Vision", version="0.1.0")
 
     @app.post("/v1/chat/completions")
-    async def chat_completions(
-        request: Request,
-        image: UploadFile | None = File(None),
-        prompt: str | None = Form(None),
-    ) -> JSONResponse:
+    async def chat_completions(request: Request) -> JSONResponse:
         temp_path: Path | None = None
         try:
             content_type = request.headers.get("content-type", "")
             if "multipart/form-data" in content_type:
-                if image is None:
+                try:
+                    form = await request.form()
+                except RuntimeError as exc:
+                    raise HTTPException(
+                        status_code=501,
+                        detail="Suporte a multipart requer python-multipart instalado.",
+                    ) from exc
+                image = form.get("image")
+                prompt_val = form.get("prompt")
+                if image is None or not hasattr(image, "read"):
                     raise HTTPException(status_code=400, detail="Campo 'image' obrigatório.")
                 body = await image.read()
                 if not body:
                     raise HTTPException(status_code=400, detail="Imagem vazia.")
-                suffix = Path(image.filename or "upload.png").suffix or ".png"
+                raw_suffix = Path(getattr(image, "filename", None) or "upload.png").suffix.casefold()
+                suffix = raw_suffix if raw_suffix in _ALLOWED_IMAGE_SUFFIXES else ".png"
                 temp_path = _write_temp_image(body, suffix=suffix)
-                user_prompt = (prompt or "Descreva esta imagem.").strip()
+                user_prompt = (
+                    prompt_val if isinstance(prompt_val, str) and prompt_val.strip() else "Descreva esta imagem."
+                ).strip()
             else:
                 try:
                     payload = ChatCompletionRequest.model_validate(await request.json())
@@ -112,7 +129,7 @@ def create_app(
                     raise HTTPException(status_code=400, detail="image_url base64 inválido.") from exc
                 temp_path = _write_temp_image(image_bytes)
 
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             analyze = lambda: fusion_client.analyze(temp_path, user_prompt)  # noqa: E731
             try:
                 result = await asyncio.wait_for(

@@ -27,7 +27,14 @@ def _int(source: Mapping[str, str], name: str, default: int) -> int:
     raw = source.get(name)
     if raw is None or str(raw).strip() == "":
         return default
-    port = int(str(raw).strip())
+    try:
+        return int(str(raw).strip())
+    except ValueError as exc:
+        raise ValueError(f"{name} deve ser um inteiro válido.") from exc
+
+
+def _port(source: Mapping[str, str], name: str, default: int) -> int:
+    port = _int(source, name, default)
     if port < 1 or port > 65535:
         raise ValueError(f"{name} deve estar entre 1 e 65535.")
     return port
@@ -79,7 +86,7 @@ class IoTConfig:
 
         return cls(
             broker_host=_text(source, "IOT_BROKER_HOST", DEFAULT_BROKER_HOST),
-            broker_port=_int(source, "IOT_BROKER_PORT", DEFAULT_BROKER_PORT),
+            broker_port=_port(source, "IOT_BROKER_PORT", DEFAULT_BROKER_PORT),
             username=user or None,
             password=password if user and password else None,
             topics=_topics(source, "IOT_TOPICS"),

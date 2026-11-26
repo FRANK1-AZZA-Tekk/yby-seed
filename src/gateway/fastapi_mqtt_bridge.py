@@ -18,11 +18,12 @@ Backpressure:
 Licença: MIT
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, WebSocket, HTTPException
 from asyncio import Queue
 from typing import List, Dict, Any
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from .lancedb_client import LanceDBClient
@@ -31,12 +32,6 @@ from .config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-app = FastAPI(
-    title="YBY SEED Gateway",
-    description="Gateway IoT para wearables ESP32-S3 com IA local",
-    version="1.1.0"
-)
 
 # Backpressure queue (max 1000 mensagens)
 mqtt_queue: Queue = Queue(maxsize=1000)
@@ -49,36 +44,71 @@ db_client = LanceDBClient(
 
 # WebSocket clients (para dashboard em tempo real)
 websocket_clients: List[WebSocket] = []
+_ws_queues: Dict[WebSocket, Queue] = {}
+
+
+async def _telemetry_worker() -> None:
+    """Worker que consome mensagens da queue em batch."""
+    logger.info("👷 Worker iniciado")
+    while True:
+        batch = []
+        try:
+            for _ in range(10):
+                data = await asyncio.wait_for(mqtt_queue.get(), timeout=1.0)
+                batch.append(data)
+        except asyncio.TimeoutError:
+            pass
+
+        if batch:
+            try:
+                await process_batch(batch)
+                logger.info(f"✅ Batch processado: {len(batch)} mensagens")
+            except Exception as e:
+                logger.error(f"❌ Erro ao processar batch: {e}")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Inicializa DB/listeners no startup e encerra tarefas/conexões no shutdown."""
+    logger.info("🚀 Inicializando YBY SEED Gateway...")
+    await db_client.init_tables()
+
+    from .mqtt_listener import mqtt_listener
+
+    tasks = [
+        asyncio.create_task(mqtt_listener(mqtt_queue)),
+        asyncio.create_task(_telemetry_worker()),
+    ]
+    logger.info("✅ Gateway inicializado")
+    try:
+        yield
+    finally:
+        logger.info("🛑 Fechando Gateway...")
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await db_client.close()
+        for ws in list(websocket_clients):
+            _ws_queues.pop(ws, None)
+            try:
+                await ws.close()
+            except Exception:  # noqa: BLE001
+                pass
+        websocket_clients.clear()
+
+
+app = FastAPI(
+    title="YBY SEED Gateway",
+    description="Gateway IoT para wearables ESP32-S3 com IA local",
+    version="1.1.0",
+    lifespan=lifespan,
+)
 
 
 def _guard(headers) -> None:
     allowed, status, detail = check_token(headers, settings.GATEWAY_TOKEN)
     if not allowed:
         raise HTTPException(status_code=status, detail=detail)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Inicializar DB e iniciar MQTT listener"""
-    logger.info("🚀 Inicializando YBY SEED Gateway...")
-    
-    # Inicializar tabelas LanceDB
-    await db_client.init_tables()
-    
-    # Iniciar MQTT listener em background
-    from .mqtt_listener import mqtt_listener
-    asyncio.create_task(mqtt_listener(mqtt_queue))
-    
-    logger.info("✅ Gateway inicializado")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Fechar conexões"""
-    logger.info("🛑 Fechando Gateway...")
-    await db_client.close()
-    for ws in websocket_clients:
-        await ws.close()
 
 
 @app.post("/telemetry")
@@ -93,16 +123,21 @@ async def receive_telemetry(data: Dict[str, Any], request: Request):
         for field in required_fields:
             if field not in data:
                 raise HTTPException(status_code=400, detail=f"Campo obrigatório: {field}")
-        
-        # Enfileirar para processamento assíncrono
-        await mqtt_queue.put(data)
-        
+
+        # Enfileirar para processamento assíncrono com backpressure não bloqueante
+        try:
+            mqtt_queue.put_nowait(data)
+        except asyncio.QueueFull as exc:
+            raise HTTPException(status_code=503, detail="Fila de telemetria cheia") from exc
+
         return {
             "status": "queued",
             "queue_size": mqtt_queue.qsize(),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
-    
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ Erro ao receber telemetria: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -117,20 +152,26 @@ async def websocket_telemetry(websocket: WebSocket):
         return
 
     await websocket.accept()
+    client_queue: Queue = Queue(maxsize=100)
     websocket_clients.append(websocket)
-    
+    _ws_queues[websocket] = client_queue
+
     try:
         while True:
-            # Aguardar mensagens da queue
-            data = await mqtt_queue.get()
+            data = await client_queue.get()
             await websocket.send_json(data)
-    
+
     except Exception as e:
         logger.error(f"❌ Erro WebSocket: {e}")
-    
+
     finally:
-        websocket_clients.remove(websocket)
-        await websocket.close()
+        _ws_queues.pop(websocket, None)
+        if websocket in websocket_clients:
+            websocket_clients.remove(websocket)
+        try:
+            await websocket.close()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 @app.get("/health")
@@ -140,7 +181,7 @@ async def health_check():
         "status": "healthy",
         "queue_size": mqtt_queue.qsize(),
         "websocket_clients": len(websocket_clients),
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -178,37 +219,6 @@ async def search_vectors(query: str, request: Request, top_k: int = 5):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Worker que processa mensagens da queue em batch
-@app.on_event("startup")
-async def start_worker():
-    """Worker que consome mensagens da queue em batch"""
-    
-    async def worker():
-        logger.info("👷 Worker iniciado")
-        
-        while True:
-            # Aguardar batch de 10 mensagens (otimizar throughput)
-            batch = []
-            try:
-                for _ in range(10):
-                    data = await asyncio.wait_for(mqtt_queue.get(), timeout=1.0)
-                    batch.append(data)
-            
-            except asyncio.TimeoutError:
-                # Timeout: processar batch parcial
-                pass
-            
-            if batch:
-                try:
-                    await process_batch(batch)
-                    logger.info(f"✅ Batch processado: {len(batch)} mensagens")
-                
-                except Exception as e:
-                    logger.error(f"❌ Erro ao processar batch: {e}")
-    
-    asyncio.create_task(worker())
-
-
 async def process_batch(batch: List[Dict[str, Any]]) -> None:
     """
     Processar batch de telemetria no event loop.
@@ -231,6 +241,11 @@ async def process_batch(batch: List[Dict[str, Any]]) -> None:
                     "vector": embedding,
                 }
             )
+            for client_queue in list(_ws_queues.values()):
+                try:
+                    client_queue.put_nowait(data)
+                except asyncio.QueueFull:
+                    pass
         except Exception as e:
             logger.error(f"❌ Erro ao processar mensagem: {e}")
             raise

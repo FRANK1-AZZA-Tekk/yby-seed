@@ -160,12 +160,16 @@ Retorne APENAS uma lista de índices ordenados (ex: [2, 0, 1]):
             
             # Parse lista de índices
             import re
-            indices_match = re.search(r'\[([\\d,\\s]+)\]', response.choices[0].message.content)
-            
+            indices_match = re.search(r"\[([\d,\s]+)\]", response.choices[0].message.content)
+
             if indices_match:
-                indices = [int(x.strip()) for x in indices_match.group(1).split(",")]
-                ranked = [summaries[i] for i in indices if i < len(summaries)]
-                return ranked
+                indices = [
+                    int(x.strip())
+                    for x in indices_match.group(1).split(",")
+                    if x.strip()
+                ]
+                ranked = [summaries[i] for i in indices if 0 <= i < len(summaries)]
+                return ranked or summaries
             
             else:
                 # Fallback: ordem original
