@@ -363,7 +363,12 @@ def cli() -> None:
 
 
 @cli.command()
-@click.option("--port", required=True, help="Porta serial/USB, ex.: /dev/ttyACM0")
+@click.option(
+    "--port",
+    required=True,
+    envvar="YBY_TWATCH_PORT",
+    help="Porta serial/USB, ex.: /dev/ttyACM0 (ou YBY_TWATCH_PORT)",
+)
 @click.option("--out", "out", required=True, type=click.Path(path_type=Path, dir_okay=False))
 @click.option("--flash-size", default=hex(DEFAULT_FLASH_SIZE), show_default=True)
 @click.option("--force", is_flag=True, help="Sobrescreve um backup existente")
@@ -386,7 +391,12 @@ def backup(click_ctx: click.Context, port: str, out: Path, flash_size: str, forc
     required=True,
     type=click.Path(path_type=Path, exists=True, file_okay=False),
 )
-@click.option("--port", required=True, help="Porta serial/USB, ex.: /dev/ttyACM0")
+@click.option(
+    "--port",
+    required=True,
+    envvar="YBY_TWATCH_PORT",
+    help="Porta serial/USB, ex.: /dev/ttyACM0 (ou YBY_TWATCH_PORT)",
+)
 @click.option("--env", "env_name", default=DEFAULT_PIO_ENV, show_default=True)
 @click.option("--monitor-seconds", default=10.0, show_default=True, type=click.FloatRange(min=0))
 @click.option("--baud", default=SERIAL_BAUD, show_default=True, type=int)

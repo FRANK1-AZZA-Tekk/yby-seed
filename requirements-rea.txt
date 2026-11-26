@@ -1,0 +1,6 @@
+# YBY SEED — Dependências opcionais de REA, pontes BLE e T-Watch (não usadas no CI rápido)
+# Instalação alternativa via uv: uv sync --extra rea
+bleak>=0.22.0
+esptool>=4.7.0
+pyserial>=3.5
+r2pipe>=1.9.0

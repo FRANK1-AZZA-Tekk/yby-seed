@@ -25,6 +25,12 @@ mesh = [
     "psycopg[binary]>=3.2.0",
     "pgvector>=0.3.0",
 ]
+rea = [
+    "bleak>=0.22.0",
+    "esptool>=4.7.0",
+    "pyserial>=3.5",
+    "r2pipe>=1.9.0",
+]
 dev = [
     "ruff>=0.4.0",
     "pytest>=8.0.0",

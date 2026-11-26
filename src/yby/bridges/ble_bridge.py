@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import json
+import os
 import re
 from collections.abc import Sequence
 from pathlib import Path
@@ -171,7 +172,9 @@ class BleGattBridge:
     ) -> None:
         self._publisher = publisher
         self._transport: BleTransport = transport or BleakTransport()
-        self.profiles_dir = Path(profiles_dir) if profiles_dir else None
+        env_dir = os.environ.get("YBY_BLE_PROFILES_DIR", "").strip()
+        chosen = profiles_dir or env_dir
+        self.profiles_dir = Path(chosen) if chosen else None
         self._known: dict[str, tuple[str, ValueEncoding]] = dict(STANDARD_CHARACTERISTICS)
         for uuid, mapping in (vendor_characteristics or {}).items():
             self.register_characteristic(uuid, *mapping)
