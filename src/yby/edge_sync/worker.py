@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 import httpx
 
 from src.yby.audio.mqtt_bus import MqttPublisher
-from src.yby.audio.schemas import TOPIC_AUDIO_STATE
+from src.yby.audio.schemas import (
+    TOPIC_AUDIO_STATE,
+    TOPIC_TWATCH_TELEMETRY,
+    TOPIC_TWATCH_VOICE,
+)
 from src.yby.edge_sync.schemas import (
     EdgeEvent,
     EdgeSyncBatchRequest,
@@ -17,6 +21,9 @@ from src.yby.edge_sync.schemas import (
     EdgeSyncStatus,
 )
 from src.yby.edge_sync.store import SQLiteFallbackEdgeStore, VectorEventStore
+
+if TYPE_CHECKING:
+    from src.yby.audio.twatch_bridge import TWatchBridge
 
 HUB_REPUBLISH_MARKER = "hub_republished"
 logger = logging.getLogger("yby.edge_sync.worker")
@@ -81,11 +88,13 @@ class EdgeSyncWorker:
         fallback_store: SQLiteFallbackEdgeStore | None = None,
         embedder: EmbeddingProvider | None = None,
         mqtt_bus: MqttPublisher | None = None,
+        twatch_bridge: TWatchBridge | None = None,
     ) -> None:
         self.primary_store = primary_store
         self.fallback_store = fallback_store
         self.embedder = embedder
         self.mqtt_bus = mqtt_bus
+        self.twatch_bridge = twatch_bridge
 
     async def _maybe_republish(self, event: EdgeEvent) -> None:
         if self.mqtt_bus is None:
@@ -109,6 +118,30 @@ class EdgeSyncWorker:
             qos=1,
             retain=False,
         )
+
+    async def _maybe_dispatch_twatch(self, event: EdgeEvent) -> None:
+        if self.twatch_bridge is None or event.sync_origin == HUB_REPUBLISH_MARKER:
+            return
+        try:
+            if event.topic == TOPIC_TWATCH_TELEMETRY:
+                payload = dict(event.payload)
+                payload.setdefault("device_id", event.device_id)
+                self.twatch_bridge.handle_telemetry_message(
+                    json.dumps(payload, ensure_ascii=False)
+                )
+            elif event.topic == TOPIC_TWATCH_VOICE:
+                payload = dict(event.payload)
+                payload.setdefault("device_id", event.device_id)
+                payload["sensitivity"] = "private"
+                await self.twatch_bridge.handle_voice_message(
+                    json.dumps(payload, ensure_ascii=False)
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Evento %s persistido, mas despacho para TWatchBridge falhou: %s",
+                event.event_id,
+                exc,
+            )
 
     async def ingest_batch(self, batch: EdgeSyncBatchRequest) -> EdgeSyncBatchResponse:
         accepted = 0
@@ -146,6 +179,7 @@ class EdgeSyncWorker:
                         event.event_id,
                         exc,
                     )
+                await self._maybe_dispatch_twatch(event)
             else:
                 duplicates += 1
 

@@ -10,6 +10,8 @@ from pydantic import ValidationError
 from src.yby.audio.mqtt_bus import InMemoryMqttBus, MqttPublisher
 from src.yby.audio.schemas import (
     TOPIC_TWATCH_CMD,
+    TOPIC_TWATCH_TELEMETRY,
+    TOPIC_TWATCH_VOICE,
     AudioSessionState,
     TWatchCommand,
     TWatchTelemetry,
@@ -45,10 +47,14 @@ class TWatchBridge:
         router: CognitiveRouter,
         mqtt_bus: MqttPublisher | None = None,
         cmd_topic: str = TOPIC_TWATCH_CMD,
+        telemetry_topic: str = TOPIC_TWATCH_TELEMETRY,
+        voice_topic: str = TOPIC_TWATCH_VOICE,
     ) -> None:
         self.router = router
         self.mqtt_bus = mqtt_bus or InMemoryMqttBus()
         self.cmd_topic = cmd_topic
+        self.telemetry_topic = telemetry_topic
+        self.voice_topic = voice_topic
         self.latest_telemetry: dict[str, TWatchTelemetry] = {}
 
     def handle_telemetry_message(self, raw_payload: str | bytes) -> TWatchTelemetry | None:
@@ -126,3 +132,40 @@ class TWatchBridge:
             retain=False,
         )
         return cmd
+
+    async def sync_audio_state(
+        self,
+        state: AudioSessionState,
+        *,
+        text: str = "",
+    ) -> TWatchCommand:
+        """Sincroniza `yby/audio/state` com o T-Watch usando o mapa háptico/visual 5A."""
+
+        _, accent = map_audio_state_feedback(state)
+        cmd = TWatchCommand(
+            command="set_state",
+            text=text.strip()[:160],
+            accent_color=accent,
+            state=state,
+        )
+        await self.mqtt_bus.publish(
+            self.cmd_topic,
+            cmd.model_dump_json(),
+            qos=1,
+            retain=False,
+        )
+        return cmd
+
+    async def dispatch_mqtt_message(
+        self,
+        topic: str,
+        raw_payload: str | bytes,
+    ) -> RouteResponse | TWatchTelemetry | None:
+        """Despacha mensagem MQTT recebida do Mosquitto para o handler correspondente."""
+
+        if topic == self.voice_topic:
+            return await self.handle_voice_message(raw_payload)
+        if topic == self.telemetry_topic:
+            return self.handle_telemetry_message(raw_payload)
+        logger.debug("Tópico MQTT não tratado pelo TWatchBridge: %s", topic)
+        return None

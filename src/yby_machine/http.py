@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -16,6 +17,11 @@ from src.yby_machine.ports import AppSummary
 from src.yby_machine.spec import YBYSpec, yby_spec_json_schema
 from src.yby_machine.store_pgvector import create_spec_store_from_env
 from src.yby_machine.translator import TranslateResult, prompt_to_spec_result
+
+if TYPE_CHECKING:
+    from src.yby.audio.twatch_bridge import TWatchBridge
+
+logger = logging.getLogger("yby_machine.http")
 
 
 class GenerateRequest(BaseModel):
@@ -54,7 +60,11 @@ def _build_default_pipeline() -> MachinePipeline:
     )
 
 
-def create_app(*, pipeline: MachinePipeline | None = None) -> FastAPI:
+def create_app(
+    *,
+    pipeline: MachinePipeline | None = None,
+    twatch_bridge: TWatchBridge | None = None,
+) -> FastAPI:
     """App FastAPI do YBY Machine com lifespan leve só para fechar adapters opcionais."""
 
     active_pipeline = pipeline or _build_default_pipeline()
@@ -68,6 +78,7 @@ def create_app(*, pipeline: MachinePipeline | None = None) -> FastAPI:
 
     app = FastAPI(title="YBY Machine", version="0.2.0", lifespan=lifespan)
     app.state.pipeline = active_pipeline
+    app.state.twatch_bridge = twatch_bridge
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -82,6 +93,14 @@ def create_app(*, pipeline: MachinePipeline | None = None) -> FastAPI:
     @app.post("/api/machine/generate", response_model=GenerateResponse)
     async def generate(body: GenerateRequest) -> GenerateResponse:
         result = await active_pipeline.generate(body.prompt)
+        if twatch_bridge is not None:
+            try:
+                await twatch_bridge.emit_machine_alert(
+                    result.spec.name,
+                    f"App pronto ({result.source})",
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Falha ao emitir alerta para T-Watch: %s", exc)
         return GenerateResponse(
             app_id=result.app_id,
             spec=result.spec,

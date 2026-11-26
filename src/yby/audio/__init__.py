@@ -19,6 +19,7 @@ from src.yby.audio.device import (
 from src.yby.audio.mqtt_bus import (
     InMemoryMqttBus,
     MqttPublisher,
+    PahoMqttBridgeSubscriber,
     PahoMqttPublisher,
     PublishedMessage,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "InMemoryMqttBus",
     "KokoroTTSBackend",
     "MqttPublisher",
+    "PahoMqttBridgeSubscriber",
     "PahoMqttPublisher",
     "PipeWireBluetoothDevice",
     "PublishedMessage",
