@@ -1,4 +1,5 @@
-# Opcional: Qdrant para RAG legado (src/rag). O núcleo v1 (yby ask) não exige Docker — D5.
+# Opcional: Qdrant para RAG legado (src/rag) e serviços da malha de 4 nós (--profile mesh).
+# O núcleo v1 (yby ask) não exige Docker — D5.
 services:
   qdrant:
     image: qdrant/qdrant:latest
@@ -9,3 +10,41 @@ services:
     volumes:
       - ./data/qdrant:/qdrant/storage
     mem_limit: 1g
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: yby-pgvector
+    profiles: ["mesh"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${YBY_PG_DB:-yby_mesh}
+      POSTGRES_USER: ${YBY_PG_USER:-yby}
+      POSTGRES_PASSWORD: ${YBY_PG_PASSWORD:-changeme-local-only}
+    ports:
+      - "${YBY_BIND_HOST:-127.0.0.1}:5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    mem_limit: 1g
+
+  redis:
+    image: redis:7-alpine
+    container_name: yby-redis
+    profiles: ["mesh"]
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--maxmemory", "192mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${YBY_BIND_HOST:-127.0.0.1}:6379:6379"
+    volumes:
+      - ./data/redis:/data
+    mem_limit: 256m
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: yby-mosquitto
+    profiles: ["mesh"]
+    restart: unless-stopped
+    ports:
+      - "${YBY_BIND_HOST:-127.0.0.1}:1883:1883"
+    volumes:
+      - ./data/mosquitto:/mosquitto/data
+    mem_limit: 128m

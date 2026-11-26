@@ -134,3 +134,12 @@ A visão do YBY usa **FUSION-X-Phi3.5-3B** (`starriver030515/FUSION-X-Phi3.5-3B-
 **Limitações:** pt-BR não é garantido pelo treinamento original do FUSION (base Phi-3.5, foco em inglês) — validar com `tests/fusion_ptbr/test_fusion.py` antes de productizar. Se a qualidade for insuficiente, usar Qwen3-VL-2B.
 
 **VRAM:** FUSION-3B: 8 GB quantizado (4-bit) ou 12–16 GB FP16. Qwen3-VL-2B: ~2–3 GB em Q4_K_M. A rota `yby-vision` não entra nos fallbacks de outros níveis para evitar latência.
+
+## D15 — Malha de 4 Nós e Módulos A, B e D no YBY SEED (2026-11-26)
+
+Autoriza a evolução modular da malha de 4 nós em `src/yby/` (PC Hub `desktop-yby`, Baseus Bowie MC2 Air, Xiaomi 12 via Tailscale/Termux/PocketPal e contratos MQTT para o LILYGO T-Watch S3 Plus), mantendo o núcleo `yby ask` (D5/D12) intacto sem exigir Docker, Redis ou Postgres:
+
+- **Escopo de repositório (D1/D7 preservados):** o firmware C++/LVGL do T-Watch S3 Plus (Módulo C) permanece fora do `yby-seed`. O hub expõe apenas os contratos Pydantic e tópicos MQTT (`yby/audio/state`, `yby/nodes/twatch/telemetry`, `yby/nodes/twatch/cmd`, `yby/nodes/twatch/voice`).
+- **Roteamento cognitivo e modelos (adendo a D4/D12):** `qwen2.5-coder:3b` segue como padrão leve em VRAM (`yby-local` / `yby-fast`); o perfil opcional `yby-code` (7B híbrido GPU+RAM) e o failover `yby-mobile-fallback` (PocketPal no Xiaomi 12 em `127.0.0.1:8080` via Tailscale) entram no módulo `src/yby/routing/`. O `PrivacyGate` é fail-closed: payloads com `sensitivity="private"`, dados de `pgvector`, telemetria MQTT, áudio bruto ou segredos/PII nunca alcançam `yby-cloud-frontier`. Toda chamada de nuvem passa por `sanitize_for_cloud` e grava metadados no `CloudUsageLog`.
+- **Áudio não-bloqueante (adendo a D11):** `src/voice/` (faster-whisper + Piper via CLI) permanece estável. `src/yby/audio/` adiciona pipeline assíncrono opcional para PipeWire/Baseus Bowie MC2 Air (HFP/A2DP), `Whisper.cpp` e `Kokoro-82M` em CPU (preservando os 4 GB de VRAM da GTX 1650 para o LLM), publicando o estado em `yby/audio/state`.
+- **Edge Sync e empacotamento:** `src/yby/edge_sync/` recebe lotes idempotentes do Xiaomi 12 autenticados via `check_token` (`src/gateway/auth.py`), gravando em PostgreSQL + `pgvector` (com fallback WAL em SQLite). Dependências extras da malha (`redis`, `psycopg[binary]`, `pgvector`) ficam em `[project.optional-dependencies].mesh` (`pyproject.toml` / `uv`) e `requirements-mesh.txt`, com serviços Docker sob `--profile mesh` em `docker-compose.yml`.
