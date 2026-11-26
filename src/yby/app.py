@@ -9,6 +9,8 @@ from fastapi import FastAPI, HTTPException, Request, status
 
 from src.gateway.auth import check_token
 from src.yby.audio.service import AsyncVoicePipeline
+from src.yby.cockpit.api import create_cockpit_router
+from src.yby.cockpit.service import CockpitService
 from src.yby.edge_sync.api import create_edge_sync_router
 from src.yby.edge_sync.worker import EdgeSyncWorker
 from src.yby.routing.router import CognitiveRouter, RoutingExhaustedError
@@ -34,7 +36,9 @@ def create_mesh_app(
     router: CognitiveRouter | None = None,
     audio_pipeline: AsyncVoicePipeline | None = None,
     edge_worker: EdgeSyncWorker | None = None,
+    cockpit_service: CockpitService | None = None,
     expected_token: str | None = None,
+    cockpit_token: str | None = None,
 ) -> FastAPI:
     """Fábrica testável do servidor HTTP da malha (não altera o gateway legado)."""
 
@@ -56,6 +60,7 @@ def create_mesh_app(
                 "routing": router is not None,
                 "audio": audio_pipeline is not None,
                 "edge_sync": edge_worker is not None,
+                "cockpit": cockpit_service is not None,
             },
             "audio_state": audio_pipeline.state if audio_pipeline is not None else "disabled",
         }
@@ -88,6 +93,11 @@ def create_mesh_app(
     if edge_worker is not None:
         app.include_router(
             create_edge_sync_router(edge_worker, expected_token=expected_token)
+        )
+
+    if cockpit_service is not None:
+        app.include_router(
+            create_cockpit_router(cockpit_service, expected_token=cockpit_token)
         )
 
     return app
