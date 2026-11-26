@@ -132,7 +132,7 @@ Só fontes externas efetivamente lidas. Padrões, não código: nada foi copiado
 
 | ID | URL / arquivo | Origem | Versão / data | Nível | Evidência útil | Licença | Decisão YBY |
 |----|---------------|--------|---------------|-------|----------------|---------|-------------|
-| SRC-018 | https://github.com/OpenSQZ/OpenGlass (`README.md`) | GitHub OpenSQZ | `main` @ `e022144` (lido 2026-11-26) | L1 | Óculos ESP32-S3 capturam frame + áudio; host próximo roda ASR/VLM/TTS local; logs/replay locais no host | README declara Apache-2.0; API do GitHub **não detecta arquivo LICENSE** (`/license` → 404) | Adotar só a divisão sensor ↔ host; **não copiar código** até licença confirmada no repo |
+| SRC-018 | https://github.com/OpenSQZ/OpenGlass (`README.md`) | GitHub OpenSQZ | `main` @ `e022144` (lido 2026-11-26) | L1 | Óculos ESP32-S3 capturam frame + áudio; host próximo roda ASR/VLM/TTS local; logs/replay locais no host | README (§ License) declara Apache-2.0, mas **não há arquivo LICENSE/NOTICE/COPYING** em nenhum caminho da árvore completa de `e022144` (394 entradas, `truncated=false`; `gh api repos/OpenSQZ/OpenGlass/license` → 404; `license: null`); o artigo (SRC-020) cita só "open-source license", sem nomear | Adotar só a divisão sensor ↔ host; **não copiar código**: declaração só no README, sem texto de licença no repo (verificado 2026-11-26) |
 | SRC-019 | https://github.com/OpenSQZ/OpenGlass/blob/main/docs/safety_privacy.md | GitHub OpenSQZ | idem | L1 | Local-first "não é garantia formal de privacidade"; minimizar retenção de brutos; nuvem só como opção habilitada explicitamente | idem | Base das regras d) e "sem promessa de privacidade total" da spec |
 | SRC-020 | https://arxiv.org/html/2607.03213 | Artigo (ACL 2026 demo) | HTML arXiv (lido 2026-11-26; resumo e trechos de §1–§3, não integral) | L1 | Captura **sob demanda de um frame** após a consulta; latência decomposta por estágio; abstenção segura e logs auditáveis | — | Captura discreta (1 ativação = 1 captura) e métricas por estágio; números do artigo **não** são metas YBY. PDF ACL = mesma obra, não recontado |
 | SRC-021 | https://github.com/Artod/lstk-eye (`README.md`) | GitHub Artod | `main` @ `2da4e02` (lido 2026-11-26) | L1 | Óculos thin client; servidor dono de estado/planejamento; HUD por cenas JSON pequenas; `--profile mock` + simulador de dispositivo | MIT | Adotar padrão thin client + simulador offline |
@@ -150,4 +150,4 @@ Descobertas vistas só em resultado de busca (ex.: página "Mentra HUD Constrain
 
 ---
 
-*Próxima rodada sugerida:* smoke Hub planner+format; OWASP LLM07 (L1); para Glass G3, ler a licença do OpenGlass no repositório antes de qualquer reuso.
+*Próxima rodada sugerida:* smoke Hub planner+format; OWASP LLM07 (L1); para Glass G3, obter confirmação de licença do OpenGlass (sem arquivo LICENSE no repo) antes de qualquer reuso.
