@@ -23,7 +23,7 @@ def _boom_handler(_args: BaseModel) -> dict[str, object]:
 
 
 def test_tool_runtime_exception_stops_without_propagating() -> None:
-    registry = ToolRegistry()
+    registry = ToolRegistry(approve=lambda _request: True)
     registry.register(
         ToolSpec(
             name="boom",

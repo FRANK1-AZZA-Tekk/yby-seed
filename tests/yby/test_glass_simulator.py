@@ -58,7 +58,7 @@ def _session(
 
 
 def _registry(session: FakeGlassSession) -> ToolRegistry:
-    registry = ToolRegistry()
+    registry = ToolRegistry(approve=lambda _request: True)
     for spec in glass_tool_specs(session):
         registry.register(spec)
     return registry

@@ -142,13 +142,15 @@ class ControlledAgentLoop:
 
         Em timeout, o loop retorna sem aguardar o fim da thread (`shutdown(wait=False)`).
         A thread pode continuar até terminar sozinha; não há cancelamento cooperativo
-        nos handlers registrados hoje.
+        nos handlers registrados hoje. A autorização (política e aprovação humana)
+        roda antes, na thread principal, fora do limite de espera.
         """
 
+        call = self.registry.authorize(name, arguments)
         if self.tool_timeout_seconds is None:
-            return self.registry.run(name, arguments)
+            return self.registry.execute(call)
         pool = ThreadPoolExecutor(max_workers=1)
-        future = pool.submit(self.registry.run, name, arguments)
+        future = pool.submit(self.registry.execute, call)
         timed_out = False
         try:
             return future.result(timeout=self.tool_timeout_seconds)

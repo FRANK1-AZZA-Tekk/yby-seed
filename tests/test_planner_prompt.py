@@ -226,7 +226,7 @@ def test_loop_segunda_iteracao_projeta_historico() -> None:
     def _fat(_args: BaseModel) -> dict[str, object]:
         return {"ok": True, "blob": "z" * 1200}
 
-    registry = ToolRegistry()
+    registry = ToolRegistry(approve=lambda _request: True)
     registry.register(
         ToolSpec(
             name="fat_echo",
