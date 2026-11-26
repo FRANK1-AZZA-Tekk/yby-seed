@@ -4,15 +4,16 @@ Registro incremental de camadas. Sem `CONTRACT.md` / `config/agent/state.json` n
 
 ## Retomada atual
 
-**Atualizado:** 2026-11-26 (OpenCode O0; VM `/agent/repos/yby-seed`).
+**Atualizado:** 2026-11-26 (política de ações do agente; VM `/agent/repos/yby-seed`).
 
 | Campo | Estado |
 |-------|--------|
-| **Tarefa desta linha** | **OpenCode O0** — ferramenta de engenharia, não runtime: spec [docs/OPENCODE_INTEGRATION.md](docs/OPENCODE_INTEGRATION.md) + [`opencode.json`](opencode.json) (perfil `yby-engineer`) + `tests/test_opencode_config.py`. Branch `cursor/opencode-eng-tool-0bef`; PR aberto, **merge pendente de aprovação do dono** (política de permissões de ferramenta). OpenCode não instalado nem executado. |
-| **`main` remoto (base)** | `14a5653629b34abce8b495d01d19d6ccc39621df` (inclui YBY Glass G0, PR #151, já integrado). |
-| **Validação local** | `tests/test_opencode_config.py` **125 passed**; `make check` exit 0 (**664 passed**, 15 skipped); `git diff --check` OK. Manual: `opencode.json` validado contra `https://opencode.ai/config.json`, 0 erros. CI: consultar no SHA final do PR. |
+| **Tarefa desta linha** | **Política de ações do agente** — [`config/agent-policy.yaml`](config/agent-policy.yaml) (`version: 1`, `default: manual`) + `src/safety/agent_policy.py` (carga fail-closed, invariantes de risco) aplicada em todo `ToolRegistry` (`authorize` → `AuthorizedCall` de uso único → `execute`). `echo_json`/`vault_search` `autonomous`; segredos, deploy, shell, regras de segurança e deleção `human_only`. Branch `cursor/agent-action-policy-0bef`; PR aberto, **merge pendente de aprovação do dono** (contrato de permissões). |
+| **`main` remoto (base)** | `c985ac995502291bcad31cae4230668684c31860` (inclui OpenCode O0, PR #152, já integrado). |
+| **Validação local** | `tests/test_agent_policy.py` **48 passed** (itens a–j); suítes direcionadas **203 passed**; `make check` exit 0 (**712 passed**, 15 skipped); `git diff --check` OK. CI: consultar no SHA final do PR. |
 | **WIP / stash** | OID `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` **não existe nesta VM** (`git stash list` vazio); nenhum comando de stash executado. Se existir em outra máquina, segue preservado lá. |
-| **Próxima sugerida** | OpenCode O1 (humano confirma `opencode --version` ≥ 2.2.3 e sessão só leitura) — exige aprovação; ou Glass G1; ou smokes no PC Hub ([checklist](#checklist-de-aceite-do-núcleo-consolidado)). |
+| **Limitações** | `yby agent` não tem canal de aprovação: tools `manual` são recusadas na CLI. IDs `human_only` protegem nomes exatos; skills (`SKILL_ACTIONS`) fora desta camada. |
+| **Próxima sugerida** | Canal local de aprovação na CLI para tools `manual` (prompt TTY, sem rede) — exige aprovação; ou OpenCode O1; ou Glass G1; ou smokes no PC Hub ([checklist](#checklist-de-aceite-do-núcleo-consolidado)). |
 | **Bloqueios (PC Hub)** | Smokes Ollama/OpenRouter reais; não executados nesta VM. |
 
 *Não é fonte de autorização; regras em `AGENTS.md`. Histórico de camadas abaixo permanece.*
