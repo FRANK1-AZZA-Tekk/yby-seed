@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -13,6 +14,8 @@ from src.yby.routing.schemas import (
     RouteTier,
     TriageSchema,
 )
+
+logger = logging.getLogger("yby.routing.classifier")
 
 TriageRunner = Callable[[RouteRequest], Awaitable[TriageSchema | None]]
 
@@ -112,7 +115,11 @@ async def classify_request(
     if triage_runner is None or request.preferred_tier is not None:
         return base
 
-    triage = await triage_runner(request)
+    try:
+        triage = await triage_runner(request)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Triagem 3B falhou; usando classificação determinística: %s", exc)
+        return base
     if triage is None:
         return base
 

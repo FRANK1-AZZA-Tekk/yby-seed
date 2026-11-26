@@ -405,7 +405,7 @@ def _app_js(spec_json: str) -> str:
     const out = Object.assign({{}}, values);
     const rules = spec.calc_rules || [];
     for (const rule of rules) {{
-      const expr = String(rule.expression || "");
+      const expr = String(rule.expression || "").trim();
       let result = 0;
       if (expr.includes("*")) {{
         const parts = expr.split("*").map((p) => p.trim());
@@ -413,9 +413,22 @@ def _app_js(spec_json: str) -> str:
           const n = Number(out[key]) || 0;
           return i === 0 ? n : acc * n;
         }}, 0);
+      }} else if (expr.includes("/")) {{
+        const parts = expr.split("/").map((p) => p.trim());
+        result = parts.reduce((acc, key, i) => {{
+          const n = Number(out[key]) || 0;
+          if (i === 0) return n;
+          return n === 0 ? 0 : acc / n;
+        }}, 0);
       }} else if (expr.includes("+")) {{
         const parts = expr.split("+").map((p) => p.trim());
         result = parts.reduce((acc, key) => acc + (Number(out[key]) || 0), 0);
+      }} else if (expr.includes("-")) {{
+        const parts = expr.split("-").map((p) => p.trim());
+        result = parts.reduce((acc, key, i) => {{
+          const n = Number(out[key]) || 0;
+          return i === 0 ? n : acc - n;
+        }}, 0);
       }}
       if (rule.result_field) out[rule.result_field] = result;
     }}
@@ -426,6 +439,7 @@ def _app_js(spec_json: str) -> str:
     const form = $("record-form");
     clearNode(form);
     const entity = primaryEntity(spec);
+    const statuses = spec.payment_statuses || ["Pago", "Pendente/Fiado", "Sinal 50%"];
     for (const field of entity.fields || []) {{
       const label = document.createElement("label");
       label.setAttribute("for", "f_" + field.name);
@@ -435,6 +449,12 @@ def _app_js(spec_json: str) -> str:
       let input;
       if (field.name === "pagamento" || field.type === "pagamento") {{
         input = document.createElement("select");
+        for (const s of statuses) {{
+          const opt = document.createElement("option");
+          opt.value = s;
+          opt.textContent = s;
+          input.appendChild(opt);
+        }}
       }} else if (field.type === "data") {{
         input = document.createElement("input");
         input.type = "date";
@@ -504,7 +524,10 @@ def _app_js(spec_json: str) -> str:
     const form = $("record-form");
     if (!form.reportValidity()) return;
     const values = readForm(spec);
-    values.id = String(Date.now());
+    values.id =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : String(Date.now()) + "-" + Math.random().toString(36).slice(2, 8);
     values.created_at = new Date().toISOString();
     await saveRecord(values);
     clearForm(spec);

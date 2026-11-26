@@ -150,23 +150,30 @@ class PipeWireBluetoothDevice:
         max_seconds: float = 10.0,
         sample_rate: int = 16_000,
     ) -> bytes:
+        if max_seconds <= 0:
+            raise ValueError("max_seconds deve ser > 0.")
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             wav_path = Path(tmp.name)
         try:
-            code, _, stderr = await self._runner.run(
-                [
-                    self._record_bin,
-                    "--rate",
-                    str(sample_rate),
-                    "--channels",
-                    "1",
-                    "--format",
-                    "s16",
-                    str(wav_path),
-                ],
-                timeout=max_seconds,
-            )
-            if code != 0 and not wav_path.exists():
+            try:
+                code, _, stderr = await self._runner.run(
+                    [
+                        self._record_bin,
+                        "--rate",
+                        str(sample_rate),
+                        "--channels",
+                        "1",
+                        "--format",
+                        "s16",
+                        str(wav_path),
+                    ],
+                    timeout=max_seconds,
+                )
+            except TimeoutError:
+                if wav_path.exists() and wav_path.stat().st_size > 0:
+                    return wav_path.read_bytes()
+                raise
+            if code != 0 and (not wav_path.exists() or wav_path.stat().st_size == 0):
                 raise RuntimeError(stderr.decode("utf-8", errors="replace").strip())
             return wav_path.read_bytes() if wav_path.exists() else b""
         finally:

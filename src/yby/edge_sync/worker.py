@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Protocol, runtime_checkable
 
 import httpx
@@ -18,6 +19,7 @@ from src.yby.edge_sync.schemas import (
 from src.yby.edge_sync.store import SQLiteFallbackEdgeStore, VectorEventStore
 
 HUB_REPUBLISH_MARKER = "hub_republished"
+logger = logging.getLogger("yby.edge_sync.worker")
 
 
 @runtime_checkable
@@ -136,7 +138,14 @@ class EdgeSyncWorker:
             last_cursor = event.event_id
             if status == "inserted":
                 accepted += 1
-                await self._maybe_republish(event)
+                try:
+                    await self._maybe_republish(event)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "Evento %s persistido, mas republicação MQTT falhou: %s",
+                        event.event_id,
+                        exc,
+                    )
             else:
                 duplicates += 1
 

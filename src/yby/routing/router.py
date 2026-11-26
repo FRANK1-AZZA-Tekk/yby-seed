@@ -90,7 +90,12 @@ class RouterConfig:
         offgrid = offgrid_raw in {"1", "true", "yes", "on"}
 
         ttl_raw = source.get("YBY_CACHE_TTL_SECONDS", "300").strip()
-        ttl = int(ttl_raw) if ttl_raw else 300
+        try:
+            ttl = int(ttl_raw) if ttl_raw else 300
+        except ValueError as exc:
+            raise ValueError(
+                f"YBY_CACHE_TTL_SECONDS inválido: {ttl_raw!r}"
+            ) from exc
 
         return cls(
             ollama_base_url=ollama_v1,
@@ -187,7 +192,10 @@ class OpenAICompatibleBackend:
                     resp = await client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()
-            text = str(data["choices"][0]["message"]["content"]).strip()
+            content = data["choices"][0]["message"].get("content")
+            if not isinstance(content, str) or not content.strip():
+                raise TierExecutionError(tier, "resposta vazia do backend")
+            text = content.strip()
         except TierExecutionError:
             raise
         except Exception as exc:  # noqa: BLE001
@@ -289,24 +297,31 @@ class CognitiveRouter:
         if request.use_cache:
             cached_raw = await self._cache.get(cache_key)
             if cached_raw is not None:
-                cached = json.loads(cached_raw)
-                elapsed_ms = (time.perf_counter() - started) * 1000.0
-                return RouteResponse(
-                    text=str(cached["text"]),
-                    tier=cached["tier"],
-                    model=str(cached["model"]),
-                    metadata=RouteMetadata(
-                        selected_tier=cached["tier"],
-                        attempted_tiers=[],
-                        fallback_used=False,
-                        cache_hit=True,
-                        privacy_blocked_cloud=not privacy.allow_cloud,
-                        privacy_reasons=list(privacy.blocked_reasons),
-                        classifier_reasons=list(classification.reasons),
-                        redaction_count=privacy.redaction_count,
-                        latency_ms=round(elapsed_ms, 2),
-                    ),
-                )
+                try:
+                    cached = json.loads(cached_raw)
+                    cached_text = str(cached["text"])
+                    cached_tier = cached["tier"]
+                    cached_model = str(cached["model"])
+                except (json.JSONDecodeError, TypeError, KeyError):
+                    cached = None
+                if cached is not None:
+                    elapsed_ms = (time.perf_counter() - started) * 1000.0
+                    return RouteResponse(
+                        text=cached_text,
+                        tier=cached_tier,
+                        model=cached_model,
+                        metadata=RouteMetadata(
+                            selected_tier=cached_tier,
+                            attempted_tiers=[],
+                            fallback_used=False,
+                            cache_hit=True,
+                            privacy_blocked_cloud=not privacy.allow_cloud,
+                            privacy_reasons=list(privacy.blocked_reasons),
+                            classifier_reasons=list(classification.reasons),
+                            redaction_count=privacy.redaction_count,
+                            latency_ms=round(elapsed_ms, 2),
+                        ),
+                    )
 
         pc_hub_healthy = await self._health.is_healthy(PC_HUB_NODE)
         cascade = self._build_cascade(

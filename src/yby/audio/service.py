@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -21,6 +22,8 @@ from src.yby.audio.schemas import (
 )
 from src.yby.routing.router import CognitiveRouter
 from src.yby.routing.schemas import RouteRequest
+
+logger = logging.getLogger("yby.audio.service")
 
 
 @dataclass(frozen=True)
@@ -42,6 +45,18 @@ class AudioPipelineConfig:
         source = environ if environ is not None else os.environ
         sample_raw = source.get("YBY_VOICE_SAMPLE_RATE", "16000").strip()
         max_raw = source.get("YBY_VOICE_MAX_SECONDS", "15").strip()
+        try:
+            sample_rate = int(sample_raw) if sample_raw else 16_000
+        except ValueError as exc:
+            raise ValueError(
+                f"YBY_VOICE_SAMPLE_RATE inválido: {sample_raw!r}"
+            ) from exc
+        try:
+            max_record_seconds = float(max_raw) if max_raw else 15.0
+        except ValueError as exc:
+            raise ValueError(
+                f"YBY_VOICE_MAX_SECONDS inválido: {max_raw!r}"
+            ) from exc
         return cls(
             source_node=source.get("YBY_NODE_ID", "desktop-yby").strip() or "desktop-yby",
             bt_device_name=(
@@ -52,8 +67,8 @@ class AudioPipelineConfig:
                 source.get("YBY_AUDIO_STATE_TOPIC", TOPIC_AUDIO_STATE).strip()
                 or TOPIC_AUDIO_STATE
             ),
-            sample_rate=max(8_000, int(sample_raw) if sample_raw else 16_000),
-            max_record_seconds=max(1.0, float(max_raw) if max_raw else 15.0),
+            sample_rate=max(8_000, sample_rate),
+            max_record_seconds=max(1.0, max_record_seconds),
             kokoro_voice=source.get("YBY_KOKORO_VOICE", "pf_dora").strip() or "pf_dora",
         )
 
@@ -79,6 +94,7 @@ class AsyncVoicePipeline:
         self.config = config or AudioPipelineConfig()
         self._state: AudioSessionState = "idle"
         self._lock = asyncio.Lock()
+        self._background_tasks: set[asyncio.Task[VoiceTurnResult]] = set()
 
     @property
     def state(self) -> AudioSessionState:
@@ -191,7 +207,11 @@ class AsyncVoicePipeline:
                     error=tts_error,
                 )
             finally:
-                await self._set_state("idle", detail="aguardando")
+                try:
+                    await self._set_state("idle", detail="aguardando")
+                except Exception as exc:  # noqa: BLE001
+                    self._state = "idle"
+                    logger.warning("Falha ao publicar estado idle no MQTT: %s", exc)
 
     def start_turn_background(
         self,
@@ -201,6 +221,9 @@ class AsyncVoicePipeline:
     ) -> asyncio.Task[VoiceTurnResult]:
         """Dispara um turno em background Task sem bloquear rotas HTTP do FastAPI."""
 
-        return asyncio.create_task(
+        task = asyncio.create_task(
             self.run_turn(wav_bytes=wav_bytes, speak_reply=speak_reply)
         )
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        return task

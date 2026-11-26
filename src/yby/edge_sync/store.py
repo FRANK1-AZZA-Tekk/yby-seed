@@ -29,7 +29,25 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 def _format_pgvector(vec: list[float] | None) -> str | None:
     if vec is None:
         return None
-    return "[" + ",".join(f"{float(v):.6f}" for v in vec) + "]"
+    formatted: list[str] = []
+    for raw in vec:
+        val = float(raw)
+        if not math.isfinite(val):
+            raise ValueError("embedding contém valor não finito (NaN/Inf)")
+        formatted.append(f"{val:.6f}")
+    return "[" + ",".join(formatted) + "]"
+
+
+def _parse_json_dict(raw: Any) -> dict[str, Any]:
+    if isinstance(raw, dict):
+        return raw
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(str(raw))
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 @runtime_checkable
@@ -192,7 +210,7 @@ class PgVectorEdgeStore:
                 rows = await cur.fetchall()
             out: list[StoredEdgeEvent] = []
             for row in rows:
-                payload = row[4] if isinstance(row[4], dict) else json.loads(str(row[4]))
+                payload = _parse_json_dict(row[4])
                 out.append(
                     StoredEdgeEvent(
                         event_id=str(row[0]),
@@ -326,13 +344,20 @@ class SQLiteFallbackEdgeStore:
 
         items: list[tuple[EdgeEvent, list[float] | None]] = []
         for row in rows:
-            emb = json.loads(row[8]) if row[8] else None
+            emb: list[float] | None = None
+            if row[8]:
+                try:
+                    parsed_emb = json.loads(row[8])
+                    if isinstance(parsed_emb, list):
+                        emb = parsed_emb
+                except (json.JSONDecodeError, TypeError):
+                    emb = None
             event = EdgeEvent(
                 event_id=str(row[0]),
                 device_id=str(row[1]),
                 source_node=str(row[2]),
                 topic=str(row[3]),
-                payload=json.loads(row[4]),
+                payload=_parse_json_dict(row[4]),
                 text_summary=str(row[5]),
                 captured_at=float(row[6]),
                 sensitivity=row[7],
@@ -364,16 +389,17 @@ class SQLiteFallbackEdgeStore:
         inserted = 0
         duplicates = 0
 
-        for event, emb in pending:
-            status = await target.upsert_event(event, emb)
-            if status == "inserted":
-                inserted += 1
-            else:
-                duplicates += 1
-            drained_ids.append(event.event_id)
-
-        if drained_ids:
-            await asyncio.to_thread(self._mark_drained_sync, drained_ids)
+        try:
+            for event, emb in pending:
+                status = await target.upsert_event(event, emb)
+                if status == "inserted":
+                    inserted += 1
+                else:
+                    duplicates += 1
+                drained_ids.append(event.event_id)
+        finally:
+            if drained_ids:
+                await asyncio.to_thread(self._mark_drained_sync, drained_ids)
         return inserted, duplicates
 
     def _search_sync(self, query_embedding: list[float], limit: int) -> list[StoredEdgeEvent]:
@@ -396,7 +422,12 @@ class SQLiteFallbackEdgeStore:
 
         scored: list[StoredEdgeEvent] = []
         for row in rows:
-            emb = json.loads(row[7])
+            try:
+                emb = json.loads(row[7])
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if not isinstance(emb, list):
+                continue
             score = _cosine_similarity(query_embedding, emb)
             scored.append(
                 StoredEdgeEvent(
@@ -404,7 +435,7 @@ class SQLiteFallbackEdgeStore:
                     device_id=str(row[1]),
                     source_node=str(row[2]),
                     topic=str(row[3]),
-                    payload=json.loads(row[4]),
+                    payload=_parse_json_dict(row[4]),
                     captured_at=float(row[5]),
                     sensitivity=row[6],
                     score=round(score, 6),

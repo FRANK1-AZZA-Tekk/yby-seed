@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
@@ -16,7 +17,24 @@ from src.yby_machine.store import DEFAULT_REUSE_THRESHOLD, InMemorySpecStore
 
 
 def _vector_literal(vec: list[float]) -> str:
-    return "[" + ",".join(f"{float(x):.6f}" for x in vec) + "]"
+    formatted: list[str] = []
+    for raw in vec:
+        val = float(raw)
+        if not math.isfinite(val):
+            raise ValueError("embedding contém valor não finito (NaN/Inf)")
+        formatted.append(f"{val:.6f}")
+    return "[" + ",".join(formatted) + "]"
+
+
+def _parse_spec_data(raw: Any) -> dict[str, Any]:
+    if isinstance(raw, dict):
+        return raw
+    if not raw:
+        raise ValueError("spec_json vazio")
+    parsed = json.loads(str(raw))
+    if not isinstance(parsed, dict):
+        raise ValueError("spec_json deve ser objeto JSON")
+    return parsed
 
 
 class PgVectorSpecStore:
@@ -101,7 +119,7 @@ class PgVectorSpecStore:
         similarity = float(row[5]) if row[5] is not None else 0.0
         if similarity < min_similarity:
             return None
-        spec_data = row[2] if isinstance(row[2], dict) else json.loads(str(row[2]))
+        spec_data = _parse_spec_data(row[2])
         return StoredAppRecord(
             app_id=str(row[0]),
             prompt=str(row[1]),
@@ -180,7 +198,7 @@ class PgVectorSpecStore:
                 await conn.close()
             out: list[AppSummary] = []
             for row in rows:
-                spec_data = row[1] if isinstance(row[1], dict) else json.loads(str(row[1]))
+                spec_data = _parse_spec_data(row[1])
                 spec = YBYSpec.model_validate(spec_data)
                 out.append(
                     AppSummary(
@@ -214,7 +232,7 @@ class PgVectorSpecStore:
                 await conn.close()
             if not row:
                 return None
-            spec_data = row[2] if isinstance(row[2], dict) else json.loads(str(row[2]))
+            spec_data = _parse_spec_data(row[2])
             return StoredAppRecord(
                 app_id=str(row[0]),
                 prompt=str(row[1]),

@@ -7,6 +7,7 @@ import inspect
 import json
 import os
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -250,17 +251,68 @@ def _extract_json_object(raw: str) -> dict[str, Any]:
     return data
 
 
+def _sanitize_ident(raw: Any, *, default: str = "app") -> str:
+    text = unicodedata.normalize("NFKD", str(raw or ""))
+    ascii_text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    cleaned = re.sub(r"[^a-zA-Z0-9_]+", "_", ascii_text.strip().casefold())
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_")
+    if not cleaned:
+        cleaned = default
+    if cleaned[0].isdigit():
+        cleaned = f"{default}_{cleaned}"
+    return cleaned[:80]
+
+
 def _normalize_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Ajustes leves para JSON incompleto do modelo pequeno."""
 
     out = dict(payload)
     if "name" not in out and "title" in out:
-        raw_name = str(out["title"]).casefold().replace(" ", "_")
-        cleaned = re.sub(r"[^a-z0-9_]", "", raw_name.replace("-", "_"))
-        out["name"] = (cleaned or "app")[:80]
+        out["name"] = _sanitize_ident(out["title"], default="app")
+    elif isinstance(out.get("name"), str) and out["name"].strip():
+        out["name"] = _sanitize_ident(out["name"], default="app")
     if "title" not in out and "name" in out:
         out["title"] = str(out["name"])
     entities = out.get("entities")
     if not isinstance(entities, list) or not entities:
         raise ValueError("entities ausente ou vazia")
+    normalized_entities: list[Any] = []
+    for entity in entities:
+        if not isinstance(entity, dict):
+            normalized_entities.append(entity)
+            continue
+        ent = dict(entity)
+        if "name" in ent:
+            ent["name"] = _sanitize_ident(ent["name"], default="item")
+        elif "label" in ent:
+            ent["name"] = _sanitize_ident(ent["label"], default="item")
+        fields = ent.get("fields")
+        if isinstance(fields, list):
+            norm_fields: list[Any] = []
+            for field in fields:
+                if isinstance(field, dict):
+                    fld = dict(field)
+                    if "name" in fld:
+                        fld["name"] = _sanitize_ident(fld["name"], default="campo")
+                    elif "label" in fld:
+                        fld["name"] = _sanitize_ident(fld["label"], default="campo")
+                    norm_fields.append(fld)
+                else:
+                    norm_fields.append(field)
+            ent["fields"] = norm_fields
+        normalized_entities.append(ent)
+    out["entities"] = normalized_entities
+    if isinstance(out.get("actions"), list):
+        norm_actions: list[Any] = []
+        for action in out["actions"]:
+            if isinstance(action, dict):
+                act = dict(action)
+                if "name" in act:
+                    act["name"] = _sanitize_ident(act["name"], default="acao")
+                elif "label" in act:
+                    act["name"] = _sanitize_ident(act["label"], default="acao")
+                norm_actions.append(act)
+            else:
+                norm_actions.append(action)
+        out["actions"] = norm_actions
     return out
