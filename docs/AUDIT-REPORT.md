@@ -34,22 +34,22 @@ Artefatos: `/opt/cursor/artifacts/pytest-full.txt`, `pytest-cov.txt`, `pytest-sk
 
 | ID | Sev. | Área | Resumo |
 |----|------|------|--------|
-| A01 | ~~**Crítico**~~ **Corrigido** (PR-CRIT-1) | gateway | `insert` assíncrono chamado sem `await` |
-| A02 | ~~**Crítico**~~ **Corrigido** (PR-CRIT-2) | gateway | `asyncio.Queue` manipulada de thread MQTT |
-| A03 | **Alto** | security | Sandbox propaga secrets via `os.environ.copy()` |
-| A04 | **Alto** | iot/gateway | MQTT sem TLS/autenticação transporte |
-| A05 | **Alto** | vision | API de inferência sem auth |
-| A06 | **Alto** | gateway | Embeddings dummy (vetores nulos) |
-| A07 | **Alto** | gateway | WebSocket e worker competem pela mesma fila |
-| A08 | **Médio** | engine | `HybridEngine` confirma nuvem automaticamente se `confirm_fn=None` |
-| A09 | **Médio** | gateway | `HTTPException(detail=str(e))` vaza stack interno |
-| A10 | **Médio** | core | `MemoryAllocator.install()` executa `sudo apt` e altera `~/.bashrc` |
-| A11 | **Médio** | testes | 14 testes skipped (gateway, RAG, agentes legado) |
-| A12 | **Médio** | cobertura | 17+ módulos `src/` com **0%** cobertura na suíte |
-| A13 | **Médio** | vision | `FUSION_QUANTIZATION` padrão `none` vs D14 (4bit / VRAM) |
-| A14 | **Baixo** | gateway | `datetime.utcnow()` (deprecado) em metadados |
-| A15 | **Baixo** | ops | `logging.basicConfig` repetido em vários módulos legado |
-| A16 | **Baixo** | docs/código | Módulos `evaluation/` e `monitoring/` duplicam conceito de dashboard |
+| A01 | ~~**Crítico**~~ **Corrigido** (PR #118) | gateway | `insert` assíncrono chamado sem `await` |
+| A02 | ~~**Crítico**~~ **Corrigido** (PR #119) | gateway | `asyncio.Queue` manipulada de thread MQTT |
+| A03 | ~~**Alto**~~ **Corrigido** | security | Sandbox propaga secrets via `os.environ.copy()` (whitelist mínima) |
+| A04 | ~~**Alto**~~ **Corrigido** | iot/gateway | MQTT sem TLS/autenticação transporte (`tls_set`, `username_pw_set`, lifecycle limpo) |
+| A05 | ~~**Alto**~~ **Corrigido** | vision | API de inferência FUSION protegida via `FUSION_API_TOKEN` / `GATEWAY_TOKEN` |
+| A06 | ~~**Alto**~~ **Corrigido** | gateway/rag | Embeddings reais via Ollama `/api/embeddings` (+ fallback determinístico em ingestão) |
+| A07 | ~~**Alto**~~ **Corrigido** | gateway | Fila dedicada por cliente `/ws/telemetry` (`_ws_queues`) |
+| A08 | ~~**Médio**~~ **Corrigido** | engine | `engine_from_env()` falha fechado (`confirm_fn` padrão `False` + checagem TTY) |
+| A09 | ~~**Médio**~~ **Corrigido** | gateway/vision | Mensagens de erro sanitizadas (sem `detail=str(e)`) |
+| A10 | ~~**Médio**~~ **Corrigido** | core | `MemoryAllocator.install(confirm=True)` e `enable(persist=False)` por padrão |
+| A11 | ~~**Médio**~~ **Corrigido** (PR #155) | testes | 14 placeholders removidos; resta 1 skip legítimo (`Pillow`) |
+| A12 | **Médio** (**Parcial**) | cobertura | Cobertura expandida para `gateway`, `vision/fusion/server`, `rag_optimizer`, `core`, `agents`; pendentes `monitoring/` e `evaluation/` |
+| A13 | ~~**Médio**~~ **Corrigido** | vision | `FUSION_QUANTIZATION` padrão `4bit` conforme D14 |
+| A14 | ~~**Baixo**~~ **Corrigido** | gateway | `datetime.now(timezone.utc)` adotado |
+| A15 | ~~**Baixo**~~ **Corrigido** | ops | `logging.basicConfig` removido dos módulos de biblioteca tocados |
+| A16 | **Baixo** (**Congelado**) | docs/código | `evaluation/` e `monitoring/` mantidos congelados fora do fluxo `ask` (`docs/LAYER_ADMISSION.md`) |
 
 **Contagem:** Crítico **2** · Alto **5** · Médio **6** · Baixo **3** → **16 achados** (todos com referência de arquivo:linha abaixo).
 
