@@ -4,16 +4,16 @@ Registro incremental de camadas. Sem `CONTRACT.md` / `config/agent/state.json` n
 
 ## Retomada atual
 
-**Atualizado:** 2026-11-26 (política de ações do agente; VM `/agent/repos/yby-seed`).
+**Atualizado:** 2026-11-26 (auditoria dos skips; VM `/agent/repos/yby-seed`).
 
 | Campo | Estado |
 |-------|--------|
-| **Tarefa desta linha** | **Política de ações do agente** — [`config/agent-policy.yaml`](config/agent-policy.yaml) (`version: 1`, `default: manual`) + `src/safety/agent_policy.py` (carga fail-closed, invariantes de risco) aplicada em todo `ToolRegistry` (`authorize` → `AuthorizedCall` de uso único → `execute`). `echo_json`/`vault_search` `autonomous`; segredos, deploy, shell, regras de segurança e deleção `human_only`. **Integrado em `main` @ `ed2462a5162ffbbdc1defeca5f88e26aa78fcb34`** ([PR #153](https://github.com/FRANK1-AZZA-Tekk/yby-seed/pull/153), aprovado pelo dono). |
-| **`main` remoto (base)** | `ed2462a5162ffbbdc1defeca5f88e26aa78fcb34` (inclui OpenCode O0, PR #152, e política de ações, PR #153); base da camada **Glass G1** (consolidação do simulador, branch `cursor/yby-glass-g1-0bef`). |
-| **Validação local** | `tests/test_agent_policy.py` **48 passed** (itens a–j); suítes direcionadas **203 passed**; `make check` exit 0 (**712 passed**, 15 skipped); `git diff --check` OK. CI: consultar no SHA final do PR. |
+| **Tarefa desta linha** | **Auditoria dos 15 skips** — 14 placeholders sem asserts removidos (`tests/test_agents.py` 8, `tests/test_gateway.py` 3, `tests/test_rag.py` 3; motivos desatualizados, comportamento já coberto por testes reais) + 5 fixtures órfãs do `tests/conftest.py`. Único skip restante: Pillow opcional da visão (legítimo). Lista canônica: [docs/ROBUSTNESS-SCAN.md](docs/ROBUSTNESS-SCAN.md#skips-conhecidos-pytest--rs). Branch `cursor/skip-audit-0bef`. |
+| **`main` remoto (base)** | `36de739b19a5f295b4c761141c10182466508a86` (inclui política de ações, PR #153 @ `ed2462a`, e Glass G1, PR #154 @ `36de739`). |
+| **Validação local** | `pytest -rs`: antes **728 passed, 15 skipped**; depois **728 passed, 1 skipped**. Direcionados (agentes, vault, gateway, rag, deep_scan, visão) **83 passed, 1 skipped**; `make check` exit 0 (doctor PASS, ruff OK, **728 passed, 1 skipped**); `git diff --check` OK. CI: consultar no SHA final do PR. |
 | **WIP / stash** | OID `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` **não existe nesta VM** (`git stash list` vazio); nenhum comando de stash executado. Se existir em outra máquina, segue preservado lá. |
-| **Limitações** | `yby agent` não tem canal de aprovação: tools `manual` são recusadas na CLI. IDs `human_only` protegem nomes exatos; skills (`SKILL_ACTIONS`) fora desta camada. |
-| **Próxima sugerida** | Canal local de aprovação na CLI para tools `manual` (prompt TTY, sem rede) — exige aprovação; ou OpenCode O1; ou Glass G1; ou smokes no PC Hub ([checklist](#checklist-de-aceite-do-núcleo-consolidado)). |
+| **Pendência real** | Lacunas de cobertura de `src/gateway` e `src/rag` (item A11 de [AUDIT-REPORT.md](docs/AUDIT-REPORT.md)) seguem fora do núcleo; os placeholders removidos não as cobriam. Aceite do núcleo no PC Hub segue pendente. |
+| **Próxima sugerida** | Smokes no PC Hub via agente aberto na própria máquina ([checklist](#checklist-de-aceite-do-núcleo-consolidado)); ou canal local de aprovação na CLI para tools `manual`; ou Glass G1b — exigem aprovação. |
 | **Bloqueios (PC Hub)** | Smokes Ollama/OpenRouter reais; não executados nesta VM. |
 
 *Não é fonte de autorização; regras em `AGENTS.md`. Histórico de camadas abaixo permanece.*
