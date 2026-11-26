@@ -167,6 +167,19 @@ make check             # doctor + lint + test
 
 O CI em push/`main` e em todo PR roda os mesmos três alvos e falha o check se algum quebrar. Detalhe e Bugbot: [CI.md](CI.md). Não precisa de Docker para o núcleo.
 
+### Avaliação offline (pt-BR)
+
+Conjunto curto em [`evals/ptbr_basico.json`](../evals/ptbr_basico.json) (resposta direta, explicação técnica, tool segura, entrada ambígua, entrada inválida, recusa segura), separado dos testes unitários:
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/eval_offline.py          # uma linha por caso + total
+PYTHONPATH=. .venv/bin/python scripts/eval_offline.py --json   # relatório completo
+```
+
+- **Mede:** o pipeline real (`HybridEngine`, `ControlledAgentLoop`, porta de segurança) com respostas roteirizadas: sucesso/falha por critério, chamadas (local, planner, nuvem, runner), tools executadas, erro, tamanho do prompt contra o limite do caso e latência **simulada** (250 ms por chamada de modelo, 5 ms por tool).
+- **Não mede:** qualidade do modelo nem latência real. Sem rede, nuvem, Ollama ou `.env`; a nuvem fake não tem chave e falha se chamada.
+- Saída `0` se todos passam, `1` se algum falha, `2` se o conjunto é inválido. Testes: `tests/test_eval_offline.py`.
+
 ## O que não fazer
 
 - Programar features do YBY em forks (`langgraph`, `llama.cpp`, …).
