@@ -17,6 +17,7 @@ DataOrigin = Literal[
     "pix_commercial",
     "web_research",
     "code_workspace",
+    "rea_artifact",
 ]
 
 RouteTier = Literal[

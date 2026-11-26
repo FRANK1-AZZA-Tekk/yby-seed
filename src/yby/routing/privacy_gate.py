@@ -20,6 +20,7 @@ PRIVATE_ORIGINS: frozenset[str] = frozenset(
         "mqtt_telemetry",
         "raw_audio",
         "pix_commercial",
+        "rea_artifact",
     }
 )
 
@@ -30,6 +31,7 @@ _PRIVATE_METADATA_FLAGS: tuple[str, ...] = (
     "raw_audio",
     "mqtt_payload",
     "pix_data",
+    "rea_output",
 )
 
 # Sinais de dados comerciais/Pix brasileiros que nunca devem sair para nuvem.

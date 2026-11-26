@@ -2,4 +2,4 @@
 
 from __future__ import annotations
 
-__all__ = ["audio", "edge_sync", "routing"]
+__all__ = ["audio", "bridges", "edge_sync", "rea", "routing"]

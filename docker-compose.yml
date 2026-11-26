@@ -48,3 +48,29 @@ services:
     volumes:
       - ./data/mosquitto:/mosquitto/data
     mem_limit: 128m
+
+  # Sandbox REA (opt-in): `docker compose --profile rea run --rm -T rea-sandbox`
+  # Somente leitura, sem rede, sem capabilities. Coloque dumps em ./data/firmware.
+  rea-sandbox:
+    build:
+      context: .
+      dockerfile: docker/rea-sandbox/Dockerfile
+      args:
+        INSTALL_GHIDRA: ${YBY_REA_INSTALL_GHIDRA:-0}
+    image: yby-rea-sandbox:local
+    container_name: yby-rea-sandbox
+    profiles: ["rea"]
+    read_only: true
+    network_mode: none
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 2g
+    pids_limit: 256
+    user: "10001:10001"
+    stdin_open: true
+    environment:
+      YBY_REA_FIRMWARE_DIR: /firmware
+    tmpfs:
+      - /tmp:size=128m,nosuid,nodev
+    volumes:
+      - ./data/firmware:/firmware:ro

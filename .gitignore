@@ -10,3 +10,6 @@ evo/reports/*
 !evo/reports/EXAMPLE.md
 !evo/reports/.gitkeep
 *.sqlite3
+
+# Dumps de flash do T-Watch e firmware para REA (nunca versionar)
+backups/
