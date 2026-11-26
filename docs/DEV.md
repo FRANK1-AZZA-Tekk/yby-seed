@@ -140,6 +140,7 @@ Roteamento do `ask`: `src/engine/routing.py` e `src/engine/config.py`.
 | Resposta / provedores / roteamento / cache | `src/engine/` |
 | Hub keepalive | `src/platform/`, `scripts/install-hub-service.sh` |
 | Allowlist e decisão de comando | `src/safety/`, `config/safety-allowlist.txt` |
+| Política das tools do agente (autonomous / manual / human_only) | `src/safety/agent_policy.py`, `config/agent-policy.yaml`; aplicada em todo `ToolRegistry` (`src/agent_loop/tools.py`). Tool nova sem entrada = `manual`; arquivo inválido = nenhuma tool roda |
 | Execução após a porta | `src/actions/` |
 | Notas / recall | `src/memory/` |
 | Código gerado perigoso | `src/security/ast_guard.py` |

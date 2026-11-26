@@ -50,6 +50,7 @@ Orquestração LangGraph/MQTT permanece em **yby-core** (repositório separado, 
 - O **núcleo funciona sem Docker** (D5): venv + Ollama no host.
 - **Local-first**; nuvem com chave no `.env` e política em [DECISIONS.md](DECISIONS.md) D3/D12.
 - **Shell:** allowlist + confirmação (D10); `safety` não executa; `actions` executa.
+- **Tools do agente (`yby agent`):** política versionada [config/agent-policy.yaml](config/agent-policy.yaml), validada por `src/safety/agent_policy.py` antes de qualquer execução: `autonomous` (só leitura) roda, `manual` exige aprovação humana por chamada (uso único), `human_only` nunca roda (segredos, deploy, shell, regras de segurança, deleção irreversível). Sem entrada = `manual`.
 - **Skills / automações:** dry-run antes de efeitos colaterais (D6) — alinhar ao integrar agentes.
 - **Um serviço por vez** ao adicionar infra (Syncthing, Qdrant, gateway).
 
