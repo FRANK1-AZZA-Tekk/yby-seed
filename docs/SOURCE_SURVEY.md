@@ -6,6 +6,7 @@
 
 **Rodada 1:** 2026-11-24 · `main` base `d098334…`
 **Rodada 2:** 2026-11-24 · `main` base `7c6ef5b403ed19593583b88dcfe34aca58c9a924` (spike `format` no planner).
+**Rodada 3:** 2026-11-26 · `main` base `a3a93aa6398f22d1217e33194bcd141f85275285` (YBY Glass G0, [YBY_GLASS_SPEC.md](YBY_GLASS_SPEC.md)).
 
 ## Contagens acumuladas (sem duplicatas)
 
@@ -13,9 +14,10 @@
 |--------|----|----|-----|-------|
 | 1 | 1 | 4 | 5 | **10** |
 | 2 | 0 | 2 | 3 | **5** |
-| **Total novas** | **1** | **6** | **8** | **15** |
+| 3 | 0 | 4 | 1 | **5** |
+| **Total novas** | **1** | **10** | **9** | **20** |
 
-**Acumulado útil:** **15/300** entradas novas (incluem inspeções internas YBY) + 3 referências prévias reutilizadas (não recontadas). Reutilizadas nesta rodada: **SRC-001**, **SRC-006**, **SRC-007** (sem recontagem).
+**Acumulado útil:** **20/300** entradas novas (rodadas 1–2 incluem inspeções internas YBY; rodada 3 só externas) + 3 referências prévias reutilizadas (não recontadas). Reutilizadas na rodada 2: **SRC-001**, **SRC-006**, **SRC-007** (sem recontagem). **Meta não concluída.**
 
 **Rodada 2 — externas vs internas:** fontes **externas** novas = **2** (SRC-011, SRC-012); **inspeções código/teste YBY** = **3** (SRC-013–015). O total **5** da rodada 2 soma ambos — não confundir com “5 fontes externas”.
 
@@ -124,4 +126,28 @@ Scan externo de projetos semelhantes (relato ~40 páginas) **não** foi importad
 
 ---
 
-*Próxima rodada sugerida:* smoke Hub planner+format; OWASP LLM07 (L1); meta acumulada 20/300.
+## Entradas — rodada 3 (YBY Glass G0)
+
+Só fontes externas efetivamente lidas. Padrões, não código: nada foi copiado para o YBY.
+
+| ID | URL / arquivo | Origem | Versão / data | Nível | Evidência útil | Licença | Decisão YBY |
+|----|---------------|--------|---------------|-------|----------------|---------|-------------|
+| SRC-018 | https://github.com/OpenSQZ/OpenGlass (`README.md`) | GitHub OpenSQZ | `main` @ `e022144` (lido 2026-11-26) | L1 | Óculos ESP32-S3 capturam frame + áudio; host próximo roda ASR/VLM/TTS local; logs/replay locais no host | README declara Apache-2.0; API do GitHub **não detecta arquivo LICENSE** (`/license` → 404) | Adotar só a divisão sensor ↔ host; **não copiar código** até licença confirmada no repo |
+| SRC-019 | https://github.com/OpenSQZ/OpenGlass/blob/main/docs/safety_privacy.md | GitHub OpenSQZ | idem | L1 | Local-first "não é garantia formal de privacidade"; minimizar retenção de brutos; nuvem só como opção habilitada explicitamente | idem | Base das regras d) e "sem promessa de privacidade total" da spec |
+| SRC-020 | https://arxiv.org/html/2607.03213 | Artigo (ACL 2026 demo) | HTML arXiv (lido 2026-11-26; resumo e trechos de §1–§3, não integral) | L1 | Captura **sob demanda de um frame** após a consulta; latência decomposta por estágio; abstenção segura e logs auditáveis | — | Captura discreta (1 ativação = 1 captura) e métricas por estágio; números do artigo **não** são metas YBY. PDF ACL = mesma obra, não recontado |
+| SRC-021 | https://github.com/Artod/lstk-eye (`README.md`) | GitHub Artod | `main` @ `2da4e02` (lido 2026-11-26) | L1 | Óculos thin client; servidor dono de estado/planejamento; HUD por cenas JSON pequenas; `--profile mock` + simulador de dispositivo | MIT | Adotar padrão thin client + simulador offline |
+| SRC-022 | `Artod/lstk-eye` `src/lstk_eye/protocol/messages.py` | GitHub Artod | idem | L2 | Primitivas discriminadas por tipo (`t`), mensagens planas e limitadas para parser embarcado; cena substitui a anterior | MIT | Inspira primitivas discriminadas por `kind` com limites; esquema YBY é próprio (coords normalizadas, sem seta/gyro) |
+
+### Inspeção interna — rodada 3 (não conta como fonte externa)
+
+| Arquivo | Evidência | Decisão |
+|---------|-----------|---------|
+| `src/agent_loop/tools.py` | `ToolSpec` + `ToolRegistry.run` validam args Pydantic | Tools Glass reutilizam `ToolSpec`; fora de `default_tool_registry` |
+| `src/yby/audio/schemas.py` | Contratos T-Watch (D15) já existem | Glass não duplica; spec referencia |
+| `src/memory/vault.py` | `Vault.write_note` | Destino futuro da retenção (G2); G0 usa sink em memória |
+
+Descobertas vistas só em resultado de busca (ex.: página "Mentra HUD Constraints" do WeftOS) **não** foram lidas e **não** foram contadas.
+
+---
+
+*Próxima rodada sugerida:* smoke Hub planner+format; OWASP LLM07 (L1); para Glass G3, ler a licença do OpenGlass no repositório antes de qualquer reuso.
