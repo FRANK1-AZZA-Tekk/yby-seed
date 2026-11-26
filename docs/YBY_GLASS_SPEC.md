@@ -1,7 +1,7 @@
-# YBY Glass v0.1 — especificação canônica (camada G0)
+# YBY Glass v0.1 — especificação canônica (camadas G0–G1)
 
-> **Status:** G0 = especificação + contrato simulado offline. **Não há hardware, captura real, STT/TTS real, inferência multimodal, rede nem renderização de HUD.**
-> Código do contrato: [`src/yby/glass/`](../src/yby/glass/) · Testes: `tests/yby/test_glass_contract.py`, `tests/yby/test_glass_simulator.py`.
+> **Status:** G0 = especificação + contrato simulado offline; G1 = consolidação do simulador (testes de estados inalcançáveis, retenção sem duplicata, isolamento, política de ações) + roteiro dev `scripts/glass_sim.py`. **Não há hardware, captura real, STT/TTS real, inferência multimodal, rede nem renderização de HUD.**
+> Código do contrato: [`src/yby/glass/`](../src/yby/glass/) · Testes: `tests/yby/test_glass_contract.py`, `tests/yby/test_glass_simulator.py`, `tests/yby/test_glass_g1.py`.
 > Fora do caminho do `ask`: nada em `src/engine`, `src/main.py`, `src/safety`, `src/actions` ou `src/memory` importa `src/yby/glass`.
 
 Este é o único documento canônico do YBY Glass. Planejamento wearable anterior (T-Watch, gateway, rede): [future/PLANO_ECOSISTEMA_WEARABLE.md](future/PLANO_ECOSISTEMA_WEARABLE.md) — não repetido aqui.
@@ -196,6 +196,9 @@ Exemplo:
 - `FakeGlassSession`: coordena estados, TTLs (relógio injetável `FakeClock`), retenção e métricas.
 - `InMemoryRetentionSink`: registra só observações derivadas retidas.
 - Nenhum acesso a câmera, microfone, rede, Bluetooth ou dispositivo real. Os testes verificam os imports do pacote (AST) e executam o fluxo com `socket` e `subprocess` bloqueados.
+- Sem estado global mutável: cada sessão tem seu sink, relógio, métricas e sequência de `capture_id`.
+- Política de ações: as tools Glass **não** têm entrada em `config/agent-policy.yaml`, logo caem em `manual`; num `ToolRegistry` sem aprovador nenhuma captura ocorre. Registrá-las com aprovação é decisão explícita de quem monta o registry (testes e roteiro dev).
+- Roteiro dev (fora do `ask` e da CLI): `PYTHONPATH=. python scripts/glass_sim.py` executa um cenário fixo (frame com texto injetado → retido; áudio → descartado; falha → `error`; `stop`) e imprime uma linha JSON por evento + resumo de métricas. Saída determinística.
 
 ## l) Métricas mínimas (`GlassMetrics`)
 
@@ -217,8 +220,9 @@ Em G0 as latências vêm do relógio simulado; **não** representam desempenho r
 
 | Fase | Entrega | Estado | Gate |
 |---|---|---|---|
-| **G0** | Esta spec + contrato simulado + testes offline | **Feito nesta camada** | `make check` |
-| G1 | Tools Glass opcionais no `yby agent` (só simulador, flag explícita) | Futuro | Aprovação do dono (muda superfície do agente) |
+| **G0** | Esta spec + contrato simulado + testes offline | **Feito** (PR #151) | `make check` |
+| **G1** | Consolidação do simulador: estados proibidos inalcançáveis sem `arm()`, retenção sem duplicata, isolamento entre sessões, tools Glass sob a política de ações (`manual`), roteiro dev `scripts/glass_sim.py` | **Feito** | `make check` |
+| G1b | Tools Glass opcionais no `yby agent` (só simulador, flag explícita) | Futuro | Aprovação do dono (muda superfície do agente) |
 | G2 | Retenção para o vault (`Vault.write_note`, só derivado) + política explícita de retenção | Futuro | Aprovação (privacidade/memória) |
 | G3 | Contrato de transporte hub↔óculos (mensagens versionadas, autenticação, loopback/LAN) com simulador de dispositivo | Futuro | Aprovação (rede/permissões) |
 | G4 | Spike de hardware em repo externo (YBY / FRANK_ZER0, D1/D7) — captura sob botão, indicador físico | Futuro | Aprovação + hardware |
@@ -257,6 +261,14 @@ Nenhuma fase futura é dependência do `ask` ou do núcleo.
 9. HUD aceita só as 8 primitivas válidas.
 10. Payload do HUD ≤ 512 bytes.
 11. Sem rede, câmera, microfone ou dependência externa nova.
+
+**Critérios de aceite G1 (verificados por `tests/yby/test_glass_g1.py`):**
+
+1. Nenhuma sequência de até 3 operações sem `arm()` sai de `idle`/`stopped`.
+2. Decisão repetida, chamadas repetidas de tool ou captura antiga após `stop` não criam retenção duplicada.
+3. Sessões não compartilham estado.
+4. Tools Glass sem aprovador não capturam; conteúdo percebido não altera decisões da política.
+5. Roteiro dev roda offline, é determinístico e não está ligado ao `ask` nem à CLI.
 
 ---
 
