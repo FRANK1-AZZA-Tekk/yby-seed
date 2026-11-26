@@ -15,6 +15,7 @@
 | [archive/FORA-DO-V1.md](archive/FORA-DO-V1.md) | Mobile/firmware removidos da árvore |
 | [future/PLANO_ECOSISTEMA_WEARABLE.md](future/PLANO_ECOSISTEMA_WEARABLE.md) | Wearable, gateway, métricas, execução (fora do v1) |
 | [YBY_GLASS_SPEC.md](YBY_GLASS_SPEC.md) | YBY Glass v0.1 — spec canônica G0 (contrato simulado offline; sem hardware; fora do `ask`) |
+| [OPENCODE_INTEGRATION.md](OPENCODE_INTEGRATION.md) | OpenCode como ferramenta de engenharia (não runtime) — perfil `yby-engineer`, permissões e testes da config |
 | [future/EVO_NIGHT_WATCH.md](future/EVO_NIGHT_WATCH.md) | Evo / Night Watch — design de auto-evolução supervisionada (fora do caminho `ask` até implementação pedida) |
 | [future/](future/) | Índice mobile/ESP / Evo |
 

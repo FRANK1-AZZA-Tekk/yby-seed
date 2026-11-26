@@ -4,15 +4,15 @@ Registro incremental de camadas. Sem `CONTRACT.md` / `config/agent/state.json` n
 
 ## Retomada atual
 
-**Atualizado:** 2026-11-26 (YBY Glass G0; VM `/agent/repos/yby-seed`).
+**Atualizado:** 2026-11-26 (OpenCode O0; VM `/agent/repos/yby-seed`).
 
 | Campo | Estado |
 |-------|--------|
-| **Tarefa desta linha** | **YBY Glass G0** — spec [docs/YBY_GLASS_SPEC.md](docs/YBY_GLASS_SPEC.md) + contrato simulado `src/yby/glass/` + testes offline. Branch `cursor/yby-glass-g0-0bef`; PR aberto, **merge pendente de aprovação do dono** (novo contrato de privacidade/arquitetura). |
-| **`main` remoto (base)** | `a3a93aa6398f22d1217e33194bcd141f85275285`. |
-| **Validação local** | `tests/yby/test_glass_*.py` **60 passed**; `make check` doctor PASS, ruff OK, **539 passed**, 15 skipped; `git diff --check origin/main...HEAD` OK (reexecutado após revisão de licença OpenGlass e SRC-020; só docs mudaram). CI no SHA `a2b2757`: Doctor/Lint/Test/auto-review pass. OpenGlass: sem arquivo LICENSE no repo (ver SRC-018). |
+| **Tarefa desta linha** | **OpenCode O0** — ferramenta de engenharia, não runtime: spec [docs/OPENCODE_INTEGRATION.md](docs/OPENCODE_INTEGRATION.md) + [`opencode.json`](opencode.json) (perfil `yby-engineer`) + `tests/test_opencode_config.py`. Branch `cursor/opencode-eng-tool-0bef`; PR aberto, **merge pendente de aprovação do dono** (política de permissões de ferramenta). OpenCode não instalado nem executado. |
+| **`main` remoto (base)** | `14a5653629b34abce8b495d01d19d6ccc39621df` (inclui YBY Glass G0, PR #151, já integrado). |
+| **Validação local** | `tests/test_opencode_config.py` **125 passed**; `make check` exit 0 (**664 passed**, 15 skipped); `git diff --check` OK. Manual: `opencode.json` validado contra `https://opencode.ai/config.json`, 0 erros. CI: consultar no SHA final do PR. |
 | **WIP / stash** | OID `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` **não existe nesta VM** (`git stash list` vazio); nenhum comando de stash executado. Se existir em outra máquina, segue preservado lá. |
-| **Próxima sugerida** | Glass G1 (tools Glass opcionais no `yby agent`, só simulador) — exige aprovação; ou smokes no PC Hub ([checklist](#checklist-de-aceite-do-núcleo-consolidado)). |
+| **Próxima sugerida** | OpenCode O1 (humano confirma `opencode --version` ≥ 2.2.3 e sessão só leitura) — exige aprovação; ou Glass G1; ou smokes no PC Hub ([checklist](#checklist-de-aceite-do-núcleo-consolidado)). |
 | **Bloqueios (PC Hub)** | Smokes Ollama/OpenRouter reais; não executados nesta VM. |
 
 *Não é fonte de autorização; regras em `AGENTS.md`. Histórico de camadas abaixo permanece.*
