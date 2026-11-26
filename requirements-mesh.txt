@@ -1,0 +1,5 @@
+# YBY SEED — Dependências opcionais da Malha de 4 Nós (Módulos A, B e D)
+# Instalação alternativa via uv: uv sync --extra mesh
+redis>=5.0.0
+psycopg[binary]>=3.2.0
+pgvector>=0.3.0

@@ -1,76 +1,82 @@
 # =============================================================================
-# YBY SEED — Configuração LiteLLM
-# Roteamento em pirâmide de custos: local → grátis → econômico → crítico
-# Documentação: docs/PLANEJAMENTO-CUSTOS-IA.md
+# YBY SEED — Configuração LiteLLM (Malha de 4 Nós — D3/D4/D12/D15)
+# Roteamento em cascata: local rápido -> 7B híbrido -> nuvem sob demanda -> mobile failover
+# Regra inviolável: rotas locais/privadas NUNCA escalam para nuvem.
+# Documentação: docs/PLANEJAMENTO-CUSTOS-IA.md e DECISIONS.md (D15)
 # =============================================================================
 
 model_list:
-  # --- Nível 1: Volume local (custo zero, privacidade) ---
-  # D4 (2026-11-11): qwen2.5-coder:3b substitui llama3.2:3b.
-  # D3/D12: proxy opcional. O `ask` usa OpenRouter quando roteamento pede nuvem;
-# falha OpenRouter NÃO aciona Grok automaticamente (ver src/engine/providers.py).
-  # Os aliases abaixo espelham a pirâmide de custo do proxy LiteLLM (opcional).
+  # --- Padrão D4 (compatibilidade `yby-local`) ---
   - model_name: yby-local
     litellm_params:
       model: ollama/qwen2.5-coder:3b
-      api_base: http://localhost:11434
+      api_base: os.environ/OLLAMA_API_BASE
 
-  # --- Nível 2: Modelos gratuitos OpenRouter (prototipagem/testes) ---
+  # --- Nível 1 (yby-fast): 3B–4B em VRAM da GTX 1650 (4 GB) ---
+  # Triagem estruturada (GBNF/XGrammar), comandos de voz Baseus/T-Watch e classificação.
+  - model_name: yby-fast
+    litellm_params:
+      model: ollama/qwen2.5-coder:3b
+      api_base: os.environ/OLLAMA_API_BASE
+
+  # --- Nível 2 (yby-code): 7B híbrido GPU+RAM no PC Hub (16 GB DDR4) ---
+  # Geração de micro-apps YBY Fórum, síntese RAG (pgvector) e tools Hermes.
+  - model_name: yby-code
+    litellm_params:
+      model: ollama/qwen2.5-coder:7b
+      api_base: os.environ/OLLAMA_API_BASE
+
+  # --- Nível 3 (yby-cloud-frontier): Nuvem sob demanda (SOMENTE não-privado) ---
+  # Bloqueado pelo PrivacyGate para payloads `sensitivity="private"`.
+  - model_name: yby-cloud-frontier
+    litellm_params:
+      model: openrouter/openrouter/free
+
+  # --- Nível 4 (yby-mobile-fallback): Failover offline no Xiaomi 12 (PocketPal :8080) ---
+  # Acionado automaticamente quando o PC Hub está offline ou em manutenção.
+  - model_name: yby-mobile-fallback
+    litellm_params:
+      model: openai/qwen2.5-coder-3b-instruct
+      api_base: os.environ/YBY_POCKETPAL_BASE_URL
+      api_key: pocketpal-local
+
+  # --- Aliases legados preservados para compatibilidade ---
   - model_name: yby-free
     litellm_params:
       model: openrouter/openrouter/free
 
-  # --- Nível 3a: Econômico rápido (debate, pesquisa, specs) ---
-  - model_name: yby-fast
-    litellm_params:
-      model: openrouter/meta-llama/llama-3.3-70b-instruct
-
-  # --- Nível 3b: Código médio (implementação, debug leve) ---
   - model_name: yby-smart
     litellm_params:
       model: openrouter/deepseek/deepseek-chat-v3.1
 
-  # --- Nível 4: Crítico (implementação complexa, revisão final) ---
   - model_name: yby-critical
     litellm_params:
       model: openrouter/anthropic/claude-sonnet-4.5
 
 # -----------------------------------------------------------------------------
-# Roteamento com fallback em cascata
-# Regra: tente o nível mais barato primeiro; suba só se falhar.
+# Roteamento com fallback estritamente descendente/local
+# Nenhuma rota local (yby-local, yby-fast, yby-code) cai para nuvem.
 # -----------------------------------------------------------------------------
 router_settings:
   fallbacks:
-    - yby-free: [yby-local]
-    - yby-fast: [yby-free, yby-local]
-    - yby-smart: [yby-fast, yby-free]
-    - yby-critical: [yby-smart, yby-fast]
+    - yby-cloud-frontier: [yby-code, yby-fast, yby-mobile-fallback]
+    - yby-code: [yby-fast, yby-mobile-fallback]
+    - yby-fast: [yby-local, yby-mobile-fallback]
+    - yby-local: [yby-mobile-fallback]
+    - yby-free: [yby-local, yby-mobile-fallback]
+    - yby-smart: [yby-free, yby-code, yby-local]
+    - yby-critical: [yby-smart, yby-code, yby-local]
   routing_strategy: latency-based-routing
   num_retries: 2
   timeout: 120
 
 # -----------------------------------------------------------------------------
-# Controle de gastos (proteção do crédito)
+# Controle de gastos (proteção do crédito — D12)
 # -----------------------------------------------------------------------------
 litellm_settings:
   drop_params: true
   max_budget: 10.0          # teto total do crédito (US$)
   budget_duration: 30d      # janela de renovação mensal
 
-# Budget por chave de API (ajuste conforme necessário)
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
-
-# -----------------------------------------------------------------------------
-# Variáveis de ambiente necessárias (.env — NÃO commitar):
-#   OPENROUTER_API_KEY=sk-or-v1-...
-#   LITELLM_MASTER_KEY=sk-...
-# -----------------------------------------------------------------------------
-
-# Como rodar:
-#   litellm --config litellm_config.yaml
-#
-# Exemplo de chamada (OpenAI-compatible):
-#   curl http://localhost:4000/v1/chat/completions \
-#     -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-#     -d '{"model": "yby-smart", "messages": [{"role": "user", "content": "..."}]}'
