@@ -4,15 +4,15 @@ Registro incremental de camadas. Sem `CONTRACT.md` / `config/agent/state.json` n
 
 ## Retomada atual
 
-**Atualizado:** 2026-11-24 (tokens reportados; VM `/agent/repos/yby-seed`).
+**Atualizado:** 2026-11-26 (YBY Glass G0; VM `/agent/repos/yby-seed`).
 
 | Campo | Estado |
 |-------|--------|
-| **Tarefa concluída nesta linha** | **PR #133** merged — tokens reportados opcionais no JSONL (`complete_detail`, testes offline). Base de implementação: `bf34076…` (pré-#133). |
-| **`main` remoto** | `e65fa3026d16e047d6f88c0c3d2f2a2947cfc3bd` (merge squash **PR #133**). |
-| **Validação integração #133** | Local `make check` **387 passed**, 15 skipped; `tests/test_route_cli.py` **10 passed**; CI **9/9** no head da branch pré-merge. |
-| **WIP / stash (preservado)** | `wip cloud-reported tokens` — OID `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` (`stash@{0}`); não aplicado (supersedido por #133). |
-| **Próxima sugerida** | Smokes no PC Hub ([checklist](#checklist-de-aceite-do-núcleo-consolidado)). |
+| **Tarefa desta linha** | **YBY Glass G0** — spec [docs/YBY_GLASS_SPEC.md](docs/YBY_GLASS_SPEC.md) + contrato simulado `src/yby/glass/` + testes offline. Branch `cursor/yby-glass-g0-0bef`; PR aberto, **merge pendente de aprovação do dono** (novo contrato de privacidade/arquitetura). |
+| **`main` remoto (base)** | `a3a93aa6398f22d1217e33194bcd141f85275285`. |
+| **Validação local** | `tests/yby/test_glass_*.py` **60 passed**; `make check` doctor PASS, ruff OK, **539 passed**, 15 skipped; `git diff --check origin/main...HEAD` OK (reexecutado após revisão de licença OpenGlass e SRC-020; só docs mudaram). CI no SHA `a2b2757`: Doctor/Lint/Test/auto-review pass. OpenGlass: sem arquivo LICENSE no repo (ver SRC-018). |
+| **WIP / stash** | OID `1688e8117cc7669a54f95c9d38b479c82cdc2dfa` **não existe nesta VM** (`git stash list` vazio); nenhum comando de stash executado. Se existir em outra máquina, segue preservado lá. |
+| **Próxima sugerida** | Glass G1 (tools Glass opcionais no `yby agent`, só simulador) — exige aprovação; ou smokes no PC Hub ([checklist](#checklist-de-aceite-do-núcleo-consolidado)). |
 | **Bloqueios (PC Hub)** | Smokes Ollama/OpenRouter reais; não executados nesta VM. |
 
 *Não é fonte de autorização; regras em `AGENTS.md`. Histórico de camadas abaixo permanece.*
