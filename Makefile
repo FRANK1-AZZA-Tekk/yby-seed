@@ -1,7 +1,7 @@
 # YBY SEED — atalhos alinhados ao CI (doctor + ruff + pytest)
 # Guia: docs/DEV.md
 
-.PHONY: help setup install-dev doctor lint test check clean qdrant-up qdrant-down twatch-backup twatch-build twatch-flash twatch-monitor
+.PHONY: help setup install-dev doctor lint test check clean qdrant-up qdrant-down twatch-backup twatch-build twatch-flash twatch-monitor hil-qa
 
 PYTHON := python3
 VENV := .venv
@@ -27,6 +27,7 @@ help:
 	@echo "  make twatch-build   compila firmware PlatformIO (sem LoRa)"
 	@echo "  make twatch-flash   grava firmware via USB (exige backup prévio)"
 	@echo "  make twatch-monitor abre monitor serial USB do T-Watch"
+	@echo "  make hil-qa         executa QA Hardware-in-the-Loop dos 4 nós"
 	@echo "  make clean        cache pytest/ruff e __pycache__"
 	@echo ""
 	@echo "Núcleo: ollama pull qwen2.5-coder:3b && python yby.py ask \"...\""
@@ -72,6 +73,9 @@ twatch-flash:
 
 twatch-monitor:
 	PYTHONPATH=. $(PY) -m scripts.twatch.monitor
+
+hil-qa:
+	PYTHONPATH=. $(PY) -m scripts.hil_qa_4nodes
 
 clean:
 	rm -rf .pytest_cache .ruff_cache
