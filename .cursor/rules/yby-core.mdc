@@ -1,0 +1,51 @@
+---
+description: Diretrizes obrigatórias do núcleo YBY (ambiente, arquitetura, visual, git)
+globs:
+alwaysApply: true
+---
+
+# YBY Core — diretrizes obrigatórias
+
+Complementa `yby.mdc` e `yby-economy.mdc`. Não os substitui.
+
+> Nota: o runtime `ask` do v1 permanece local-first (DECISIONS/D12). Os itens de arquitetura abaixo descrevem a plataforma-alvo pedida pelo usuário; não inventam serviços já prontos no código.
+
+## 1. Ambiente e Testes
+
+- Use sempre `.venv/bin/python` — **nunca** `uv`.
+- Antes de concluir: `PYTHONPATH=. .venv/bin/python -m pytest -q`
+- Garantir que os 236+ testes existentes **e** os novos passem, sem regressão.
+
+## 2. Comunicação para Não-Programador
+
+Ao finalizar, responder em português simples:
+
+- o que mudou;
+- quais arquivos foram tocados;
+- resultado dos testes.
+
+Evitar jargão desnecessário.
+
+## 3. Arquitetura Core
+
+Plataforma-alvo (escrever e orientar o trabalho nesta direção):
+
+- FastAPI async + Postgres/pgvector com pooling;
+- LiteLLM multi-modelo + cache Redis + Ollama local;
+- MQTT Mosquitto + Tailscale entre nós;
+- `yby_machine` Spec-First: YBYSpec → PWA.
+
+## 4. Identidade Visual
+
+Para web / PWA / dashboards — Nothing OS / CMF, alto contraste:
+
+| Papel        | Cor     |
+|-------------|---------|
+| Fundo       | `#0D0D0D` |
+| Texto/claro | `#F5F5F2` |
+| Acento      | `#00FF66` |
+
+## 5. Segurança e Git
+
+- Nunca alterações destrutivas em `main`.
+- Sempre trabalhar em branch ou worktree isolada.
