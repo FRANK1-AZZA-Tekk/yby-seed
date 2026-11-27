@@ -76,6 +76,54 @@ def test_cli_grava_no_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     assert (tmp_path / "ideia.md").read_text(encoding="utf-8").startswith("memória")
 
 
+def test_vault_em_arquivo_comum_levanta_vault_error(tmp_path: Path) -> None:
+    arquivo = tmp_path / "nao-e-pasta"
+    arquivo.write_text("x", encoding="utf-8")
+
+    with pytest.raises(VaultError, match="caminho do vault inválido"):
+        Vault(arquivo)
+    with pytest.raises(VaultError, match="caminho do vault inválido"):
+        Vault(arquivo / "filho")
+
+
+@pytest.mark.parametrize("subcaminho", ["", "filho"])
+def test_cli_recall_com_vault_em_arquivo_comum_falha_com_erro_controlado(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, subcaminho: str
+) -> None:
+    arquivo = tmp_path / "nao-e-pasta"
+    arquivo.write_text("x", encoding="utf-8")
+    monkeypatch.setattr("src.main.load_dotenv", lambda *args, **kwargs: False)
+    monkeypatch.setenv("YBY_VAULT_PATH", str(arquivo / subcaminho) if subcaminho else str(arquivo))
+
+    result = CliRunner().invoke(cli, ["recall", "bolo"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert "caminho do vault inválido" in result.stderr
+    assert str(arquivo) in result.stderr
+    assert "Traceback" not in result.output
+    assert result.stdout == ""
+    assert arquivo.read_text(encoding="utf-8") == "x"
+
+
+def test_cli_recall_com_vault_valido_segue_igual(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("src.main.load_dotenv", lambda *args, **kwargs: False)
+    Vault(tmp_path / "vault").write_note("receitas/bolo", "bolo de cenoura")
+    monkeypatch.setenv("YBY_VAULT_PATH", str(tmp_path / "vault"))
+
+    achou = CliRunner().invoke(cli, ["recall", "bolo de cenoura"])
+    assert achou.exit_code == 0
+    assert "receitas/bolo.md" in achou.output
+
+    monkeypatch.setenv("YBY_VAULT_PATH", str(tmp_path / "novo"))
+    vazio = CliRunner().invoke(cli, ["recall", "bolo"])
+    assert vazio.exit_code == 0
+    assert vazio.output.strip() == "Nenhuma nota."
+    assert (tmp_path / "novo").is_dir()
+
+
 def test_agentes_nao_trazem_senha(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("YBY_DATABASE_URL", raising=False)
     agent = LearningAgent()
