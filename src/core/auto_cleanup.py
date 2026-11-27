@@ -21,7 +21,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import unquote, urlparse, urlunparse
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -83,7 +82,7 @@ class AutoCleanup:
             if parsed.scheme not in {"postgresql", "postgres"} or not parsed.hostname:
                 raise ValueError(f"URL PostgreSQL inválida: {self.db_url!r}")
 
-            env = os.environ.copy()
+            env = {"PATH": os.environ.get("PATH", "")}
             if parsed.password is not None:
                 env["PGPASSWORD"] = unquote(parsed.password)
 
@@ -121,18 +120,14 @@ class AutoCleanup:
         try:
             import redis
             
-            r = redis.Redis(host=redis_host, port=redis_port, db=0)
-            
-            # Redis já remove chaves com TTL expirado automaticamente
-            # Forçar cleanup (debug sleep pode ser necessário em produção)
-            r.execute_command("DEBUG", "SLEEP", "0.1")  # Forçar cleanup
-            
-            # Obter stats
+            r = redis.Redis(host=redis_host, port=redis_port, db=0, socket_timeout=5.0)
+
+            # Redis remove chaves com TTL expirado automaticamente; evita DEBUG SLEEP bloqueante.
             info = r.info("stats")
             expired_keys = info.get("expired_keys", 0)
             evicted_keys = info.get("evicted_keys", 0)
-            
-            logger.info(f"✅ Cache limpo: {expired_keys} expiradas, {evicted_keys} evitadas")
+
+            logger.info("✅ Cache Redis inspecionado: %s expiradas, %s evitadas", expired_keys, evicted_keys)
         
         except Exception as e:
             logger.error(f"❌ Erro ao limpar Redis: {e}")

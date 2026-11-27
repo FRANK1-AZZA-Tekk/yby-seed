@@ -24,13 +24,17 @@ from asyncio import Queue
 from typing import List, Dict, Any
 import asyncio
 from datetime import datetime, timezone
+import hashlib
+import json
 import logging
+import math
+
+import httpx
 
 from .lancedb_client import LanceDBClient
 from .auth import check_token
 from .config import settings
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Backpressure queue (max 1000 mensagens)
@@ -62,9 +66,12 @@ async def _telemetry_worker() -> None:
         if batch:
             try:
                 await process_batch(batch)
-                logger.info(f"✅ Batch processado: {len(batch)} mensagens")
+                logger.info("✅ Batch processado: %d mensagens", len(batch))
             except Exception as e:
-                logger.error(f"❌ Erro ao processar batch: {e}")
+                logger.error("❌ Erro ao processar batch: %s", e)
+            finally:
+                for _ in batch:
+                    mqtt_queue.task_done()
 
 
 @asynccontextmanager
@@ -138,9 +145,9 @@ async def receive_telemetry(data: Dict[str, Any], request: Request):
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"❌ Erro ao receber telemetria: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("❌ Erro ao receber telemetria")
+        raise HTTPException(status_code=500, detail="Erro interno ao processar telemetria.")
 
 
 @app.websocket("/ws/telemetry")
@@ -189,34 +196,51 @@ async def health_check():
 async def get_metrics(device_id: str, request: Request, limit: int = 100):
     """Recuperar últimas N métricas de um dispositivo."""
     _guard(request.headers)
+    if not device_id.strip():
+        raise HTTPException(status_code=400, detail="device_id obrigatório.")
+    if not 1 <= limit <= 1000:
+        raise HTTPException(status_code=400, detail="limit deve estar entre 1 e 1000.")
     try:
         metrics = await db_client.get_metrics(device_id, limit=limit)
         return {
             "device_id": device_id,
             "count": len(metrics),
-            "data": metrics
+            "data": metrics,
         }
-    
-    except Exception as e:
-        logger.error(f"❌ Erro ao recuperar métricas: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+
+    except Exception:
+        logger.exception("❌ Erro ao recuperar métricas")
+        raise HTTPException(status_code=500, detail="Erro interno ao recuperar métricas.")
 
 
 @app.post("/vectors/search")
 async def search_vectors(query: str, request: Request, top_k: int = 5):
     """Buscar vetores similares no LanceDB (RAG)."""
     _guard(request.headers)
+    clean_query = query.strip()
+    if not clean_query:
+        raise HTTPException(status_code=400, detail="query obrigatória.")
+    if not 1 <= top_k <= 100:
+        raise HTTPException(status_code=400, detail="top_k deve estar entre 1 e 100.")
     try:
-        results = await db_client.search(query, top_k=top_k)
+        query_vector = await asyncio.to_thread(
+            generate_embedding,
+            {"query": clean_query},
+            allow_fallback=False,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="Serviço de embeddings indisponível.") from exc
+    try:
+        results = await db_client.search(query_vector, top_k=top_k)
         return {
-            "query": query,
+            "query": clean_query,
             "top_k": top_k,
-            "results": results
+            "results": results,
         }
-    
-    except Exception as e:
-        logger.error(f"❌ Erro ao buscar vetores: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+
+    except Exception:
+        logger.exception("❌ Erro ao buscar vetores")
+        raise HTTPException(status_code=500, detail="Erro interno na busca vetorial.")
 
 
 async def process_batch(batch: List[Dict[str, Any]]) -> None:
@@ -230,7 +254,7 @@ async def process_batch(batch: List[Dict[str, Any]]) -> None:
     for data in batch:
         try:
             features = extract_features(data)
-            embedding = generate_embedding(features)
+            embedding = await asyncio.to_thread(generate_embedding, features)
             await db_client.insert(
                 {
                     "device_id": data["device_id"],
@@ -247,7 +271,7 @@ async def process_batch(batch: List[Dict[str, Any]]) -> None:
                 except asyncio.QueueFull:
                     pass
         except Exception as e:
-            logger.error(f"❌ Erro ao processar mensagem: {e}")
+            logger.error("❌ Erro ao processar mensagem: %s", e)
             raise
 
 
@@ -274,15 +298,47 @@ def extract_features(data: Dict[str, Any]) -> Dict[str, Any]:
     return features
 
 
-def generate_embedding(features: Dict[str, Any]) -> List[float]:
+def _deterministic_fallback_embedding(text: str, dims: int = 384) -> List[float]:
+    values: List[float] = []
+    counter = 0
+    while len(values) < dims:
+        digest = hashlib.sha256(f"{counter}:{text}".encode("utf-8")).digest()
+        for idx in range(0, len(digest), 4):
+            if len(values) >= dims:
+                break
+            chunk = int.from_bytes(digest[idx : idx + 4], "big", signed=False)
+            values.append((chunk / 0xFFFFFFFF) * 2.0 - 1.0)
+        counter += 1
+    norm = math.sqrt(sum(v * v for v in values)) or 1.0
+    return [v / norm for v in values]
+
+
+def generate_embedding(features: Dict[str, Any], *, allow_fallback: bool = True) -> List[float]:
     """
-    Gerar embedding de features (modelo local via Ollama).
-    
-    Retorna: vetor de 384 dimensões (all-MiniLM-L6-v2)
+    Gerar embedding de features via Ollama local (/api/embeddings).
+
+    Quando ``allow_fallback=True`` (ingestão offline), degrada para projeção
+    determinística normalizada de 384 dimensões se o Ollama não responder.
     """
-    # TODO: Implementar com Ollama embeddings
-    # Por enquanto, retornar vetor dummy
-    return [0.0] * 384
+    prompt = json.dumps(features, ensure_ascii=False, sort_keys=True)
+    url = f"{settings.OLLAMA_HOST.rstrip('/')}/api/embeddings"
+    try:
+        response = httpx.post(
+            url,
+            json={"model": settings.OLLAMA_MODEL_EMBEDDING, "prompt": prompt},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        raw = payload.get("embedding")
+        if not isinstance(raw, list) or not raw:
+            raise ValueError("Resposta Ollama sem campo 'embedding' válido.")
+        return [float(x) for x in raw]
+    except Exception as exc:
+        if not allow_fallback:
+            raise RuntimeError(f"Falha ao gerar embedding no Ollama: {exc}") from exc
+        logger.warning("Ollama embeddings indisponível (%s); usando fallback determinístico.", type(exc).__name__)
+        return _deterministic_fallback_embedding(prompt)
 
 
 def main() -> None:

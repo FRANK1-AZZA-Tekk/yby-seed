@@ -19,15 +19,20 @@ Benchmark GTX 1650 (4GB VRAM):
 Licença: Apache 2.0
 """
 
-from typing import List, Dict, Any
+import asyncio
+from datetime import datetime, timezone
+import json
 import logging
+from typing import List, Dict, Any
+
+import httpx
 
 from .ast_chunker import ast_chunker
 from .context_pruner import context_pruner
+from ..gateway.config import settings
 from ..gateway.lancedb_client import LanceDBClient
 from ..core.kv_cache_config import kv_cache_config
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -35,131 +40,108 @@ class RAGOptimizer:
     """
     RAG completo otimizado para Edge AI.
     """
-    
-    def __init__(self, db_path: str = "/data/vectors"):
+
+    def __init__(
+        self,
+        db_path: str = "/data/vectors",
+        *,
+        ollama_host: str | None = None,
+        embedding_model: str | None = None,
+        validate_kv: bool = False,
+    ):
         """
         Inicializar RAG.
-        
+
         Args:
             db_path: Caminho do LanceDB
+            ollama_host: Base URL do Ollama local
+            embedding_model: Modelo de embedding no Ollama
+            validate_kv: Se True, valida otimizações de KV cache na inicialização
         """
-        # LanceDB com cache limitado
         self.db = LanceDBClient(db_path, index_cache_size=128)
-        
-        # Configurar KV cache
-        kv_cache_config.validate()
-    
+        self.ollama_host = (ollama_host or settings.OLLAMA_HOST).rstrip("/")
+        self.embedding_model = embedding_model or settings.OLLAMA_MODEL_EMBEDDING
+        if validate_kv:
+            kv_cache_config.validate()
+
     async def index_document(self, doc_text: str, doc_id: str, metadata: Dict[str, Any]):
         """
         Indexar documento (chunking + embeddings).
-        
+
         Fluxo:
         1. AST chunking (respeitar sintaxe)
         2. Gerar embeddings (Ollama all-MiniLM)
         3. Armazenar em LanceDB
-        
+
         Args:
             doc_text: Texto do documento
             doc_id: ID único do documento
             metadata: Metadados (autor, data, tags, etc.)
         """
-        logger.info(f"📚 Indexando documento: {doc_id}")
-        
+        logger.info("📚 Indexando documento: %s", doc_id)
+
         # 1. AST chunking
         chunks = ast_chunker.chunk(doc_text, max_tokens=512)
-        
+        timestamp = datetime.now(timezone.utc).isoformat()
+
         # 2. Gerar embeddings e armazenar
         for i, chunk in enumerate(chunks):
             chunk_id = f"{doc_id}_chunk_{i}"
-            
-            # Gerar embedding (Ollama)
             embedding = await self._generate_embedding(chunk["code"])
-            
-            # Armazenar em LanceDB
-            await self.db.insert_vector({
-                "id": chunk_id,
-                "device_id": doc_id,
-                "timestamp": "2026-10-08T05:20:00Z",
-                "text": chunk["code"],
-                "vector": embedding,
-                "metadata": str({**metadata, **chunk})
-            })
-        
-        logger.info(f"✅ {len(chunks)} chunks indexados")
-    
+
+            await self.db.insert_vector(
+                {
+                    "id": chunk_id,
+                    "device_id": doc_id,
+                    "timestamp": timestamp,
+                    "text": chunk["code"],
+                    "vector": embedding,
+                    "metadata": json.dumps({**metadata, **chunk}, ensure_ascii=False, default=str),
+                }
+            )
+
+        logger.info("✅ %d chunks indexados", len(chunks))
+
     async def search(self, query: str, top_k: int = 10, max_context_tokens: int = 2000) -> List[str]:
         """
         Buscar documentos relevantes (RAG).
-        
-        Fluxo:
-        1. Gerar embedding da query
-        2. Buscar vetores similares (LanceDB)
-        3. Context pruning (resumos + re-rank)
-        4. Retornar chunks podados
-        
-        Args:
-            query: Query do usuário
-            top_k: Número de chunks para recuperar
-            max_context_tokens: Orçamento máximo de tokens
-        
-        Returns:
-            Lista de chunks relevantes
         """
-        logger.info(f"🔍 Buscando RAG: {query}")
-        
-        # 1. Gerar embedding da query
+        logger.info("🔍 Buscando RAG: %s", query)
+
         query_embedding = await self._generate_embedding(query)
-        
-        # 2. Buscar vetores similares
         results = await self.db.search(query_embedding, top_k=top_k)
-        
-        # 3. Extrair textos
         chunks = [r["text"] for r in results]
-        
-        # 4. Context pruning
         pruned_chunks = context_pruner.prune(chunks, query, max_tokens=max_context_tokens)
-        
-        logger.info(f"✅ {len(pruned_chunks)} chunks relevantes")
+
+        logger.info("✅ %d chunks relevantes", len(pruned_chunks))
         return pruned_chunks
-    
+
     async def _generate_embedding(self, text: str) -> List[float]:
         """
-        Gerar embedding via Ollama (modelo local).
-        
-        Args:
-            text: Texto para embedar
-        
-        Returns:
-            Vetor de 384 dimensões (all-MiniLM-L6-v2)
+        Gerar embedding via Ollama local (/api/embeddings).
         """
-        # TODO: Implementar com Ollama embeddings API
-        # Por enquanto, retornar vetor dummy
-        return [0.0] * 384
-    
+        url = f"{self.ollama_host}/api/embeddings"
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
+                url,
+                json={"model": self.embedding_model, "prompt": text},
+            )
+            response.raise_for_status()
+            payload = response.json()
+        raw = payload.get("embedding")
+        if not isinstance(raw, list) or not raw:
+            raise RuntimeError("Resposta Ollama sem campo 'embedding' válido.")
+        return [float(x) for x in raw]
+
     async def rag_query(self, query: str, max_context_tokens: int = 2000) -> Dict[str, Any]:
         """
         Query RAG completa (retrieval + generation).
-        
-        Fluxo:
-        1. Search (chunks relevantes)
-        2. Inject context (chunks no prompt)
-        3. Generate (LLM local)
-        
-        Args:
-            query: Query do usuário
-            max_context_tokens: Orçamento máximo de tokens
-        
-        Returns:
-            Resposta do LLM + chunks usados
         """
-        logger.info(f"🧠 RAG query: {query}")
-        
-        # 1. Search
+        logger.info("🧠 RAG query: %s", query)
+
         chunks = await self.search(query, top_k=10, max_context_tokens=max_context_tokens)
-        
-        # 2. Inject context
         context = "\n\n".join(chunks)
-        
+
         prompt = f"""
 Use o contexto abaixo para responder a query:
 
@@ -170,23 +152,23 @@ Query: {query}
 
 Resposta:
 """
-        
-        # 3. Generate (Ollama)
+
         from litellm import completion
-        
-        response = completion(
-            model="ollama/qwen2.5-coder:3b",
+
+        response = await asyncio.to_thread(
+            completion,
+            model=f"ollama/{settings.OLLAMA_MODEL_LLM}",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=512,
-            temperature=0.2
+            temperature=0.2,
         )
-        
+
         answer = response.choices[0].message.content.strip()
-        
+
         return {
             "answer": answer,
             "chunks_used": chunks,
-            "context_tokens": len(context.split())
+            "context_tokens": len(context.split()),
         }
 
 

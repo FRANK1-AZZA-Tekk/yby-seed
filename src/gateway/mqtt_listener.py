@@ -28,19 +28,34 @@ import paho.mqtt.client as mqtt
 
 from .config import settings
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _configure_mqtt_security(client: Any) -> None:
+    if settings.MQTT_USERNAME:
+        client.username_pw_set(settings.MQTT_USERNAME, settings.MQTT_PASSWORD or "")
+    if settings.MQTT_USE_TLS:
+        tls_kwargs: dict[str, Any] = {}
+        if settings.MQTT_CA_CERTS:
+            tls_kwargs["ca_certs"] = settings.MQTT_CA_CERTS
+        if settings.MQTT_CERTFILE:
+            tls_kwargs["certfile"] = settings.MQTT_CERTFILE
+        if settings.MQTT_KEYFILE:
+            tls_kwargs["keyfile"] = settings.MQTT_KEYFILE
+        client.tls_set(**tls_kwargs)
+        if settings.MQTT_TLS_INSECURE:
+            client.tls_insecure_set(True)
 
 
 async def mqtt_listener(queue: asyncio.Queue[Any]) -> None:
     """
-    Subscriber MQTT assíncrono.
-    
+    Subscriber MQTT assíncrono com ciclo de vida completo (encerra loop no cancelamento).
+
     Args:
         queue: asyncio.Queue para enfileirar mensagens (backpressure)
     """
     logger.info("📡 Iniciando MQTT listener...")
-    
+
     loop = asyncio.get_running_loop()
     client_kwargs: dict[str, Any] = {
         "client_id": settings.MQTT_CLIENT_ID,
@@ -50,41 +65,53 @@ async def mqtt_listener(queue: asyncio.Queue[Any]) -> None:
     if hasattr(mqtt, "CallbackAPIVersion"):
         client_kwargs["callback_api_version"] = mqtt.CallbackAPIVersion.VERSION1
     client = mqtt.Client(**client_kwargs)
-    
+
     # Callbacks
     client.on_connect = on_connect
     client.on_disconnect = on_disconnect
     client.on_message = on_message
     client.on_subscribe = on_subscribe
-    
-    # Auto-reconnect com backoff exponencial
+
+    _configure_mqtt_security(client)
+
+    # Auto-reconnect com backoff exponencial (assinatura paho: min_delay, max_delay)
     client.reconnect_delay_set(
-        min_delay=1,    # 1 segundo inicial
-        max_delay=60,   # 60 segundos máximo
-        exponential_base=2
+        min_delay=1,
+        max_delay=60,
     )
-    
+
     # Last Will Testament (LWT)
     client.will_set(
         topic="yby/status",
         payload=f"{settings.MQTT_CLIENT_ID} offline",
         qos=1,
-        retain=True
+        retain=True,
     )
-    
-    # Conectar
+
+    # Conectar e manter ativo até cancelamento do lifespan
+    started = False
     try:
         client.connect(
             host=settings.MQTT_BROKER_HOST,
             port=settings.MQTT_BROKER_PORT,
-            keepalive=60  # Ping a cada 60s
+            keepalive=60,
         )
-        client.loop_start()  # Thread background para MQTT
+        client.loop_start()
+        started = True
         logger.info("✅ MQTT listener conectado")
-    
+        await asyncio.Event().wait()
+    except asyncio.CancelledError:
+        logger.info("🛑 Encerrando MQTT listener...")
+        raise
     except Exception as e:
         logger.error(f"❌ Erro ao conectar MQTT: {e}")
         raise
+    finally:
+        if started:
+            try:
+                client.loop_stop()
+            finally:
+                client.disconnect()
 
 
 def on_connect(client, userdata, flags, rc):
@@ -140,7 +167,13 @@ def enqueue_mqtt_payload(
             else:
                 logger.warning("iot_mqtt_gateway_queue_drop", extra={"queue_size": queue.qsize()})
 
-    loop.call_soon_threadsafe(_put)
+    if loop.is_closed():
+        logger.debug("iot_mqtt_gateway_loop_closed")
+        return
+    try:
+        loop.call_soon_threadsafe(_put)
+    except RuntimeError:
+        logger.debug("iot_mqtt_gateway_loop_closed")
 
 
 def on_message(client, userdata, msg) -> None:
@@ -155,6 +188,9 @@ def on_message(client, userdata, msg) -> None:
 
     try:
         data = json.loads(msg.payload.decode("utf-8"))
+        if not isinstance(data, dict):
+            logger.warning("iot_mqtt_gateway_invalid_payload_type")
+            return
         data["_metadata"] = {
             "topic": msg.topic,
             "qos": msg.qos,

@@ -50,6 +50,18 @@ def _topics(source: Mapping[str, str], name: str) -> list[str]:
     return parts
 
 
+def _bool(source: Mapping[str, str], name: str, default: bool) -> bool:
+    raw = source.get(name)
+    if raw is None or str(raw).strip() == "":
+        return default
+    norm = str(raw).strip().casefold()
+    if norm in {"1", "true", "yes", "on", "sim"}:
+        return True
+    if norm in {"0", "false", "no", "off", "nao", "não"}:
+        return False
+    raise ValueError(f"{name} deve ser booleano válido.")
+
+
 @dataclass(frozen=True)
 class IoTConfig:
     """Parâmetros de conexão MQTT. Credenciais só via ambiente."""
@@ -62,6 +74,12 @@ class IoTConfig:
     reconnect_max_attempts: int
     reconnect_base_seconds: float
     max_queue_size: int
+    use_tls: bool = False
+    ca_certs: str | None = None
+    certfile: str | None = None
+    keyfile: str | None = None
+    tls_insecure: bool = False
+    require_tls: bool = False
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> IoTConfig:
@@ -84,13 +102,32 @@ class IoTConfig:
         if base_sec <= 0:
             raise ValueError("IOT_RECONNECT_BASE_SECONDS deve ser > 0.")
 
+        port = _port(source, "IOT_BROKER_PORT", DEFAULT_BROKER_PORT)
+        use_tls = _bool(source, "IOT_USE_TLS", default=(port == 8883))
+        ca_certs = _text(source, "IOT_CA_CERTS", "") or None
+        certfile = _text(source, "IOT_CERTFILE", "") or None
+        keyfile = _text(source, "IOT_KEYFILE", "") or None
+        tls_insecure = _bool(source, "IOT_TLS_INSECURE", default=False)
+        require_tls = _bool(source, "IOT_REQUIRE_TLS", default=False)
+
+        if bool(certfile) != bool(keyfile):
+            raise ValueError("IOT_CERTFILE e IOT_KEYFILE devem ser definidos em conjunto.")
+        if require_tls and not use_tls:
+            raise ValueError("IOT_REQUIRE_TLS=true exige TLS habilitado (IOT_USE_TLS=true ou porta 8883).")
+
         return cls(
             broker_host=_text(source, "IOT_BROKER_HOST", DEFAULT_BROKER_HOST),
-            broker_port=_port(source, "IOT_BROKER_PORT", DEFAULT_BROKER_PORT),
+            broker_port=port,
             username=user or None,
             password=password if user and password else None,
             topics=_topics(source, "IOT_TOPICS"),
             reconnect_max_attempts=max_att,
             reconnect_base_seconds=base_sec,
             max_queue_size=queue_size,
+            use_tls=use_tls,
+            ca_certs=ca_certs,
+            certfile=certfile,
+            keyfile=keyfile,
+            tls_insecure=tls_insecure,
+            require_tls=require_tls,
         )

@@ -27,9 +27,14 @@ def test_fusion_config_from_env_defaults() -> None:
     )
     assert cfg.model_path == "starriver030515/FUSION-X-Phi3.5-3B-Stage1"
     assert cfg.device == "auto"
-    assert cfg.quantization == "none"
+    assert cfg.quantization == "4bit"
     assert cfg.max_new_tokens == 256
     assert cfg.language == "pt-BR"
+
+
+def test_fusion_config_allows_explicit_none_override() -> None:
+    cfg = FusionConfig.from_env({"FUSION_QUANTIZATION": "none"})
+    assert cfg.quantization == "none"
 
 
 def test_fusion_config_from_env_overrides(monkeypatch) -> None:

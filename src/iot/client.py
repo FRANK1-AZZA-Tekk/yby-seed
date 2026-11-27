@@ -37,6 +37,17 @@ def _create_paho_client(config: IoTConfig, client_id: str) -> Any:
         client = mqtt.Client(client_id=client_id)
     if config.username:
         client.username_pw_set(config.username, config.password or "")
+    if config.use_tls:
+        tls_kwargs: dict[str, Any] = {}
+        if config.ca_certs:
+            tls_kwargs["ca_certs"] = config.ca_certs
+        if config.certfile:
+            tls_kwargs["certfile"] = config.certfile
+        if config.keyfile:
+            tls_kwargs["keyfile"] = config.keyfile
+        client.tls_set(**tls_kwargs)
+        if config.tls_insecure:
+            client.tls_insecure_set(True)
     # Reconexão manual com backoff; desativa backoff automático do paho.
     client.reconnect_delay_set(min_delay=0, max_delay=0)
     return client
@@ -70,6 +81,7 @@ class MQTTClient:
         self._schedule = schedule_reconnect or _default_scheduler
         self._reconnect_attempt = 0
         self._reconnect_lock = threading.Lock()
+        self._closing = False
         self._client = mqtt_client if mqtt_client is not None else _create_paho_client(config, client_id)
         self._client.on_connect = self._on_connect
         self._client.on_message = self._on_message
@@ -95,10 +107,12 @@ class MQTTClient:
 
     def connect(self) -> None:
         """Conecta ao broker e inicia loop em thread."""
+        self._closing = False
         self._client.connect(self._config.broker_host, self._config.broker_port, keepalive=60)
         self._client.loop_start()
 
     def disconnect(self) -> None:
+        self._closing = True
         self._client.loop_stop()
         self._client.disconnect()
 
@@ -168,7 +182,7 @@ class MQTTClient:
 
     def _on_disconnect(self, client: Any, userdata: Any, rc: int) -> None:
         del client, userdata
-        if rc == 0:
+        if rc == 0 or self._closing:
             return
         logger.info("iot_mqtt_disconnected", extra={"rc": rc})
         self._schedule_reconnect()

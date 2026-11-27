@@ -24,7 +24,6 @@ import sys
 import logging
 from typing import Optional
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -61,60 +60,66 @@ class MemoryAllocator:
         
         return None
     
-    def install(self):
+    def install(self, *, confirm: bool = False):
         """
-        Instalar allocator via apt.
+        Instalar allocator via apt (exige confirm=True explícito).
         """
-        logger.info(f"📦 Instalando {self.allocator}...")
-        
+        if not confirm:
+            raise PermissionError(
+                "Instalação via sudo apt bloqueada sem confirm=True explícito."
+            )
+        logger.info("📦 Instalando %s...", self.allocator)
+
         packages = {
             "jemalloc": "libjemalloc2",
-            "mimalloc": "libmimalloc-dev"
+            "mimalloc": "libmimalloc-dev",
         }
-        
+
         pkg = packages.get(self.allocator)
         if not pkg:
-            logger.error(f"❌ Allocator desconhecido: {self.allocator}")
+            logger.error("❌ Allocator desconhecido: %s", self.allocator)
             return
-        
+
         try:
             subprocess.run(["sudo", "apt", "install", "-y", pkg], check=True)
             self.lib_path = self._find_library(self.allocator)
-            logger.info(f"✅ {self.allocator} instalado: {self.lib_path}")
-        
+            logger.info("✅ %s instalado: %s", self.allocator, self.lib_path)
+
         except subprocess.CalledProcessError as e:
-            logger.error(f"❌ Erro ao instalar: {e}")
+            logger.error("❌ Erro ao instalar: %s", e)
             raise
-    
-    def enable(self):
+
+    def enable(self, *, persist: bool = False):
         """
-        Habilitar allocator (LD_PRELOAD).
-        
-        Adicionar ao ~/.bashrc ou ambiente do processo.
+        Habilitar allocator (LD_PRELOAD) no processo atual; persist=True grava no ~/.bashrc.
         """
         if not self.lib_path:
             logger.error("❌ Biblioteca não encontrada")
             return
-        
-        logger.info(f"🔧 Habilitando {self.allocator}...")
-        
-        # Adicionar ao LD_PRELOAD
+
+        logger.info("🔧 Habilitando %s...", self.allocator)
+
         current_preload = os.environ.get("LD_PRELOAD", "")
-        new_preload = f"{self.lib_path}:{current_preload}" if current_preload else self.lib_path
-        
-        os.environ["LD_PRELOAD"] = new_preload
-        
-        # Adicionar ao ~/.bashrc (persistente)
+        parts = [p for p in current_preload.split(":") if p and p != self.lib_path]
+        os.environ["LD_PRELOAD"] = ":".join([self.lib_path, *parts])
+
+        if not persist:
+            logger.info("✅ %s habilitado no processo", self.allocator)
+            return
+
+        bashrc_path = os.path.expanduser("~/.bashrc")
         bashrc_line = f'export LD_PRELOAD="{self.lib_path}"'
-        
         try:
-            with open(os.path.expanduser("~/.bashrc"), "a") as f:
-                f.write(f"\n# {self.allocator}\n{bashrc_line}\n")
-            
-            logger.info(f"✅ {self.allocator} habilitado (persistente)")
-        
+            existing = ""
+            if os.path.exists(bashrc_path):
+                with open(bashrc_path, "r", encoding="utf-8") as f:
+                    existing = f.read()
+            if bashrc_line not in existing:
+                with open(bashrc_path, "a", encoding="utf-8") as f:
+                    f.write(f"\n# {self.allocator}\n{bashrc_line}\n")
+            logger.info("✅ %s habilitado (persistente)", self.allocator)
         except Exception as e:
-            logger.error(f"❌ Erro ao habilitar: {e}")
+            logger.error("❌ Erro ao habilitar: %s", e)
     
     def disable(self):
         """Desabilitar allocator"""
@@ -145,9 +150,7 @@ class MemoryAllocator:
 
         logger.info(f"📊 Benchmark: {self.allocator}...")
 
-        # Executar script com allocator
-        env = os.environ.copy()
-        env["LD_PRELOAD"] = self.lib_path
+        env = {"PATH": os.environ.get("PATH", ""), "LD_PRELOAD": self.lib_path}
 
         try:
             result = subprocess.run(
@@ -214,7 +217,7 @@ class MemoryAllocator:
             lib = ctypes.CDLL(self.lib_path)
             
             # Obter estatísticas
-            stats = {}
+            stats: dict[str, object] = {}
             lib.mallctl(b"stats.allocated", ctypes.byref(ctypes.c_size_t()), None, 0)
             
             return stats
@@ -231,7 +234,7 @@ class MemoryAllocator:
             lib = ctypes.CDLL(self.lib_path)
             
             # Obter estatísticas
-            stats = {}
+            stats: dict[str, object] = {}
             lib.mi_stats_print(None)
             
             return stats

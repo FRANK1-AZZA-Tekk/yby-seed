@@ -57,6 +57,11 @@ class FusionClient:
                 model_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
 
         device = self._config.device
+        if quantization == "none" and device.startswith("cuda"):
+            logger.warning(
+                "FUSION carregado em %s sem quantização; risco de OOM em GPUs de 4GB (use 4bit).",
+                device,
+            )
         if device != "auto":
             model_kwargs["torch_dtype"] = torch.float16 if device.startswith("cuda") else torch.float32
 

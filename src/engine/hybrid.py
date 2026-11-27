@@ -570,6 +570,12 @@ def engine_from_env(
         fallback_model=config.cloud_fallback_model,
         fallback_label="grok",
     )
+    effective_confirm = confirm_fn if confirm_fn is not None else (lambda _msg: False)
+    effective_tty = (
+        has_tty_fn
+        if has_tty_fn is not None
+        else (lambda: sys.stdin.isatty() and sys.stdout.isatty())
+    )
     return HybridEngine(
         config,
         ollama=OllamaProvider(config.ollama_base_url, timeout=config.ollama_timeout),
@@ -578,6 +584,6 @@ def engine_from_env(
         cache=_response_cache(config),
         cloud_log=cloud_log,
         budget=budget,
-        confirm_fn=confirm_fn,
-        has_tty_fn=has_tty_fn,
+        confirm_fn=effective_confirm,
+        has_tty_fn=effective_tty,
     )
