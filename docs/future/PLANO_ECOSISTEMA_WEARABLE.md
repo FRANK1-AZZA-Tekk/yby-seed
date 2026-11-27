@@ -4,7 +4,7 @@
 > **v1 agora:** PC Hub — `engine`, `safety`, `voice`, agente P0 no [ROADMAP.md](../../ROADMAP.md).  
 > **Princípio:** FUNCTION OVER FORM; local-first; IA no hub; wearable = sensor + UI fina + fila.
 
-Documentos irmãos: [FICHA_INVESTIGACAO.md](FICHA_INVESTIGACAO.md), [METRICAS_OBSERVABILIDADE.md](METRICAS_OBSERVABILIDADE.md), [MOBILE_FUTURE.md](MOBILE_FUTURE.md).
+Documentos irmãos: [SCAN_TWATCH_S3_PLUS.md](SCAN_TWATCH_S3_PLUS.md) (classificação completa 2026-11-19), [FICHA_INVESTIGACAO.md](FICHA_INVESTIGACAO.md), [METRICAS_OBSERVABILIDADE.md](METRICAS_OBSERVABILIDADE.md), [MOBILE_FUTURE.md](MOBILE_FUTURE.md).
 
 ---
 
@@ -115,13 +115,13 @@ Coexistência IDF; prioridade de rádio; provisioning BLE → Wi-Fi STA. Issues 
 
 ### LVGL
 
-- Branch oficial LilyGO ainda referencia **lvgl v7** em docs antigos — **confirmar** versão no quick start Plus antes de codificar.
-- Buffers parciais + PSRAM; medir FPS/flush (ver [METRICAS_OBSERVABILIDADE.md](METRICAS_OBSERVABILIDADE.md)).
-- Menu: **poucos níveis**, atalhos por voz no hub; microgestos = eventos discretos, não gestos complexos.
+- **Fato (wiki Quick Start S3 Plus):** LVGL **v8** via `TTGO_TWatch_Library` / fluxo LilyGoLib (`watch->lvgl_begin()`). README antigo da lib TTGO ainda cita **v7.7.2** — **não** usar esse número como fonte da verdade para Plus.
+- Buffers parciais + framebuffer em PSRAM; stack da task UI em IRAM; medir FPS/flush ([METRICAS_OBSERVABILIDADE.md](METRICAS_OBSERVABILIDADE.md)).
+- Menu: **poucos níveis**, atalhos por voz no hub; microgestos = eventos discretos, não gestos complexos. Evitar callbacks recursivos (`on_value` atualizando o mesmo widget).
 
 ### GPIO / hardware
 
-Antes de qualquer pinout: preencher tabela produto = **T-Watch S3 Plus**, revisão PCB, flash, PSRAM. Fonte: LilyGoLib + esquemático da revisão **medida**, não T-Watch 2019.
+Antes de qualquer pinout: preencher tabela produto = **T-Watch S3 Plus**, revisão PCB, flash, PSRAM. Fonte: LilyGoLib + esquemático **`schematic/T-Watch-S3-Plus-GPS V1.0 2025-04-29.pdf`** (não T-Watch 2019 / S3 sem Plus). Touch **RESET não conectado** — sleep do touch exige reboot (fato pinout).
 
 ---
 
@@ -129,7 +129,9 @@ Antes de qualquer pinout: preencher tabela produto = **T-Watch S3 Plus**, revis�
 
 | Projeto | Licença | Classificação | Componente útil | Risco histórico comum | Mitigação YBY |
 |---|---|---|---|---|---|
-| [LilyGoLib](https://github.com/Xinyuan-LilyGO/LilyGoLib) | MIT | **Usar depois** | Board init Plus | Variante errada | Checklist hardware |
+| [LilyGoLib](https://github.com/Xinyuan-LilyGO/LilyGoLib) | MIT | **Usar depois** | Board init Plus + esquemático GPS | Variante S3 vs Plus | Ficha + [SCAN](SCAN_TWATCH_S3_PLUS.md) |
+| [esp-mqtt](https://docs.espressif.com/projects/esp-mqtt/en/latest/esp32/) (ESP-IDF) | Apache-2.0 | **Usar depois** | MQTT TLS + reconnect | Stack 6 KB / WDT | Stack ≥8 KB; `client_id` único |
+| [ESP Insights](https://documentation.espressif.com/esp-insights/main/README.md) | Apache-2.0 | **Adaptar** | Métricas heap (free/min/largest) | Cloud Espressif | Só padrão → MQTT **hub**; sem Insights cloud |
 | [Yo](https://github.com/SeansGravy/Yo) | Apache-2.0 | **Adaptar** | Loop bounded + citações | Escopo fechado | Modelo fase B |
 | [Qavrn](https://github.com/mussussu/Qavrn) | MIT | **Adaptar** | RAG local + fontes | Desktop pesado | Vault + `recall` |
 | [Loco-RAG](https://github.com/ROHITCRAFTSYT/Loco-RAG) | MIT | **Usar depois** | LanceDB/Chroma swap | Agent sem HITL | `safety` |
@@ -139,6 +141,8 @@ Antes de qualquer pinout: preencher tabela produto = **T-Watch S3 Plus**, revis�
 | **omi** (fork org) | (ver upstream) | **Usar depois** | Wearable voice produto | Outro escopo | Estudar padrões, D7 |
 
 **Hugging Face:** modelos `qwen2.5-coder:3b` via Ollama já decididos (D4); não puxar 7B no hub 4GB.
+
+Classificação expandida (usar agora / depois / adaptar / evitar + sprints): [SCAN_TWATCH_S3_PLUS.md](SCAN_TWATCH_S3_PLUS.md).
 
 ---
 
