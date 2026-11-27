@@ -3,6 +3,10 @@
 # [git]    binário git: leitura roda direto; escrita pede confirmação; [refuse] bloqueia
 # [scripts] pastas do projeto cujos scripts rodam direto
 # [refuse] trecho que bloqueia o comando, mesmo se estiver na allowlist
+# [sensitive] nomes de arquivo/pasta que cat/head/tail e git de leitura não tocam sem confirmação
+#            (amplia o piso fixo de src/safety/policy.py: .env, chaves SSH, shadow, *.pem, *.key...)
+#            Casa por componente do caminho; padrão com "/" casa o caminho relativo inteiro.
+#            Caminhos fora do projeto sempre pedem confirmação, mesmo sem casar aqui.
 
 [read]
 ls
@@ -54,3 +58,30 @@ git reset --hard
 git clean -fd
 git clean -xfd
 :(){:|:&};:
+
+[sensitive]
+.netrc
+_netrc
+.npmrc
+.pypirc
+.pgpass
+.git-credentials
+.htpasswd
+.aws
+.gnupg
+.kube
+.git/config
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.kdbx
+*.secret
+*.secrets
+*.token
+secret
+secrets
+secrets.*
+token
+tokens
+tokens.*

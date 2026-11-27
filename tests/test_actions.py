@@ -237,3 +237,51 @@ def test_cli_run_recusa_termina_com_erro(monkeypatch) -> None:
     monkeypatch.setattr("src.main.run_command", fake_run_command)
     result = CliRunner().invoke(cli, ["run", "rm", "-rf", "/"])
     assert result.exit_code == 1
+
+
+def test_leitura_de_segredo_nao_executa_sem_confirmacao(tmp_path: Path) -> None:
+    from src.safety.policy import default_policy_path
+
+    policy = load_policy(default_policy_path())
+    for command in ("cat .env", "head -c 10 .env", "cat ~/.ssh/id_rsa", "cat /etc/shadow"):
+        runner = _fake_runner()
+        result = run_command(
+            command,
+            policy=policy,
+            project_root=tmp_path,
+            runner=runner,
+            input_fn=lambda: "n",
+            output_fn=lambda _line: None,
+        )
+        assert result.decision.action == "ask", command
+        assert result.executed is False, command
+        assert runner.calls == [], command  # type: ignore[attr-defined]
+
+
+def test_git_c_so_executa_com_confirmacao(tmp_path: Path) -> None:
+    from src.safety.policy import default_policy_path
+
+    policy = load_policy(default_policy_path())
+    runner = _fake_runner()
+    result = run_command(
+        "git -c core.pager=x log",
+        policy=policy,
+        project_root=tmp_path,
+        runner=runner,
+        input_fn=lambda: "n",
+        output_fn=lambda _line: None,
+    )
+    assert result.decision.action == "ask"
+    assert result.executed is False
+    assert runner.calls == []  # type: ignore[attr-defined]
+
+    approved = run_command(
+        "git -c core.pager=x log",
+        policy=policy,
+        project_root=tmp_path,
+        runner=runner,
+        input_fn=lambda: "s",
+        output_fn=lambda _line: None,
+    )
+    assert approved.executed is True
+    assert len(runner.calls) == 1  # type: ignore[attr-defined]
