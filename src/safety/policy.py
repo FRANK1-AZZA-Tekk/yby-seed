@@ -2,14 +2,44 @@
 
 from __future__ import annotations
 
+import os
 import shlex
 from dataclasses import dataclass
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Callable, Literal
 
 Action = Literal["run", "ask", "refuse"]
 _INTERPRETERS = frozenset({"python", "python3", "bash", "sh"})
 _YES = frozenset({"s", "sim", "y", "yes"})
+
+# Programas da seção [read] que despejam o conteúdo dos arquivos recebidos.
+_CONTENT_READERS = frozenset({"cat", "head", "tail"})
+_PATH_EXPANSION_CHARS = "$*?["
+
+# Piso fixo: vale mesmo se a allowlist não tiver a seção [sensitive].
+# Casa com cada componente do caminho (sem diferenciar maiúsculas) ou, se o
+# padrão tiver "/", com o caminho relativo inteiro. A seção [sensitive] só amplia.
+_SENSITIVE_FLOOR = (
+    ".env",
+    ".env.*",
+    "*.env",
+    "id_rsa*",
+    "id_dsa*",
+    "id_ecdsa*",
+    "id_ed25519*",
+    "*.pem",
+    "*.key",
+    "shadow",
+    "shadow-",
+    "gshadow",
+    ".ssh",
+    "credentials",
+    "credentials.*",
+)
+
+# Opções globais do git que executam código ou trocam a configuração.
+_GIT_RISKY_GLOBAL_OPTIONS = frozenset({"-c", "--config-env", "--exec-path"})
 
 SKILL_ACTIONS = frozenset(
     {
@@ -26,6 +56,7 @@ class Policy:
     git: frozenset[str]
     script_dirs: tuple[str, ...]
     refuse: tuple[str, ...]
+    sensitive: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -49,12 +80,14 @@ def load_policy(path: Path) -> Policy:
     git: list[str] = []
     script_dirs: list[str] = []
     refuse: list[str] = []
+    sensitive: list[str] = []
     section = ""
     buckets = {
         "read": read_only,
         "git": git,
         "scripts": script_dirs,
         "refuse": refuse,
+        "sensitive": sensitive,
     }
 
     for raw_line in path.read_text(encoding="utf-8").splitlines():
@@ -73,6 +106,7 @@ def load_policy(path: Path) -> Policy:
         git=frozenset(git),
         script_dirs=tuple(script_dirs),
         refuse=tuple(refuse),
+        sensitive=tuple(sensitive),
     )
 
 
@@ -111,11 +145,18 @@ def decide(command: str, *, policy: Policy, project_root: Path) -> Decision:
 
     program = Path(argv[0]).name
     if program in policy.read_only:
+        if program in _CONTENT_READERS:
+            risk = _reader_risk(argv, policy, project_root)
+            if risk is not None:
+                return Decision("ask", risk)
         return Decision("run", f"comando somente leitura: {program}")
 
     if program in policy.git:
         sub = _git_subcommand(argv)
         if sub in _GIT_READ_ONLY:
+            risk = _git_read_risk(argv, policy)
+            if risk is not None:
+                return Decision("ask", risk)
             return Decision("run", f"git somente leitura: {sub}")
         return Decision("ask", f"git altera repositório: {sub or program}")
 
@@ -164,6 +205,103 @@ _GIT_READ_ONLY = frozenset(
         "check-ignore",
     }
 )
+
+
+def _sensitive_patterns(policy: Policy) -> tuple[str, ...]:
+    return _SENSITIVE_FLOOR + policy.sensitive
+
+
+def _sensitive_match(parts: tuple[str, ...], policy: Policy) -> str | None:
+    """Devolve o padrão sensível que casa com o caminho relativo, se houver."""
+
+    folded = tuple(part.casefold() for part in parts if part not in ("", "."))
+    whole = "/".join(folded)
+    for pattern in _sensitive_patterns(policy):
+        wanted = pattern.casefold()
+        if "/" in wanted:
+            if fnmatchcase(whole, wanted):
+                return pattern
+        elif any(fnmatchcase(part, wanted) for part in folded):
+            return pattern
+    return None
+
+
+def _relative_parts(path: Path, root: Path) -> tuple[str, ...] | None:
+    try:
+        return path.relative_to(root).parts
+    except ValueError:
+        return None
+
+
+def _reader_risk(argv: list[str], policy: Policy, project_root: Path) -> str | None:
+    """Motivo para pedir confirmação em cat/head/tail, ou None se seguro.
+
+    Regra estrutural: todo argumento que não é opção precisa ficar dentro do
+    projeto (seguindo links simbólicos) e não casar com um padrão sensível.
+    """
+
+    root = project_root.resolve()
+    after_dashes = False
+    for token in argv[1:]:
+        if not after_dashes and token == "--":
+            after_dashes = True
+            continue
+        if not after_dashes and (token.startswith("-") or not token):
+            continue
+        if any(char in token for char in _PATH_EXPANSION_CHARS):
+            return f"caminho com expansão de shell: {token}"
+        expanded = Path(os.path.expanduser(token))
+        candidate = expanded if expanded.is_absolute() else root / expanded
+        try:
+            resolved = candidate.resolve()
+        except (OSError, RuntimeError):
+            return f"caminho não resolvido: {token}"
+        resolved_parts = _relative_parts(resolved, root)
+        if resolved_parts is None:
+            return f"arquivo fora do projeto: {token}"
+        lexical_parts = _relative_parts(Path(os.path.normpath(candidate)), root)
+        for parts in (lexical_parts, resolved_parts):
+            if parts is None:
+                continue
+            pattern = _sensitive_match(parts, policy)
+            if pattern is not None:
+                return f"arquivo possivelmente sensível ({pattern}): {token}"
+    return None
+
+
+def _git_read_risk(argv: list[str], policy: Policy) -> str | None:
+    """Motivo para pedir confirmação num git de leitura, ou None se seguro."""
+
+    index = 1
+    while index < len(argv):
+        arg = argv[index]
+        option = arg.split("=", 1)[0]
+        if option in _GIT_OPTIONS_WITH_VALUE:
+            if option in _GIT_RISKY_GLOBAL_OPTIONS:
+                return f"git com opção global que altera configuração ou executa código: {option}"
+            index += 1 if "=" in arg else 2
+            continue
+        if arg.startswith("-"):
+            if option in _GIT_RISKY_GLOBAL_OPTIONS:
+                return f"git com opção global que altera configuração ou executa código: {option}"
+            index += 1
+            continue
+        break
+
+    for token in _git_command_tokens(argv)[1:]:
+        if token == "--no-index":
+            return "git --no-index lê arquivos fora do repositório"
+        if token.startswith("--open-files-in-pager") or (
+            token.startswith("-O") and not token.startswith("--")
+        ):
+            return "git abre arquivos num programa externo (-O)"
+        if token.startswith("-"):
+            continue
+        path_part = token.rsplit(":", 1)[-1]
+        pattern = _sensitive_match(tuple(path_part.split("/")), policy)
+        if pattern is not None:
+            return f"git expõe arquivo possivelmente sensível ({pattern}): {token}"
+    return None
 
 
 def _git_subcommand(argv: list[str]) -> str:
