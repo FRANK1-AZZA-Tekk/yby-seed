@@ -83,7 +83,7 @@ python yby.py route "Pensa mais sobre recursão"
 |---|---|
 | `python yby.py ask "..."` | texto via HybridEngine (Ollama → nuvem se pesado/`--heavy`) |
 | `python yby.py run "..."` | porta de segurança → executa se permitido |
-| `python yby.py gate "..."` | só decide (run/ask/refuse); não executa |
+| `python yby.py gate "..."` | decide (run/ask/refuse); nunca executa; em `ask` pede `s/n` (exit 0 = sim, 1 = não); `refuse` sai com 1 sem perguntar |
 | `python yby.py route "..."` | previsão local/nuvem + motivos; **não** chama modelo nem rede |
 | `python yby.py route --heavy "..."` | mesma regra de rota que `ask --heavy` (só a decisão) |
 | `python yby.py note "título" texto da nota...` | grava no vault |
