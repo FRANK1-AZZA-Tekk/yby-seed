@@ -186,7 +186,7 @@ Artefatos: `/opt/cursor/artifacts/pytest-full.txt`, `pytest-cov.txt`, `pytest-sk
 |-------|--------|
 | Arquivo | Ver lista abaixo |
 | Linhas | — |
-| Descrição | `pytest-cov` não reporta estes módulos (0% — não importados em testes): `src/gateway/fastapi_mqtt_bridge.py`, `mqtt_listener.py`, `lancedb_client.py`; `src/rag/*`; `src/monitoring/metrics_dashboard.py`; `src/evaluation/*`; `src/core/auto_cleanup.py`, `auto_improvement.py`, `gpu_offload.py`, `kv_cache_config.py`, `memory_allocator.py`; `src/vision/fusion/server.py`; `src/security/openrouter_sanitizer.py`; `src/skills/skill_manager.py`. |
+| Descrição | `pytest-cov` não reporta estes módulos (0% — não importados em testes): `src/gateway/fastapi_mqtt_bridge.py`, `mqtt_listener.py`, `lancedb_client.py`; `src/rag/*`; `src/core/auto_cleanup.py`, `auto_improvement.py`, `gpu_offload.py`, `kv_cache_config.py`, `memory_allocator.py`; `src/vision/fusion/server.py`; `src/security/openrouter_sanitizer.py`; `src/skills/skill_manager.py`. `src/monitoring/` (79%, resto é o loop `__main__`) e `src/evaluation/` (100%) passaram a ter testes em #164. |
 | Impacto | Código legado/avançado evolui sem rede de segurança. |
 | Correção sugerida | Smoke tests import-only + testes de contrato mínimos por PR do plano robustez. |
 | Esforço | **L** |
@@ -258,8 +258,8 @@ core/ (legado)      | ▃    | ▃   | ▃    | ▁    | subprocess/sudo; ollama
 agents/ + skills/   | ▁    | ▁   | ▁    | ▃    | baixa cobertura agentes “legado”
 evo/                | ▁    | ▁   | ▁    | ▅    | sanitize secrets; pipeline testado
 platform/           | ▁    | ▁   | ▁    | ▅    | hub keepalive D9
-evaluation/         | ▁    | ▁   | ▁    | ▁    | sem testes
-monitoring/         | ▁    | ▁   | ▁    | ▁    | sem testes
+evaluation/         | ▁    | ▁   | ▁    | ▅    | 100% (#164)
+monitoring/         | ▁    | ▁   | ▁    | ▃    | 79% (#164); resto é o loop `__main__`
 ```
 
 ---
@@ -268,9 +268,9 @@ monitoring/         | ▁    | ▁   | ▁    | ▁    | sem testes
 
 | Situação | Módulos |
 |----------|---------|
-| **Bem cobertos (>85%)** | `engine/hybrid`, `routing`, `budget`, `safety/policy`, `gateway/auth`, `iot/handlers`, `iot/mem0_bridge`, `voice/tts`, `agent_loop/*` |
-| **Cobertura parcial (40–85%)** | `engine/providers`, `voice/mic`, `core/ollama_client`, `agents/*`, `evo/*`, `main.py` |
-| **Sem cobertura na suíte (0%)** | `gateway/{fastapi_mqtt_bridge,mqtt_listener,lancedb_client}`, `rag/*`, `monitoring/*`, `evaluation/*`, `core/{auto_cleanup,gpu_offload,kv_cache_config,memory_allocator,auto_improvement}`, `vision/fusion/server.py`, `security/openrouter_sanitizer.py`, `skills/skill_manager.py` |
+| **Bem cobertos (>85%)** | `engine/hybrid`, `routing`, `budget`, `safety/policy`, `gateway/auth`, `iot/handlers`, `iot/mem0_bridge`, `voice/tts`, `agent_loop/*`, `evaluation/*` (100%) |
+| **Cobertura parcial (40–85%)** | `engine/providers`, `voice/mic`, `core/ollama_client`, `agents/*`, `evo/*`, `main.py`, `monitoring/*` (79%; resto é o loop `__main__`) |
+| **Sem cobertura na suíte (0%)** | `gateway/{fastapi_mqtt_bridge,mqtt_listener,lancedb_client}`, `rag/*`, `core/{auto_cleanup,gpu_offload,kv_cache_config,memory_allocator,auto_improvement}`, `vision/fusion/server.py`, `security/openrouter_sanitizer.py`, `skills/skill_manager.py` |
 | **Testes skipped** | Integração gateway (3), RAG embeddings (3), agentes Router/Learning (8) |
 
 **pytest skips (razões):**
