@@ -34,4 +34,4 @@ Removidos na auditoria de 2026-11-26: 14 placeholders sem asserts em `tests/test
 | `tool_timeout_seconds` no `ControlledAgentLoop` | OK (#113) |
 | `OllamaClientError` + timeouts no legado | OK (#113) |
 | Exceção não prevista em tool → `status=error` (sem crash) | Corrigido (PR-A) |
-| `yby ask` / `yby agent --local` sem `close()` explícito no CLI | Follow-up (fora de `src/agent_loop`) |
+| `yby ask` / `ask --voice` / `listen` / `agent --local` chamam `close()` em `finally` (sucesso, erro e `KeyboardInterrupt`) | OK (#125, #126, #121; testes em `tests/test_ask_cli.py`, `tests/test_agent_cli.py`, `tests/test_cli_close_interrupt.py`) |
