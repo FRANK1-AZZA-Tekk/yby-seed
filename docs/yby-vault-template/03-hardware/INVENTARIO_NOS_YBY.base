@@ -1,0 +1,64 @@
+filters:
+  and:
+    - file.inFolder("03-hardware/nodes")
+    - type == "hardware-node"
+
+formulas:
+  display_status: 'if(offline_ready, "LOCAL-FIRST | " + status, status)'
+  node_label: 'node_id + " (" + role + ")"'
+
+properties:
+  node_id:
+    displayName: "ID do Nó"
+  node_name:
+    displayName: "Dispositivo"
+  tier:
+    displayName: "Camada"
+  role:
+    displayName: "Papel na Malha"
+  hardware_summary:
+    displayName: "Hardware"
+  os_runtime:
+    displayName: "SO / Runtime"
+  connectivity:
+    displayName: "Conectividade"
+  endpoints:
+    displayName: "Endpoints / Tópicos"
+  status:
+    displayName: "Status"
+  offline_ready:
+    displayName: "Offline Ready"
+  formula.display_status:
+    displayName: "Operação"
+
+views:
+  - type: table
+    name: "Inventário Completo dos Nós YBY"
+    order:
+      - node_id
+      - file.name
+      - tier
+      - role
+      - hardware_summary
+      - os_runtime
+      - connectivity
+      - endpoints
+      - offline_ready
+      - status
+    sort:
+      - property: tier
+        direction: ASC
+      - property: node_id
+        direction: ASC
+  - type: table
+    name: "Nós de Borda e Wearables"
+    filters:
+      and:
+        - tier != "core"
+    order:
+      - node_id
+      - node_name
+      - role
+      - connectivity
+      - endpoints
+      - formula.display_status
