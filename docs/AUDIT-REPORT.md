@@ -45,7 +45,7 @@ Artefatos: `/opt/cursor/artifacts/pytest-full.txt`, `pytest-cov.txt`, `pytest-sk
 | A09 | ~~**Médio**~~ **Corrigido** | gateway/vision | Mensagens de erro sanitizadas (sem `detail=str(e)`) |
 | A10 | ~~**Médio**~~ **Corrigido** | core | `MemoryAllocator.install(confirm=True)` e `enable(persist=False)` por padrão |
 | A11 | ~~**Médio**~~ **Corrigido** (PR #155) | testes | 14 placeholders removidos; resta 1 skip legítimo (`Pillow`) |
-| A12 | **Médio** (**Parcial**) | cobertura | Cobertura expandida para `gateway`, `vision/fusion/server`, `rag_optimizer`, `core`, `agents`; pendentes `monitoring/` e `evaluation/` |
+| A12 | **Médio** (**Parcial**) | cobertura | Cobertura expandida para `gateway`, `vision/fusion/server`, `rag_optimizer`, `core`, `agents`, `monitoring/` (79%, resto é o loop `__main__`) e `evaluation/` (100%), com testes offline em `tests/monitoring/` e `tests/evaluation/`; ainda sem testes: `core/{auto_improvement,gpu_offload}`, `security/openrouter_sanitizer.py`, `skills/skill_manager.py` e a maior parte de `core/kv_cache_config.py` (27%) |
 | A13 | ~~**Médio**~~ **Corrigido** | vision | `FUSION_QUANTIZATION` padrão `4bit` conforme D14 |
 | A14 | ~~**Baixo**~~ **Corrigido** | gateway | `datetime.now(timezone.utc)` adotado |
 | A15 | ~~**Baixo**~~ **Corrigido** | ops | `logging.basicConfig` removido dos módulos de biblioteca tocados |
@@ -289,8 +289,8 @@ monitoring/         | ▁    | ▁   | ▁    | ▁    | sem testes
 | D10 comandos | **OK** | `safety/policy` + `actions/runner` com confirmação e `refuse` |
 | D10 sem secrets em log nuvem | **OK** | `cloud_usage_log.py:50-52` |
 | D11 voz local | **OK** | `src/voice/*` testado; opcional `requirements-voice.txt` |
-| D14 FUSION VRAM | **Parcial** | Código suporta 4bit; default `none` (`fusion/config.py:13`) |
-| D9 MQTT hub | **Parcial** | IoT novo em `src/iot/`; gateway legado com bugs A01–A02 |
+| D14 FUSION VRAM | **OK** | Default `4bit` (`fusion/config.py`), aviso CUDA se `none`; testes em `tests/vision/test_fusion_client.py` |
+| D9 MQTT hub | **OK** | IoT em `src/iot/` com TLS opcional; gateway legado corrigido (A01–A02, A04); testes em `tests/gateway/` e `tests/iot/` |
 | D6 dry-run skills | **OK** | `src/skills/dry_run.py` + testes |
 
 ---
