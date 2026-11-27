@@ -14,7 +14,7 @@ Comandos:
     listen  - Push-to-talk: grava até Enter → ask → TTS
     hub     - Keepalive do PC Hub (saúde do Ollama)
     run     - Executa comando após a porta de segurança
-    gate    - Só decide; não executa
+    gate    - Decide run/ask/refuse; em ask pede s/n; nunca executa
     route   - Previsão de rota (local/nuvem); não executa o pedido
     note    - Grava nota no vault
     recall  - Busca no vault
@@ -251,7 +251,7 @@ def hub_cmd(once: bool, interval: float | None) -> None:
 def gate(comando: tuple[str, ...]) -> None:
     """Decide se um comando rodaria, pediria confirmação ou seria recusado.
 
-    Não executa o comando.
+    Em ask, pede s/n. Em refuse, não pergunta e não executa.
     """
 
     texto = " ".join(comando).strip()
