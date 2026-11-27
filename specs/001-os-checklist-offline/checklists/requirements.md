@@ -32,4 +32,4 @@
 ## Notes
 
 - Única menção a tecnologia: IndexedDB e `localStorage` nas premissas D-2 e D-4, decisões aprovadas pelo mantenedor. Os requisitos (FR-001 a FR-014) são neutros quanto a tecnologia.
-- Pontos tratados como suposição, para confirmação do mantenedor antes de `/speckit-plan`: conclusão exige todos os itens marcados; importação fora do escopo; remoção individual de OS fora do escopo.
+- Sessão de esclarecimentos de 2026-11-27: D-5 (conclusão com pendências), D-6 (importação fora do escopo) e D-7 (remoção de uma OS) aprovadas e incorporadas à spec, com regra, critério de aceite e cenários A-Chrome e I-Safari. Nenhuma ambiguidade pendente.
