@@ -31,7 +31,12 @@ class Vault:
 
     def __init__(self, path: Path | str):
         self.root = Path(path)
-        self.root.mkdir(parents=True, exist_ok=True)
+        try:
+            self.root.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise VaultError(
+                f"caminho do vault inválido (não é uma pasta utilizável): {self.root}"
+            ) from exc
         self.index_path = self.root / ".yby" / "index.json"
 
     def write_note(self, name: str, body: str) -> Path:
